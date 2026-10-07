@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { RekapBulanItem } from '../types[RekapBlend]';
-import { fmtKg, fmtPct, fmtSuhu, fmtInt, getPctBadgeClass } from '../api[RekapBlend]';
+import { fmtKg, fmtPct, fmtSuhu, fmtInt, getPctBadgeClass, MONTH_ORDER } from '../api[RekapBlend]';
 import {
   FileText,
   Search,
@@ -28,11 +28,11 @@ export const TabBulanRekapBlend: React.FC<TabBulanProps> = ({
   onZoomChart,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortBy, setSortBy] = useState<'bulan' | 'bobot' | 'susutPct'>('bulan');
+  const [sortBy, setSortBy] = useState<'bulan_desc' | 'bulan_asc' | 'bobot' | 'susutPct'>('bulan_desc');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
   // Filter & Sort
-  const filtered = data.filter((item) =>
+  const filtered = [...data].filter((item) =>
     item.label.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -47,7 +47,15 @@ export const TabBulanRekapBlend: React.FC<TabBulanProps> = ({
         ? a.susutRataPct - b.susutRataPct
         : b.susutRataPct - a.susutRataPct;
     }
-    return 0; // Default order
+    if (sortBy === 'bulan_asc') {
+      const yearDiff = Number(a.tahun || 0) - Number(b.tahun || 0);
+      if (yearDiff !== 0) return yearDiff;
+      return MONTH_ORDER.indexOf(a.bulan) - MONTH_ORDER.indexOf(b.bulan);
+    }
+    // Default ('bulan_desc'): Periode bulan terbaru berada di posisi atas, terlama di paling bawah
+    const yearDiff = Number(b.tahun || 0) - Number(a.tahun || 0);
+    if (yearDiff !== 0) return yearDiff;
+    return MONTH_ORDER.indexOf(b.bulan) - MONTH_ORDER.indexOf(a.bulan);
   });
 
   // SVG Chart Dimensions & Dynamic Scaling
@@ -486,9 +494,10 @@ export const TabBulanRekapBlend: React.FC<TabBulanProps> = ({
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as any)}
-              className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs text-slate-700"
+              className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs text-slate-700 font-medium cursor-pointer"
             >
-              <option value="bulan">Urutan Bulan</option>
+              <option value="bulan_desc">Urutan Bulan (Terbaru di Atas)</option>
+              <option value="bulan_asc">Urutan Bulan (Terlama di Atas)</option>
               <option value="bobot">Volume Baku (Kg)</option>
               <option value="susutPct">% Susut</option>
             </select>
