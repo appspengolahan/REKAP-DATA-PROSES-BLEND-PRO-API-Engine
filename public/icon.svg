@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="100%" stop-color="#1e293b" />
+    </linearGradient>
+    <linearGradient id="amberGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fbbf24" />
+      <stop offset="100%" stop-color="#d97706" />
+    </linearGradient>
+    <linearGradient id="blueGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#60a5fa" />
+      <stop offset="100%" stop-color="#2563eb" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background with rounded squircles -->
+  <rect width="512" height="512" rx="112" fill="url(#bgGrad)" />
+  <rect x="24" y="24" width="464" height="464" rx="96" fill="none" stroke="#334155" stroke-width="4" stroke-dasharray="12 8" />
+  
+  <!-- Outer Molen Industrial Ring -->
+  <circle cx="256" cy="220" r="140" fill="none" stroke="url(#amberGrad)" stroke-width="16" stroke-dasharray="24 16" />
+  <circle cx="256" cy="220" r="105" fill="#1e293b" stroke="#475569" stroke-width="6" />
+
+  <!-- Tobacco Blend Leaf & Processing Icon -->
+  <path d="M256 120 C 310 160, 320 220, 256 280 C 192 220, 202 160, 256 120 Z" fill="url(#amberGrad)" />
+  <path d="M256 150 L256 270 M256 190 L280 170 M256 220 L230 200 M256 240 L275 230" stroke="#0f172a" stroke-width="4" stroke-linecap="round" />
+
+  <!-- Badge PP1 -->
+  <rect x="156" y="380" width="200" height="64" rx="20" fill="url(#blueGrad)" />
+  <text x="256" y="426" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="34" font-weight="900" fill="#ffffff" text-anchor="middle" letter-spacing="4">
+    PP1
+  </text>
+  
+  <text x="256" y="475" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="16" font-weight="700" fill="#94a3b8" text-anchor="middle" letter-spacing="2">
+    REKAP BLEND
+  </text>
+</svg>

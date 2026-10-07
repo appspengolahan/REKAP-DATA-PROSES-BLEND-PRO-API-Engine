@@ -1,0 +1,61 @@
+@import "tailwindcss";
+
+@media print {
+  /* Hide non-printable elements */
+  .no-print,
+  nav,
+  aside,
+  header .title-actions,
+  button,
+  select,
+  input {
+    display: none !important;
+  }
+
+  body {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    font-size: 11pt !important;
+  }
+
+  /* Specific print views */
+  body.print-summary-only .tab-content-area {
+    display: none !important;
+  }
+
+  body.print-tab-only .summary-cards-area {
+    display: none !important;
+  }
+
+  .print-pdf-footer {
+    display: block !important;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-size: 9pt;
+    color: #64748b;
+    padding: 8px 0;
+    border-top: 1px solid #cbd5e1;
+    background: #ffffff;
+  }
+
+  /* Force table background colors in print */
+  table {
+    page-break-inside: auto;
+  }
+  tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+  thead {
+    display: table-header-group;
+  }
+}
+
+.print-pdf-footer {
+  display: none;
+}

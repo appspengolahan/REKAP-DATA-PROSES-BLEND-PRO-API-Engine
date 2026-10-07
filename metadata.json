@@ -1,0 +1,6 @@
+{
+  "name": "Monitoring Board - Rekap Data Proses Tembakau PP1",
+  "description": "Sistem Monitoring Board & Rekap Data Proses Tembakau PT Batu Karang Divisi Produksi I (PP1) dengan arsitektur Multi-Tier Sync, RBAC, dan Analisis Susut Komparatif.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
