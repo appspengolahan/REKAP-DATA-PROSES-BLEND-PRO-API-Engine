@@ -568,7 +568,7 @@ export function buildDashboardDataset(
   bulanRingkasan: string = 'Agustus',
   periodeAwal = { bulan: 'Januari', tahun: '2026' },
   periodeAkhir = { bulan: 'Desember', tahun: '2026' },
-  sourceType: 'gas_api' | 'localStorage' | 'bundled_snapshot' = 'bundled_snapshot'
+  sourceType: 'gas_api' | 'direct_sheet' | 'localStorage' | 'bundled_snapshot' = 'bundled_snapshot'
 ): DashboardDataset {
   // Filter Options
   const tahunSet = new Set<string>();
@@ -930,6 +930,36 @@ export async function syncWithGasServer(gasUrl?: string): Promise<RawBlendRow[]>
     } catch (csvErr: any) {
       console.warn('Jalur GViz CSV juga tidak dapat diakses langsung:', csvErr.message);
     }
+    throw err;
+  }
+}
+
+/**
+ * Sinkronisasi alternatif langsung dari Google Sheets (GViz CSV query bypass GAS)
+ */
+export async function syncDirectFromSheet(): Promise<RawBlendRow[]> {
+  const csvUrl = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=DATAMASTER&v=${Date.now()}`;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 9000);
+
+  try {
+    const res = await fetch(csvUrl, { method: 'GET', signal: controller.signal });
+    clearTimeout(timeoutId);
+    if (!res.ok) {
+      throw new Error(`Gagal membaca Google Sheets: status ${res.status}`);
+    }
+    const csvText = await res.text();
+    const rows = parseGvizCsv(csvText);
+    if (rows.length === 0) {
+      throw new Error('Data Google Sheets kosong atau format tidak sesuai');
+    }
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(LOCAL_STORAGE_CACHE_KEY, JSON.stringify(rows));
+    }
+    return rows;
+  } catch (err: any) {
+    clearTimeout(timeoutId);
+    console.error('Error saat tarik data langsung dari Google Sheets:', err);
     throw err;
   }
 }

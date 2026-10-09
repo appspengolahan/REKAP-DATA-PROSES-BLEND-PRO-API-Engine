@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { UserRole, DashboardDataset } from '../types[RekapBlend]';
+import { UserRole, DashboardDataset, DataSourceMode } from '../types[RekapBlend]';
 import {
   Layers,
   RefreshCw,
@@ -13,6 +13,8 @@ import {
   Download,
   Smartphone,
   ExternalLink,
+  Database,
+  Radio,
 } from 'lucide-react';
 import { PWAInstallButtonRekapBlend } from './PWAInstallButton[RekapBlend]';
 
@@ -26,6 +28,10 @@ interface HeaderProps {
   onOpenGasCenter: () => void;
   onOpenHelp: () => void;
   onExportSummaryPdf: () => void;
+  isAutoSync: boolean;
+  onToggleAutoSync: () => void;
+  dataSourceMode: DataSourceMode;
+  onToggleDataSourceMode: () => void;
 }
 
 const ROLES: { id: UserRole; label: string; desc: string }[] = [
@@ -46,6 +52,10 @@ export const HeaderRekapBlend: React.FC<HeaderProps> = ({
   onOpenGasCenter,
   onOpenHelp,
   onExportSummaryPdf,
+  isAutoSync,
+  onToggleAutoSync,
+  dataSourceMode,
+  onToggleDataSourceMode,
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -97,7 +107,12 @@ export const HeaderRekapBlend: React.FC<HeaderProps> = ({
               </span>
               <span className="hidden md:inline-flex items-center gap-1 text-[11px] text-slate-400">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                {syncInfo.loadedFrom === 'gas_api' ? 'Live GAS' : '0.01s Cache'}
+                {dataSourceMode === 'direct_sheet'
+                  ? 'Datasheet Direct'
+                  : syncInfo.loadedFrom === 'gas_api'
+                  ? 'Live GAS'
+                  : '0.01s Cache'}
+                {isAutoSync && ' · Auto'}
               </span>
             </div>
             <h1 className="text-xs sm:text-sm md:text-base font-bold tracking-tight text-white flex items-center gap-1.5 mt-0.5 truncate">
@@ -106,7 +121,7 @@ export const HeaderRekapBlend: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        {/* Right: Actions Bar (Sleek, Uncrowded & Single-Row) */}
+        {/* Right: Actions Bar (Sleek, Single-Row & Uncrowded) */}
         <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0 no-print">
           {/* Badge Entri Data Terkini */}
           <div className="flex items-center gap-1.5 bg-amber-500/15 border border-amber-500/30 text-amber-300 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-semibold shadow-xs whitespace-nowrap">
@@ -115,15 +130,63 @@ export const HeaderRekapBlend: React.FC<HeaderProps> = ({
             <span className="font-bold">{dataset.entriTerkini || '5 Oktober 2026'}</span>
           </div>
 
-          {/* Tombol Refresh Data */}
+          {/* Toggle Tarik Dari Datasheet (Shortcut Pill) */}
+          <button
+            onClick={onToggleDataSourceMode}
+            className={`hidden sm:flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-bold border transition cursor-pointer shadow-xs ${
+              dataSourceMode === 'direct_sheet'
+                ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 hover:bg-amber-500/30'
+                : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white hover:bg-slate-750'
+            }`}
+            title={
+              dataSourceMode === 'direct_sheet'
+                ? 'Mode Aktif: Tarik Langsung dari Datasheet (Bypass GAS). Klik untuk kembali ke GAS.'
+                : 'Mode Aktif: Google Apps Script API. Klik untuk Tarik Langsung dari Datasheet.'
+            }
+          >
+            <Database
+              className={`w-3.5 h-3.5 ${
+                dataSourceMode === 'direct_sheet' ? 'text-amber-400' : 'text-slate-400'
+              }`}
+            />
+            <span className="hidden lg:inline">Datasheet:</span>
+            <span
+              className={
+                dataSourceMode === 'direct_sheet' ? 'text-amber-300 font-extrabold' : 'text-slate-400'
+              }
+            >
+              {dataSourceMode === 'direct_sheet' ? 'DIRECT' : 'OFF'}
+            </span>
+          </button>
+
+          {/* Tombol Refresh / Auto Sync (Icon Berputar Terus Saat Auto Sync Aktif) */}
           <button
             onClick={onRefresh}
             disabled={isRefreshing}
-            className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 disabled:opacity-60 text-white px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition shadow-xs cursor-pointer"
-            title="Tarik & Sinkronisasi Data Terbaru dari Google Sheets"
+            className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition shadow-xs cursor-pointer ${
+              isAutoSync
+                ? 'bg-emerald-600/90 hover:bg-emerald-500 text-white border border-emerald-400/30'
+                : 'bg-blue-600 hover:bg-blue-500 text-white'
+            }`}
+            title={
+              isAutoSync
+                ? 'Auto Sync Aktif (Berputar terus & auto-refresh) · Klik untuk refresh manual sekarang'
+                : 'Refresh Data Manual'
+            }
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
-            <span className="hidden sm:inline">Refresh</span>
+            <RefreshCw
+              className={`w-3.5 h-3.5 ${
+                isRefreshing
+                  ? 'animate-spin'
+                  : isAutoSync
+                  ? 'animate-spin [animation-duration:3.2s]'
+                  : ''
+              }`}
+            />
+            <span className="hidden sm:inline">{isAutoSync ? 'Live Sync' : 'Refresh'}</span>
+            {isAutoSync && (
+              <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse hidden sm:inline-block"></span>
+            )}
           </button>
 
           {/* Tombol Export Ringkasan PDF (Desktop/Tablet) */}
@@ -136,7 +199,7 @@ export const HeaderRekapBlend: React.FC<HeaderProps> = ({
             <span>Export PDF</span>
           </button>
 
-          {/* Profile & Tools Dropdown Menu (Menggantikan rentetan tombol yang berantakan) */}
+          {/* Profile & Tools Dropdown Menu */}
           <div className="relative" ref={menuRef}>
             <button
               onClick={() => setIsMenuOpen((prev) => !prev)}
@@ -145,7 +208,7 @@ export const HeaderRekapBlend: React.FC<HeaderProps> = ({
                   ? 'bg-slate-800 text-white border-blue-500 ring-2 ring-blue-500/20'
                   : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700 hover:border-slate-600'
               }`}
-              title="Menu Profil, Hak Akses & Pengaturan Sistem"
+              title="Menu Profil, Hak Akses & Pengaturan Sinkronisasi"
             >
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
               <span className="max-w-[85px] sm:max-w-[120px] truncate">{shortRoleLabel}</span>
@@ -158,7 +221,7 @@ export const HeaderRekapBlend: React.FC<HeaderProps> = ({
 
             {/* Dropdown Menu Popup */}
             {isMenuOpen && (
-              <div className="absolute right-0 mt-2 w-72 sm:w-80 bg-slate-900 border border-slate-700/90 rounded-2xl shadow-2xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-150">
+              <div className="absolute right-0 mt-2 w-72 sm:w-84 bg-slate-900 border border-slate-700/90 rounded-2xl shadow-2xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-150">
                 {/* Header Profile Info */}
                 <div className="p-3.5 bg-slate-800/80 border-b border-slate-700/80 flex items-center gap-3">
                   <div className="w-9 h-9 rounded-xl bg-blue-600/20 border border-blue-500/30 text-blue-400 flex items-center justify-center font-bold text-sm shrink-0">
@@ -167,6 +230,95 @@ export const HeaderRekapBlend: React.FC<HeaderProps> = ({
                   <div className="truncate">
                     <div className="text-xs font-bold text-white truncate">{currentRole}</div>
                     <div className="text-[11px] text-slate-400 truncate">divisi1.BKR@gmail.com</div>
+                  </div>
+                </div>
+
+                {/* Section: Kontrol Sinkronisasi & Jalur Data (BARU) */}
+                <div className="p-3 border-b border-slate-800 bg-slate-850/60 space-y-2">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-1">
+                    Koneksi & Sinkronisasi Data:
+                  </div>
+
+                  {/* Toggle Auto Sync / Auto Refresh */}
+                  <div className="flex items-center justify-between p-2 rounded-xl bg-slate-900/90 border border-slate-800">
+                    <div className="flex items-center gap-2">
+                      <RefreshCw
+                        className={`w-4 h-4 ${
+                          isAutoSync
+                            ? 'text-emerald-400 animate-spin [animation-duration:3s]'
+                            : 'text-slate-500'
+                        }`}
+                      />
+                      <div>
+                        <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                          <span>Auto Sync / Refresh</span>
+                          {isAutoSync && (
+                            <span className="text-[9px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1 rounded font-bold">
+                              LIVE
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[10px] text-slate-400">
+                          {isAutoSync ? 'Berputar terus · Polling 30s' : 'Nonaktif (Refresh manual)'}
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={onToggleAutoSync}
+                      className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                        isAutoSync ? 'bg-emerald-600' : 'bg-slate-700'
+                      }`}
+                      title={isAutoSync ? 'Matikan Auto Sync' : 'Aktifkan Auto Sync'}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                          isAutoSync ? 'translate-x-4' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {/* Toggle Tarik Dari Datasheet */}
+                  <div className="flex items-center justify-between p-2 rounded-xl bg-slate-900/90 border border-slate-800">
+                    <div className="flex items-center gap-2">
+                      <Database
+                        className={`w-4 h-4 ${
+                          dataSourceMode === 'direct_sheet' ? 'text-amber-400' : 'text-slate-500'
+                        }`}
+                      />
+                      <div>
+                        <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                          <span>Tarik Dari Datasheet</span>
+                          {dataSourceMode === 'direct_sheet' && (
+                            <span className="text-[9px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1 rounded font-bold">
+                              DIRECT
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[10px] text-slate-400">
+                          {dataSourceMode === 'direct_sheet'
+                            ? 'Bypass GAS · Langsung Google Sheets'
+                            : 'Melalui Google Apps Script API'}
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={onToggleDataSourceMode}
+                      className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                        dataSourceMode === 'direct_sheet' ? 'bg-amber-600' : 'bg-slate-700'
+                      }`}
+                      title={
+                        dataSourceMode === 'direct_sheet'
+                          ? 'Kembali ke jalur GAS API'
+                          : 'Tarik langsung dari Datasheet'
+                      }
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                          dataSourceMode === 'direct_sheet' ? 'translate-x-4' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
                   </div>
                 </div>
 

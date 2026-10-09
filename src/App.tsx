@@ -8,11 +8,13 @@ import {
   UserRole,
   ActiveTab,
   DashboardDataset,
+  DataSourceMode,
 } from './types[RekapBlend]';
 import {
   loadInitialDataset,
   buildDashboardDataset,
   syncWithGasServer,
+  syncDirectFromSheet,
   getEntriTerkini,
 } from './api[RekapBlend]';
 import { HeaderRekapBlend } from './components/Header[RekapBlend]';
@@ -45,6 +47,8 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
   const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const [isAutoSync, setIsAutoSync] = useState<boolean>(true);
+  const [dataSourceMode, setDataSourceMode] = useState<DataSourceMode>('gas');
 
   // Filter States
   const [tahunGlobal, setTahunGlobal] = useState<string>('Semua');
@@ -86,6 +90,18 @@ export default function App() {
       setCurrentRole(savedRole);
     }
 
+    // Restore Auto Sync preference (default: true)
+    const savedAutoSync = localStorage.getItem('rekap_blend_auto_sync_enabled');
+    if (savedAutoSync !== null) {
+      setIsAutoSync(savedAutoSync === 'true');
+    }
+
+    // Restore Data Source mode preference (default: 'gas')
+    const savedSourceMode = localStorage.getItem('rekap_blend_data_source_mode') as DataSourceMode;
+    if (savedSourceMode === 'gas' || savedSourceMode === 'direct_sheet') {
+      setDataSourceMode(savedSourceMode);
+    }
+
     // Load initial dataset immediately from memory / localStorage
     loadInitialDataset().then((data) => {
       setDataset(data);
@@ -93,8 +109,9 @@ export default function App() {
         setSelectedTrendMerk(data.trendMerk.merk);
       }
 
-      // Silent Background Sync to Headless Google Apps Script
-      syncWithGasServer()
+      // Silent Background Sync (menggunakan jalur yang aktif)
+      const fetchFn = savedSourceMode === 'direct_sheet' ? syncDirectFromSheet : syncWithGasServer;
+      fetchFn()
         .then((freshRows) => {
           if (freshRows && freshRows.length > 0) {
             setDataset((prev) => {
@@ -105,7 +122,7 @@ export default function App() {
                 bulanRingkasan,
                 periodeAwal,
                 periodeAkhir,
-                'gas_api'
+                savedSourceMode === 'direct_sheet' ? 'direct_sheet' : 'gas_api'
               );
             });
           }
@@ -163,26 +180,72 @@ export default function App() {
     recompute(tahunGlobal, bulanRingkasan, periodeAwal, periodeAkhir);
   };
 
-  // Manual Refresh
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    try {
-      const freshRows = await syncWithGasServer();
-      const updated = buildDashboardDataset(
-        freshRows,
-        tahunGlobal,
-        bulanRingkasan,
-        periodeAwal,
-        periodeAkhir,
-        'gas_api'
-      );
-      setDataset(updated);
-    } catch (err: any) {
-      alert(`Sinkronisasi Google Sheets: Memakai data cache luring (${err.message})`);
-    } finally {
-      setIsRefreshing(false);
-    }
+  // Refresh & Sync Handler (Mendukung manual & background polling)
+  const handleRefresh = useCallback(
+    async (isSilent = false, overrideMode?: DataSourceMode) => {
+      const activeMode = overrideMode || dataSourceMode;
+      if (!isSilent) setIsRefreshing(true);
+      try {
+        let freshRows;
+        let sourceLabel: 'gas_api' | 'direct_sheet';
+
+        if (activeMode === 'direct_sheet') {
+          freshRows = await syncDirectFromSheet();
+          sourceLabel = 'direct_sheet';
+        } else {
+          freshRows = await syncWithGasServer();
+          sourceLabel = 'gas_api';
+        }
+
+        if (freshRows && freshRows.length > 0) {
+          setDataset((prev) => {
+            if (!prev) return prev;
+            return buildDashboardDataset(
+              freshRows,
+              tahunGlobal,
+              bulanRingkasan,
+              periodeAwal,
+              periodeAkhir,
+              sourceLabel
+            );
+          });
+        }
+      } catch (err: any) {
+        if (!isSilent) {
+          console.warn(`Sinkronisasi Google Sheets (${activeMode}):`, err.message);
+        }
+      } finally {
+        if (!isSilent) setIsRefreshing(false);
+      }
+    },
+    [dataSourceMode, tahunGlobal, bulanRingkasan, periodeAwal, periodeAkhir]
+  );
+
+  // Toggle Auto Sync / Auto Refresh
+  const handleToggleAutoSync = () => {
+    const next = !isAutoSync;
+    setIsAutoSync(next);
+    localStorage.setItem('rekap_blend_auto_sync_enabled', String(next));
   };
+
+  // Toggle Tarik Dari Datasheet (Bypass GAS)
+  const handleToggleDataSourceMode = () => {
+    const nextMode: DataSourceMode = dataSourceMode === 'gas' ? 'direct_sheet' : 'gas';
+    setDataSourceMode(nextMode);
+    localStorage.setItem('rekap_blend_data_source_mode', nextMode);
+    handleRefresh(false, nextMode);
+  };
+
+  // Auto Refresh Interval Timer (Live auto sync tiap 30 detik)
+  useEffect(() => {
+    if (!isAutoSync) return;
+
+    const intervalId = setInterval(() => {
+      handleRefresh(true);
+    }, 30000);
+
+    return () => clearInterval(intervalId);
+  }, [isAutoSync, handleRefresh]);
 
   const handleResetCache = () => {
     if (confirm('Bersihkan cache browser dan muat ulang data default?')) {
@@ -283,12 +346,16 @@ export default function App() {
         currentRole={currentRole}
         onRoleChange={handleRoleChange}
         dataset={dataset}
-        onRefresh={handleRefresh}
+        onRefresh={() => handleRefresh(false)}
         isRefreshing={isRefreshing}
         onOpenSwitchApp={() => setIsSwitchAppOpen(true)}
         onOpenGasCenter={() => setIsGasCenterOpen(true)}
         onOpenHelp={() => setIsHelpOpen(true)}
         onExportSummaryPdf={handleExportSummaryPdf}
+        isAutoSync={isAutoSync}
+        onToggleAutoSync={handleToggleAutoSync}
+        dataSourceMode={dataSourceMode}
+        onToggleDataSourceMode={handleToggleDataSourceMode}
       />
 
       {/* Main Container: Sidebar + Content */}
@@ -475,7 +542,7 @@ export default function App() {
       <BottomNavBarRekapBlend
         activeTab={activeTab}
         onTabChange={setActiveTab}
-        onRefresh={handleRefresh}
+        onRefresh={() => handleRefresh(false)}
         isRefreshing={isRefreshing}
         onOpenHelp={() => setIsHelpOpen(true)}
       />

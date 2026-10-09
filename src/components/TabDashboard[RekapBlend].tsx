@@ -93,7 +93,7 @@ export const TabDashboardRekapBlend: React.FC<TabDashboardProps> = ({
               <CalendarDays className="w-4 h-4 text-blue-400" />
               <div>
                 <div className="font-bold text-white group-hover:text-blue-300">Analisis Tren Waktu</div>
-                <div className="text-[10px] text-slate-400">12 Bulan Deret Waktu</div>
+                <div className="text-[10px] text-slate-400">10 Bulan Deret Waktu</div>
               </div>
             </div>
             <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:translate-x-1 group-hover:text-blue-300 transition" />
@@ -121,7 +121,7 @@ export const TabDashboardRekapBlend: React.FC<TabDashboardProps> = ({
               <Cpu className="w-4 h-4 text-purple-400" />
               <div>
                 <div className="font-bold text-white group-hover:text-purple-300">Telemetri Mesin Molen</div>
-                <div className="text-[10px] text-slate-400">4 Unit Mesin Campur</div>
+                <div className="text-[10px] text-slate-400">6 Unit Mesin Campur</div>
               </div>
             </div>
             <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:translate-x-1 group-hover:text-purple-300 transition" />

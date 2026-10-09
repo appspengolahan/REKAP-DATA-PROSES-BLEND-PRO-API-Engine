@@ -85,6 +85,8 @@ export interface TrendMerkData {
   }[];
 }
 
+export type DataSourceMode = 'gas' | 'direct_sheet';
+
 export interface DashboardDataset {
   filterOptions: {
     tahun: string[];
@@ -105,7 +107,7 @@ export interface DashboardDataset {
   trendMerk: TrendMerkData;
   allRows: RawBlendRow[];
   sourceInfo: {
-    loadedFrom: 'gas_api' | 'localStorage' | 'bundled_snapshot';
+    loadedFrom: 'gas_api' | 'direct_sheet' | 'localStorage' | 'bundled_snapshot';
     timestamp: string;
     cachedRowsCount: number;
     syncStatus: 'synced' | 'syncing' | 'offline_cached' | 'error';
