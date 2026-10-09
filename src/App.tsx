@@ -176,6 +176,16 @@ export default function App() {
     recompute(tahunGlobal, b, periodeAwal, periodeAkhir);
   };
 
+  const handlePeriodeAwalChange = (val: { bulan: string; tahun: string }) => {
+    setPeriodeAwal(val);
+    recompute(tahunGlobal, bulanRingkasan, val, periodeAkhir);
+  };
+
+  const handlePeriodeAkhirChange = (val: { bulan: string; tahun: string }) => {
+    setPeriodeAkhir(val);
+    recompute(tahunGlobal, bulanRingkasan, periodeAwal, val);
+  };
+
   const handleApplyPeriode = () => {
     recompute(tahunGlobal, bulanRingkasan, periodeAwal, periodeAkhir);
   };
@@ -451,9 +461,9 @@ export default function App() {
                 bulanRingkasan={bulanRingkasan}
                 onBulanRingkasanChange={handleBulanRingkasanChange}
                 periodeAwal={periodeAwal}
-                onPeriodeAwalChange={setPeriodeAwal}
+                onPeriodeAwalChange={handlePeriodeAwalChange}
                 periodeAkhir={periodeAkhir}
-                onPeriodeAkhirChange={setPeriodeAkhir}
+                onPeriodeAkhirChange={handlePeriodeAkhirChange}
                 onApplyPeriode={handleApplyPeriode}
                 onNavigateTab={setActiveTab}
               />

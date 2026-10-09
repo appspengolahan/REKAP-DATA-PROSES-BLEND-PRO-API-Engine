@@ -24,7 +24,7 @@ interface SummaryCardsProps {
   onPeriodeAwalChange: (p: { bulan: string; tahun: string }) => void;
   periodeAkhir: { bulan: string; tahun: string };
   onPeriodeAkhirChange: (p: { bulan: string; tahun: string }) => void;
-  onApplyPeriode: () => void;
+  onApplyPeriode?: () => void;
   ringkasanTahunan: RingkasanData;
   ringkasanBulanan: RingkasanData;
   ringkasanPeriode: RingkasanData;
@@ -423,13 +423,6 @@ export const SummaryCardsRekapBlend: React.FC<SummaryCardsProps> = ({
                 </option>
               ))}
             </select>
-
-            <button
-              onClick={onApplyPeriode}
-              className="bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-slate-950 font-bold px-3 py-1 text-xs rounded-lg shadow-xs transition cursor-pointer"
-            >
-              Terapkan
-            </button>
           </div>
 
           <span className="text-xs font-bold text-amber-800 bg-amber-50 border border-amber-300/80 px-3 py-1 rounded-full">

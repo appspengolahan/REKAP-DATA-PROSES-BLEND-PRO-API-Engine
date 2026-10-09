@@ -24,7 +24,7 @@ interface TabDashboardProps {
   onPeriodeAwalChange: (p: { bulan: string; tahun: string }) => void;
   periodeAkhir: { bulan: string; tahun: string };
   onPeriodeAkhirChange: (p: { bulan: string; tahun: string }) => void;
-  onApplyPeriode: () => void;
+  onApplyPeriode?: () => void;
   onNavigateTab: (tab: ActiveTab) => void;
 }
 
