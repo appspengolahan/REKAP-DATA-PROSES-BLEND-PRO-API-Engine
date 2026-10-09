@@ -231,8 +231,9 @@ export function summarizeRows(filtered: RawBlendRow[]): Omit<RingkasanData, 'mod
 
 /** Rekap Bulanan dari baris raw */
 export function computeRekapBulan(rows: RawBlendRow[], tahun: string): RekapBulanItem[] {
-  // Jika menggunakan verified benchmark 2026 saat dataset adalah default
-  if (tahun === '2026' || tahun === 'Semua') {
+  // Jika dataset raw masih berupa sample awal / offline minimal (< 100 baris) dan tahun adalah 2026 atau Semua,
+  // gunakan verified benchmark 2026 yang lengkap (Januari - Oktober 2026, 1.998 Camp)
+  if (rows.length < 100 && (tahun === '2026' || tahun === 'Semua')) {
     const totalBobot = VERIFIED_KPI_BENCHMARK.bulan2026.reduce((s, b) => s + b.bahanDiproses, 0);
     return VERIFIED_KPI_BENCHMARK.bulan2026.map((b) => ({
       label: `${b.bulan} 2026`,
@@ -332,8 +333,9 @@ export function computeRekapMerkPeriode(
 ): { periodeLabel: string; list: RekapMerkItem[] } {
   const pLabel = periodeLabel(bulanMulai, tahunMulai, bulanAkhir, tahunAkhir);
 
-  // Jika rentang Januari s/d Oktober atau Desember 2026, gunakan verified benchmark yang mencakup 1.971 batch
+  // Jika rentang Januari s/d Oktober atau Desember 2026, gunakan verified benchmark jika data offline/belum sinkron (< 100 batch)
   if (
+    rows.length < 100 &&
     tahunMulai === '2026' &&
     tahunAkhir === '2026' &&
     bulanMulai === 'Januari' &&
@@ -496,7 +498,7 @@ export function computeRekapMolen(
   tahun: string,
   bulan: string
 ): RekapMolenItem[] {
-  if ((tahun === '2026' || tahun === 'Semua') && bulan === 'Semua') {
+  if (rows.length < 100 && (tahun === '2026' || tahun === 'Semua') && bulan === 'Semua') {
     const totalBobot = VERIFIED_KPI_BENCHMARK.molen2026.reduce((s, m) => s + m.bahanDiproses, 0);
     return VERIFIED_KPI_BENCHMARK.molen2026.map((m) => ({
       label: m.label,
@@ -595,9 +597,16 @@ export function buildDashboardDataset(
     molen: ['MOLEN AA', 'MOLEN AB', 'MOLEN AC', 'MOLEN AD', 'MOLEN AE', 'MOLEN AF'],
   };
 
-  // KPI Tahunan (Semua = 4620 entri kumulatif, 2026 = 1951 entri)
+  // KPI Tahunan (Semua = 4647 entri kumulatif, 2026 = 1998 entri)
   let kpiTahunan: RingkasanData;
-  if (tahun === 'Semua') {
+  if (rows.length >= 100) {
+    const thRows = rows.filter((r) => tahun === 'Semua' || r.tahun === tahun);
+    kpiTahunan = {
+      mode: 'tahunan',
+      periodeLabel: tahun === 'Semua' ? 'Semua Tahun' : tahun,
+      ...summarizeRows(thRows),
+    };
+  } else if (tahun === 'Semua') {
     kpiTahunan = {
       mode: 'tahunan',
       periodeLabel: 'Semua Tahun',
@@ -634,7 +643,23 @@ export function buildDashboardDataset(
 
   // KPI Bulanan
   let kpiBulanan: RingkasanData;
-  if (bulanRingkasan === 'Semua') {
+  if (rows.length >= 100) {
+    const blnRows = rows.filter((r) => {
+      if (tahun !== 'Semua' && r.tahun !== tahun) return false;
+      if (bulanRingkasan !== 'Semua' && r.bulan !== bulanRingkasan) return false;
+      return true;
+    });
+    kpiBulanan = {
+      mode: 'bulanan',
+      periodeLabel:
+        bulanRingkasan === 'Semua'
+          ? tahun === 'Semua'
+            ? 'Semua Bulan Semua Tahun'
+            : `Semua Bulan ${tahun}`
+          : `${bulanRingkasan} ${tahun}`,
+      ...summarizeRows(blnRows),
+    };
+  } else if (bulanRingkasan === 'Semua') {
     if (tahun === 'Semua') {
       kpiBulanan = {
         mode: 'bulanan',
@@ -704,8 +729,20 @@ export function buildDashboardDataset(
   );
 
   let kpiPeriode: RingkasanData;
-  // Cek apakah rentang mencakup Januari 2026 s/d Oktober 2026 (atau Desember 2026)
-  if (
+  if (rows.length >= 100) {
+    const pRows = filterByPeriode(
+      rows,
+      periodeAwal.tahun,
+      periodeAwal.bulan,
+      periodeAkhir.tahun,
+      periodeAkhir.bulan
+    );
+    kpiPeriode = {
+      mode: 'periode',
+      periodeLabel: pLabel,
+      ...summarizeRows(pRows),
+    };
+  } else if (
     periodeAwal.tahun === '2026' &&
     periodeAkhir.tahun === '2026' &&
     periodeAwal.bulan === 'Januari' &&

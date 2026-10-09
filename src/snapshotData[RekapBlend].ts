@@ -87,28 +87,28 @@ export const SNAPSHOT_BLEND_ROWS: RawBlendRow[] = [
  * langsung dari dokumen resmi PT Batu Karang Divisi Produksi I.
  */
 export const VERIFIED_KPI_BENCHMARK = {
-  // Semua Tahun (Kumulatif 4620 entri s/d 5 Oktober 2026)
+  // Semua Tahun (Kumulatif 4647 entri s/d 9 Oktober 2026)
   semuaTahun: {
-    bahanDiproses: 4064962.8,
-    hasilProses: 4051868.9,
-    susutKg: 13093.9,
+    bahanDiproses: 4088613.6,
+    hasilProses: 4075463.5,
+    susutKg: 13150.1,
     susutRataPct: 0.32,
     susutMinPct: -2.05,
     susutMaxPct: 0.81,
-    suhuRata: 29.70,
-    jumlahData: 4620,
-    entriTerkini: '5 Oktober 2026',
+    suhuRata: 29.68,
+    jumlahData: 4647,
+    entriTerkini: '9 Oktober 2026',
   },
   tahun2026: {
-    bahanDiproses: 1727065.4,
-    hasilProses: 1721837.5,
-    susutKg: 5227.9,
+    bahanDiproses: 1750716.2,
+    hasilProses: 1745432.1,
+    susutKg: 5284.1,
     susutRataPct: 0.30,
     susutMinPct: -2.05,
     susutMaxPct: 0.73,
-    suhuRata: 29.60,
-    jumlahData: 1971,
-    entriTerkini: '5 Oktober 2026',
+    suhuRata: 29.61,
+    jumlahData: 1998,
+    entriTerkini: '9 Oktober 2026',
   },
   agustus2026: {
     bahanDiproses: 113429.2,
@@ -138,7 +138,7 @@ export const VERIFIED_KPI_BENCHMARK = {
     { bulan: 'Juli', jumlahData: 247, bahanDiproses: 216599.8, hasilProses: 215935.2, susutKg: 664.6, susutRataPct: 0.31, susutMinPct: -0.39, susutMaxPct: 0.54, suhuRata: 28.4 },
     { bulan: 'Agustus', jumlahData: 131, bahanDiproses: 113429.2, hasilProses: 113143.6, susutKg: 285.6, susutRataPct: 0.25, susutMinPct: -0.96, susutMaxPct: 0.42, suhuRata: 28.5 },
     { bulan: 'September', jumlahData: 190, bahanDiproses: 164384.2, hasilProses: 163950.6, susutKg: 433.6, susutRataPct: 0.26, susutMinPct: -2.05, susutMaxPct: 0.61, suhuRata: 29.6 },
-    { bulan: 'Oktober', jumlahData: 9, bahanDiproses: 7454.2, hasilProses: 7438.0, susutKg: 16.2, susutRataPct: 0.22, susutMinPct: -0.14, susutMaxPct: 0.41, suhuRata: 29.9 },
+    { bulan: 'Oktober', jumlahData: 36, bahanDiproses: 31105.0, hasilProses: 31032.6, susutKg: 72.4, susutRataPct: 0.23, susutMinPct: -0.14, susutMaxPct: 0.41, suhuRata: 30.3 },
   ],
   molen2026: [
     { label: 'MOLEN AA', jumlahData: 412, bahanDiproses: 361200.0, hasilProses: 360116.4, susutKg: 1083.6, susutRataPct: 0.30, kapasitasPct: 20.91 },
