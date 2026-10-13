@@ -15,6 +15,8 @@ import {
   ExternalLink,
   Database,
   Radio,
+  PanelLeftClose,
+  PanelLeft,
 } from 'lucide-react';
 import { PWAInstallButtonRekapBlend } from './PWAInstallButton[RekapBlend]';
 
@@ -32,6 +34,8 @@ interface HeaderProps {
   onToggleAutoSync: () => void;
   dataSourceMode: DataSourceMode;
   onToggleDataSourceMode: () => void;
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
 const ROLES: { id: UserRole; label: string; desc: string }[] = [
@@ -56,6 +60,8 @@ export const HeaderRekapBlend: React.FC<HeaderProps> = ({
   onToggleAutoSync,
   dataSourceMode,
   onToggleDataSourceMode,
+  isCollapsed,
+  onToggleCollapse,
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -93,19 +99,35 @@ export const HeaderRekapBlend: React.FC<HeaderProps> = ({
       : currentRole;
 
   return (
-    <header className="bg-slate-900 border-b border-slate-800 text-white sticky top-0 z-40 shadow-md select-none">
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-2 sm:gap-4">
-        {/* Left: Branding & Title */}
-        <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+    <header className="bg-slate-900 border-b border-slate-800 text-white sticky top-0 z-40 shadow-md select-none w-full no-print">
+      {/* Full-Width Global Topbar / Header Layout: Membentang penuh 100% selebar layar */}
+      <div className="w-full px-3 sm:px-5 lg:px-6 h-14 sm:h-16 flex items-center justify-between gap-2 sm:gap-4">
+        {/* Left: Branding & Judul Sejajar Pinggir / Sidebar tapi Tetap Terbaca Penuh Saat Sidebar Ciut */}
+        <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
+          {onToggleCollapse && (
+            <button
+              onClick={onToggleCollapse}
+              className="hidden sm:flex items-center justify-center p-1.5 -ml-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer shrink-0"
+              title={isCollapsed ? 'Perlebar Sidebar' : 'Ciutkan Sidebar'}
+            >
+              {isCollapsed ? (
+                <PanelLeft className="w-4.5 h-4.5 text-slate-300" />
+              ) : (
+                <PanelLeftClose className="w-4.5 h-4.5 text-slate-300" />
+              )}
+            </button>
+          )}
+
           <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 font-black text-sm sm:text-base shrink-0 shadow-inner">
             PP1
           </div>
+
           <div className="min-w-0">
             <div className="flex items-center gap-1.5 leading-none">
-              <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 truncate">
+              <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 whitespace-nowrap">
                 PT Batu Karang · PP1
               </span>
-              <span className="hidden md:inline-flex items-center gap-1 text-[11px] text-slate-400">
+              <span className="hidden md:inline-flex items-center gap-1 text-[11px] text-slate-400 whitespace-nowrap">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
                 {dataSourceMode === 'direct_sheet'
                   ? 'Datasheet Direct'
@@ -115,8 +137,8 @@ export const HeaderRekapBlend: React.FC<HeaderProps> = ({
                 {isAutoSync && ' · Auto'}
               </span>
             </div>
-            <h1 className="text-xs sm:text-sm md:text-base font-bold tracking-tight text-white flex items-center gap-1.5 mt-0.5 truncate">
-              <span className="truncate">Monitoring Board Rekap Blend</span>
+            <h1 className="text-xs sm:text-sm md:text-base font-bold tracking-tight text-white flex items-center gap-1.5 mt-0.5 whitespace-nowrap">
+              <span>Monitoring Board Rekap Blend</span>
             </h1>
           </div>
         </div>

@@ -366,9 +366,11 @@ export default function App() {
         onToggleAutoSync={handleToggleAutoSync}
         dataSourceMode={dataSourceMode}
         onToggleDataSourceMode={handleToggleDataSourceMode}
+        isCollapsed={isCollapsed}
+        onToggleCollapse={handleToggleCollapse}
       />
 
-      {/* Main Container: Sidebar + Content */}
+      {/* Main Container: Sidebar di bawah Header + Workspace Canvas */}
       <div className="flex-1 flex overflow-hidden min-h-0 relative">
         {/* 2. Pinned Collapsible Sidebar (Does not scroll with content) */}
         <SidebarRekapBlend

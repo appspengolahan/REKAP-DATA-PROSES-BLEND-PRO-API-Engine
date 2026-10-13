@@ -79,7 +79,7 @@ export const SidebarRekapBlend: React.FC<SidebarProps> = ({
 
   return (
     <aside
-      className={`hidden sm:flex shrink-0 h-full overflow-y-auto bg-slate-900 border-r border-slate-800 text-slate-300 flex-col transition-all duration-300 ease-in-out z-30 select-none ${
+      className={`hidden sm:flex shrink-0 h-full overflow-y-auto bg-slate-900 border-r border-slate-800 text-slate-300 flex-col transition-all duration-300 ease-in-out z-30 select-none no-print ${
         isCollapsed ? 'w-18' : 'w-64'
       }`}
     >

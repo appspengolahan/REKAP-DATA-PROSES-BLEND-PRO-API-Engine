@@ -84,7 +84,7 @@ export const TabDashboardRekapBlend: React.FC<TabDashboardProps> = ({
         </div>
 
         {/* Shortcut Quick Links to Specific Tabs */}
-        <div className="mt-4 pt-4 border-t border-white/10 grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+        <div className="mt-4 pt-4 border-t border-white/10 grid grid-cols-1 sm:grid-cols-3 gap-2.5 no-print">
           <button
             onClick={() => onNavigateTab('bulan')}
             className="flex items-center justify-between p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition text-left text-xs group cursor-pointer"

@@ -53,7 +53,7 @@ export const DataExplorerRekapBlend: React.FC<DataExplorerProps> = ({
   return (
     <div className="space-y-4">
       {/* Top Banner & Filters */}
-      <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-sm">
+      <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-sm no-print">
         <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600">
@@ -144,7 +144,7 @@ export const DataExplorerRekapBlend: React.FC<DataExplorerProps> = ({
           </div>
 
           {/* Pagination buttons */}
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 no-print">
             <button
               onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
               disabled={currentPage <= 1}

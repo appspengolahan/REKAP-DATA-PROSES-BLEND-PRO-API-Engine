@@ -2,13 +2,16 @@
 
 @media print {
   /* Hide non-printable elements */
-  .no-print,
+  header,
   nav,
   aside,
+  footer.no-print,
+  .no-print,
   header .title-actions,
   button,
   select,
-  input {
+  input,
+  [role="button"] {
     display: none !important;
   }
 
