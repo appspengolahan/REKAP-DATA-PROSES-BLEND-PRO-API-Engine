@@ -499,9 +499,8 @@ export default function App() {
 
             {activeTab === 'molen' && (
               <TabMolenRekapBlend
+                allRows={dataset.allRows}
                 data={dataset.rekapMolen}
-                selectedBulan={selectedBulanMolen}
-                onBulanChange={setSelectedBulanMolen}
                 onExportPdf={() => handleExportTabPdf('molen')}
                 onZoomChart={(title, chartType, data) =>
                   setChartModal({ isOpen: true, title, chartType, data })
