@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { RawBlendRow, UserRole } from '../types[RekapBlend]';
 import { fmtKg, fmtPct, fmtSuhu, getPctBadgeClass } from '../api[RekapBlend]';
 import {
@@ -11,6 +11,10 @@ import {
   Layers,
   ChevronLeft,
   ChevronRight,
+  ArrowUpDown,
+  ArrowDown,
+  ArrowUp,
+  RotateCcw,
 } from 'lucide-react';
 
 interface DataExplorerProps {
@@ -27,55 +31,124 @@ export const DataExplorerRekapBlend: React.FC<DataExplorerProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMerk, setSelectedMerk] = useState('Semua');
   const [selectedMolen, setSelectedMolen] = useState('Semua');
+  // Default sort: 'desc' (data terbaru di posisi paling atas, data terlama di posisi paling bawah)
+  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 25;
 
-  const merks = Array.from(new Set(rows.map((r) => r.merk))).filter(Boolean).sort();
-  const molens = Array.from(new Set(rows.map((r) => r.molen))).filter(Boolean).sort();
+  const merks = useMemo(
+    () => Array.from(new Set(rows.map((r) => r.merk))).filter(Boolean).sort(),
+    [rows]
+  );
+  const molens = useMemo(
+    () => Array.from(new Set(rows.map((r) => r.molen))).filter(Boolean).sort(),
+    [rows]
+  );
 
-  const filtered = rows.filter((r) => {
-    if (selectedMerk !== 'Semua' && r.merk !== selectedMerk) return false;
-    if (selectedMolen !== 'Semua' && r.molen !== selectedMolen) return false;
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      const matchTanggal = r.tanggal.toLowerCase().includes(term);
-      const matchMerk = r.merk.toLowerCase().includes(term);
-      const matchMolen = r.molen.toLowerCase().includes(term);
-      const matchRow = String(r.srcRow).includes(term);
-      if (!matchTanggal && !matchMerk && !matchMolen && !matchRow) return false;
-    }
-    return true;
-  });
+  // 1. Filter rows
+  const filtered = useMemo(() => {
+    return rows.filter((r) => {
+      if (selectedMerk !== 'Semua' && r.merk !== selectedMerk) return false;
+      if (selectedMolen !== 'Semua' && r.molen !== selectedMolen) return false;
+      if (searchTerm) {
+        const term = searchTerm.toLowerCase();
+        const matchTanggal = r.tanggal && r.tanggal.toLowerCase().includes(term);
+        const matchMerk = r.merk && r.merk.toLowerCase().includes(term);
+        const matchMolen = r.molen && r.molen.toLowerCase().includes(term);
+        const matchRow = String(r.srcRow).includes(term);
+        const matchBulan = r.bulan && r.bulan.toLowerCase().includes(term);
+        const matchTahun = r.tahun && String(r.tahun).includes(term);
+        if (!matchTanggal && !matchMerk && !matchMolen && !matchRow && !matchBulan && !matchTahun) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [rows, selectedMerk, selectedMolen, searchTerm]);
 
-  const totalPages = Math.ceil(filtered.length / pageSize) || 1;
-  const paginated = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  // 2. Sort rows: 'desc' (terbaru di atas) atau 'asc' (terlama di atas)
+  const sorted = useMemo(() => {
+    const list = [...filtered];
+    list.sort((a, b) => {
+      // Prioritas 1: Bandingkan tanggal (format ISO: YYYY-MM-DD)
+      const dateA = a.tanggal || '';
+      const dateB = b.tanggal || '';
+      if (dateA !== dateB) {
+        return sortOrder === 'desc'
+          ? dateB.localeCompare(dateA)
+          : dateA.localeCompare(dateB);
+      }
+      // Prioritas 2: Jika tanggal sama, bandingkan nomor baris spreadsheet (srcRow lebih besar = entri lebih baru)
+      const rowA = a.srcRow || 0;
+      const rowB = b.srcRow || 0;
+      return sortOrder === 'desc' ? rowB - rowA : rowA - rowB;
+    });
+    return list;
+  }, [filtered, sortOrder]);
+
+  const totalPages = Math.ceil(sorted.length / pageSize) || 1;
+  const paginated = sorted.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  const toggleSortOrder = () => {
+    setSortOrder((prev) => (prev === 'desc' ? 'asc' : 'desc'));
+    setCurrentPage(1);
+  };
 
   return (
     <div className="space-y-4">
       {/* Top Banner & Filters */}
       <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-sm no-print">
         <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600 font-bold">
               <Database className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-slate-900">
-                Data Explorer & Audit Baris DATAMASTER
+              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2 flex-wrap">
+                <span>Data Explorer & Audit Baris DATAMASTER</span>
+                <span className="text-[11px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                  {sortOrder === 'desc' ? (
+                    <>
+                      <ArrowDown className="w-3 h-3 text-blue-600" />
+                      <span>Data Terbaru di Atas</span>
+                    </>
+                  ) : (
+                    <>
+                      <ArrowUp className="w-3 h-3 text-amber-600" />
+                      <span>Data Terlama di Atas</span>
+                    </>
+                  )}
+                </span>
               </h3>
               <p className="text-[11px] text-slate-500">
-                Pemeriksaan baris mentah proses blend (dimulai dari baris 14 spreadsheet)
+                Pemeriksaan entri mentah proses blend · Posisi urutan data: {sortOrder === 'desc' ? 'Terbaru ke Terlama' : 'Terlama ke Terbaru'}
               </p>
             </div>
           </div>
 
-          <button
-            onClick={onExportCsv}
-            className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold shadow-sm transition"
-          >
-            <Download className="w-3.5 h-3.5 text-amber-400" />
-            <span>Unduh CSV Raw</span>
-          </button>
+          <div className="flex items-center gap-2">
+            {/* Tombol Pembalik Urutan Data */}
+            <button
+              onClick={toggleSortOrder}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition cursor-pointer ${
+                sortOrder === 'desc'
+                  ? 'bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200'
+                  : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-200'
+              }`}
+              title="Klik untuk membalik posisi urutan data"
+            >
+              <ArrowUpDown className="w-3.5 h-3.5" />
+              <span>{sortOrder === 'desc' ? 'Urutan: Terbaru di Atas ⬇️' : 'Urutan: Terlama di Atas ⬆️'}</span>
+            </button>
+
+            <button
+              onClick={onExportCsv}
+              className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold shadow-sm transition cursor-pointer"
+            >
+              <Download className="w-3.5 h-3.5 text-amber-400" />
+              <span>Unduh CSV Raw</span>
+            </button>
+          </div>
         </div>
 
         {/* Filter Controls */}
@@ -103,7 +176,7 @@ export const DataExplorerRekapBlend: React.FC<DataExplorerProps> = ({
                 setSelectedMerk(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 font-medium"
+              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 font-medium cursor-pointer"
             >
               <option value="Semua">Semua Merk</option>
               {merks.map((m) => (
@@ -122,7 +195,7 @@ export const DataExplorerRekapBlend: React.FC<DataExplorerProps> = ({
                 setSelectedMolen(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 font-medium"
+              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 font-medium cursor-pointer"
             >
               <option value="Semua">Semua Molen</option>
               {molens.map((mo) => (
@@ -137,28 +210,51 @@ export const DataExplorerRekapBlend: React.FC<DataExplorerProps> = ({
 
       {/* Table Card */}
       <div className="bg-white border border-slate-200/90 rounded-2xl shadow-sm overflow-hidden">
-        <div className="p-3 bg-slate-50/80 border-b border-slate-200 flex items-center justify-between text-xs text-slate-600">
-          <div>
-            Menampilkan <span className="font-bold text-slate-900">{filtered.length}</span> baris
-            (Halaman {currentPage} dari {totalPages})
+        <div className="p-3 bg-slate-50/80 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600">
+          <div className="flex items-center gap-2">
+            <span>
+              Menampilkan <span className="font-bold text-slate-900">{sorted.length}</span> baris
+              (Halaman {currentPage} dari {totalPages})
+            </span>
+            <span className="text-[11px] text-slate-500 bg-white border border-slate-200 px-2 py-0.5 rounded-md font-medium hidden sm:inline">
+              {sortOrder === 'desc' ? 'Entri terbaru di baris pertama' : 'Entri terlama di baris pertama'}
+            </span>
           </div>
 
           {/* Pagination buttons */}
           <div className="flex items-center gap-1 no-print">
             <button
+              onClick={() => setCurrentPage(1)}
+              disabled={currentPage <= 1}
+              className="px-2 py-1 rounded bg-white border border-slate-200 disabled:opacity-40 hover:bg-slate-100 text-[11px] font-semibold cursor-pointer disabled:cursor-not-allowed"
+              title="Ke Halaman Pertama"
+            >
+              Awal
+            </button>
+            <button
               onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
               disabled={currentPage <= 1}
-              className="p-1 rounded bg-white border border-slate-200 disabled:opacity-40 hover:bg-slate-100"
+              className="p-1 rounded bg-white border border-slate-200 disabled:opacity-40 hover:bg-slate-100 cursor-pointer disabled:cursor-not-allowed"
             >
               <ChevronLeft className="w-3.5 h-3.5" />
             </button>
-            <span className="px-2 font-semibold text-slate-700">{currentPage}</span>
+            <span className="px-2 font-semibold text-slate-700">
+              {currentPage} / {totalPages}
+            </span>
             <button
               onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
               disabled={currentPage >= totalPages}
-              className="p-1 rounded bg-white border border-slate-200 disabled:opacity-40 hover:bg-slate-100"
+              className="p-1 rounded bg-white border border-slate-200 disabled:opacity-40 hover:bg-slate-100 cursor-pointer disabled:cursor-not-allowed"
             >
               <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => setCurrentPage(totalPages)}
+              disabled={currentPage >= totalPages}
+              className="px-2 py-1 rounded bg-white border border-slate-200 disabled:opacity-40 hover:bg-slate-100 text-[11px] font-semibold cursor-pointer disabled:cursor-not-allowed"
+              title="Ke Halaman Terakhir"
+            >
+              Akhir
             </button>
           </div>
         </div>
@@ -167,8 +263,30 @@ export const DataExplorerRekapBlend: React.FC<DataExplorerProps> = ({
           <table className="w-full min-w-[800px] text-left text-xs border-collapse whitespace-nowrap">
             <thead>
               <tr className="bg-slate-100/70 border-b border-slate-200 text-slate-600 font-bold">
-                <th className="py-2.5 px-3">No. Baris</th>
-                <th className="py-2.5 px-3">Tanggal</th>
+                <th
+                  onClick={toggleSortOrder}
+                  className="py-2.5 px-3 cursor-pointer hover:text-blue-700 select-none group"
+                  title="Klik untuk membalik urutan"
+                >
+                  <div className="flex items-center gap-1">
+                    <span>No. Baris</span>
+                    <ArrowUpDown className="w-3 h-3 text-slate-400 group-hover:text-blue-600" />
+                  </div>
+                </th>
+                <th
+                  onClick={toggleSortOrder}
+                  className="py-2.5 px-3 cursor-pointer hover:text-blue-700 select-none group"
+                  title="Klik untuk membalik urutan"
+                >
+                  <div className="flex items-center gap-1">
+                    <span>Tanggal</span>
+                    {sortOrder === 'desc' ? (
+                      <ArrowDown className="w-3 h-3 text-blue-600" />
+                    ) : (
+                      <ArrowUp className="w-3 h-3 text-amber-600" />
+                    )}
+                  </div>
+                </th>
                 <th className="py-2.5 px-3">Bulan / Tahun</th>
                 <th className="py-2.5 px-3">Merk Blend</th>
                 <th className="py-2.5 px-3 text-right">Bobot Baku (Kg)</th>
@@ -180,10 +298,10 @@ export const DataExplorerRekapBlend: React.FC<DataExplorerProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {paginated.map((r) => {
+              {paginated.map((r, idx) => {
                 const badge = getPctBadgeClass(r.susutPct);
                 return (
-                  <tr key={`${r.srcRow}-${r.tanggal}`} className="hover:bg-slate-50/80 transition">
+                  <tr key={`${r.srcRow}-${r.tanggal}-${idx}`} className="hover:bg-slate-50/80 transition">
                     <td className="py-2 px-3 font-mono text-slate-400 font-medium">#{r.srcRow}</td>
                     <td className="py-2 px-3 font-semibold text-slate-800">{r.tanggal}</td>
                     <td className="py-2 px-3 text-slate-600">
