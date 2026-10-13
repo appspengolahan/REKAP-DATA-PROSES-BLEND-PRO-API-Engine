@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { X, Maximize2, Minimize2, TrendingDown, Scale, BarChart2, Cpu, Calendar } from 'lucide-react';
 import { fmtKg, fmtPct } from '../api[RekapBlend]';
+import { TrenSusutChartRekapBlend } from './TrenSusutChart[RekapBlend]';
 
 interface ChartModalProps {
   isOpen: boolean;
@@ -78,151 +79,11 @@ export const ChartModalRekapBlend: React.FC<ChartModalProps> = ({
 
         {/* Big Chart Presentation Canvas */}
         <div className="w-full flex-1 min-h-[380px] sm:min-h-[440px] select-none bg-slate-50/70 p-4 sm:p-6 rounded-2xl border border-slate-200/80 mt-4 relative overflow-hidden flex flex-col justify-center">
-          {/* 1. LINE CHART SUSUT BULAN */}
+          {/* 1. LINE CHART SUSUT BULAN (Model Grafik Garis Sesuai Gambar Referensi) */}
           {chartType === 'line_susut' && (
-            <svg className="w-full h-full" viewBox={`0 0 900 ${chartHeight}`} preserveAspectRatio="none">
-              {(() => {
-                const list = data as any[];
-                const maxS = Math.max(...list.map((d) => d.susutRataPct), 0.55);
-                const minS = Math.min(...list.map((d) => d.susutRataPct), 0.15);
-                const sRange = maxS - minS || 1;
-                const usableW = 900 - paddingLeft - paddingRight;
-                const step = usableW / Math.max(list.length - 1, 1);
-
-                const points = list
-                  .map((d, i) => {
-                    const x = paddingLeft + i * step;
-                    const y =
-                      paddingTop +
-                      ((maxS - d.susutRataPct) / sRange) * (chartHeight - paddingTop - paddingBottom);
-                    return `${x},${y}`;
-                  })
-                  .join(' ');
-
-                const thresholdY =
-                  paddingTop + ((maxS - 0.5) / sRange) * (chartHeight - paddingTop - paddingBottom);
-
-                return (
-                  <>
-                    {/* Baseline */}
-                    <line
-                      x1={paddingLeft}
-                      y1={chartHeight - paddingBottom}
-                      x2={900 - paddingRight}
-                      y2={chartHeight - paddingBottom}
-                      stroke="#94a3b8"
-                      strokeWidth="1.5"
-                    />
-
-                    {/* Red Threshold Line 0.50% */}
-                    {thresholdY >= paddingTop && thresholdY <= chartHeight - paddingBottom && (
-                      <>
-                        <line
-                          x1={paddingLeft}
-                          y1={thresholdY}
-                          x2={900 - paddingRight}
-                          y2={thresholdY}
-                          stroke="#f43f5e"
-                          strokeWidth="1.5"
-                          strokeDasharray="6 6"
-                        />
-                        <rect
-                          x={paddingLeft + 8}
-                          y={thresholdY - 20}
-                          width="170"
-                          height="18"
-                          fill="#ffe4e6"
-                          rx="4"
-                        />
-                        <text
-                          x={paddingLeft + 16}
-                          y={thresholdY - 7}
-                          fill="#e11d48"
-                          fontSize="10.5"
-                          fontWeight="bold"
-                        >
-                          Batas Maksimal Toleransi (0,50%)
-                        </text>
-                      </>
-                    )}
-
-                    {/* Polyline Curve */}
-                    <polyline
-                      fill="none"
-                      stroke="#1a56c4"
-                      strokeWidth="4"
-                      points={points}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-
-                    {/* Dots & Labels */}
-                    {list.map((d, i) => {
-                      const x = paddingLeft + i * step;
-                      const y =
-                        paddingTop +
-                        ((maxS - d.susutRataPct) / sRange) * (chartHeight - paddingTop - paddingBottom);
-                      const isHigh = d.susutRataPct > 0.5;
-
-                      return (
-                        <g key={d.label}>
-                          {/* Vertical guide line */}
-                          <line
-                            x1={x}
-                            y1={y}
-                            x2={x}
-                            y2={chartHeight - paddingBottom}
-                            stroke="#e2e8f0"
-                            strokeWidth="1"
-                            strokeDasharray="3 3"
-                          />
-                          <circle
-                            cx={x}
-                            cy={y}
-                            r={isHigh ? '7' : '6'}
-                            fill={isHigh ? '#e11d48' : '#1a56c4'}
-                            stroke="#ffffff"
-                            strokeWidth="2.5"
-                          />
-                          {/* Value tag badge */}
-                          <rect
-                            x={x - 24}
-                            y={y - 25}
-                            width="48"
-                            height="18"
-                            rx="5"
-                            fill={isHigh ? '#ffe4e6' : '#eff6ff'}
-                            stroke={isHigh ? '#f43f5e' : '#bfdbfe'}
-                            strokeWidth="1"
-                          />
-                          <text
-                            x={x}
-                            y={y - 12}
-                            textAnchor="middle"
-                            fontSize="11"
-                            fill={isHigh ? '#e11d48' : '#1e3a8a'}
-                            fontWeight="900"
-                          >
-                            {fmtPct(d.susutRataPct)}%
-                          </text>
-                          {/* Month text */}
-                          <text
-                            x={x}
-                            y={chartHeight - 20}
-                            textAnchor="middle"
-                            fontSize="12"
-                            fill="#475569"
-                            fontWeight="bold"
-                          >
-                            {d.bulan}
-                          </text>
-                        </g>
-                      );
-                    })}
-                  </>
-                );
-              })()}
-            </svg>
+            <div className="w-full flex-1 flex flex-col justify-center">
+              <TrenSusutChartRekapBlend data={data} isModal={true} />
+            </div>
           )}
 
           {/* 2. BAR CHART BAHAN DIPROSES VS HASIL PROSES */}

@@ -15,6 +15,7 @@ import {
   Thermometer,
   Sparkles,
 } from 'lucide-react';
+import { TrenSusutChartRekapBlend } from './TrenSusutChart[RekapBlend]';
 
 interface TabBulanProps {
   data: RekapBulanItem[];
@@ -194,135 +195,11 @@ export const TabBulanRekapBlend: React.FC<TabBulanProps> = ({
 
       {/* Grid 2 Grafik Bulanan */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* CHART 1: TREN SUSUT % (Clickable to Maximize) */}
-        <div
-          onClick={() => onZoomChart('Tren Susut Rata-rata (%) per Bulan', 'line_susut', data)}
-          className="bg-white border border-slate-200/90 hover:border-blue-400 hover:shadow-md rounded-2xl p-4 sm:p-5 shadow-xs relative group cursor-pointer transition-all"
-          title="Klik untuk memperbesar grafik ke tengah layar"
-        >
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <h4 className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-1.5 group-hover:text-blue-700 transition">
-                <TrendingDown className="w-4 h-4 text-blue-600" />
-                Tren Susut Rata-rata (%) per Bulan
-              </h4>
-              <p className="text-[11px] text-slate-400 mt-0.5">Garis batas merah: toleransi 0,50%</p>
-            </div>
-
-            <div className="flex items-center gap-1.5">
-              <span className="hidden sm:inline-block text-[10px] font-bold text-blue-600 bg-blue-50 group-hover:bg-blue-100 px-2 py-0.5 rounded-md transition">
-                Klik untuk Expand ⤢
-              </span>
-              <div className="p-1.5 rounded-lg text-slate-400 group-hover:text-blue-600 group-hover:bg-blue-50 transition">
-                <Maximize2 className="w-4 h-4" />
-              </div>
-            </div>
-          </div>
-
-          <div className="w-full h-64 sm:h-72 relative select-none">
-            <svg className="w-full h-full" viewBox={`0 0 500 ${chartHeight}`} preserveAspectRatio="none">
-              {/* Reference Grid Lines */}
-              <line
-                x1={paddingLeft}
-                y1={paddingTop + ((maxSusut - 0.5) / susutRange) * (chartHeight - paddingTop - paddingBottom)}
-                x2={500 - paddingRight}
-                y2={paddingTop + ((maxSusut - 0.5) / susutRange) * (chartHeight - paddingTop - paddingBottom)}
-                stroke="#f43f5e"
-                strokeWidth="1.2"
-                strokeDasharray="4 4"
-              />
-              <text
-                x={paddingLeft + 5}
-                y={paddingTop + ((maxSusut - 0.5) / susutRange) * (chartHeight - paddingTop - paddingBottom) - 5}
-                fill="#f43f5e"
-                fontSize="9.5"
-                fontWeight="bold"
-              >
-                Toleransi Max 0,50%
-              </text>
-
-              {/* Axis Line */}
-              <line
-                x1={paddingLeft}
-                y1={chartHeight - paddingBottom}
-                x2={500 - paddingRight}
-                y2={chartHeight - paddingBottom}
-                stroke="#cbd5e1"
-                strokeWidth="1"
-              />
-
-              {/* Sparkline Polyline */}
-              {(() => {
-                const usableWidth = 500 - paddingLeft - paddingRight;
-                const step = usableWidth / Math.max(data.length - 1, 1);
-                const points = data
-                  .map((d, i) => {
-                    const x = paddingLeft + i * step;
-                    const y =
-                      paddingTop +
-                      ((maxSusut - d.susutRataPct) / susutRange) * (chartHeight - paddingTop - paddingBottom);
-                    return `${x},${y}`;
-                  })
-                  .join(' ');
-
-                return (
-                  <>
-                    <polyline
-                      fill="none"
-                      stroke="#1a56c4"
-                      strokeWidth="3"
-                      points={points}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    {data.map((d, i) => {
-                      const x = paddingLeft + i * step;
-                      const y =
-                        paddingTop +
-                        ((maxSusut - d.susutRataPct) / susutRange) * (chartHeight - paddingTop - paddingBottom);
-                      const isHigh = d.susutRataPct > 0.5;
-
-                      return (
-                        <g key={d.label}>
-                          <circle
-                            cx={x}
-                            cy={y}
-                            r={isHigh ? '5' : '4'}
-                            fill={isHigh ? '#e11d48' : '#1a56c4'}
-                            stroke="#ffffff"
-                            strokeWidth="2"
-                          />
-                          {/* Value tag badge */}
-                          <text
-                            x={x}
-                            y={y - 8}
-                            textAnchor="middle"
-                            fontSize="9.5"
-                            fill={isHigh ? '#e11d48' : '#1e3a8a'}
-                            fontWeight="bold"
-                          >
-                            {fmtPct(d.susutRataPct)}%
-                          </text>
-                          {/* Month Label */}
-                          <text
-                            x={x}
-                            y={chartHeight - 12}
-                            textAnchor="middle"
-                            fontSize="9.5"
-                            fill="#64748b"
-                            fontWeight="600"
-                          >
-                            {d.bulan.substring(0, 3)}
-                          </text>
-                        </g>
-                      );
-                    })}
-                  </>
-                );
-              })()}
-            </svg>
-          </div>
-        </div>
+        {/* CHART 1: TREN SUSUT % (Model Grafik Garis Sesuai Gambar Referensi) */}
+        <TrenSusutChartRekapBlend
+          data={data}
+          onExpand={() => onZoomChart('Tren Susut Rata-rata (%) per Bulan', 'line_susut', data)}
+        />
 
         {/* CHART 2: BAHAN DIPROSES VS HASIL PROSES (Clickable to Maximize) */}
         <div
