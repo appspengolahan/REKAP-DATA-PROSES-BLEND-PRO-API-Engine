@@ -16,6 +16,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { TrenSusutChartRekapBlend } from './TrenSusutChart[RekapBlend]';
+import { BarBahanHasilChartRekapBlend } from './BarBahanHasilChart[RekapBlend]';
 
 interface TabBulanProps {
   data: RekapBulanItem[];
@@ -59,24 +60,7 @@ export const TabBulanRekapBlend: React.FC<TabBulanProps> = ({
     return MONTH_ORDER.indexOf(b.bulan) - MONTH_ORDER.indexOf(a.bulan);
   });
 
-  // SVG Chart Dimensions & Dynamic Scaling
-  const chartHeight = 270;
-  const paddingLeft = 45;
-  const paddingRight = 20;
-  const paddingTop = 25;
-  const paddingBottom = 30;
-
-  // 1. Line Chart Data (Susut %) - Dynamic Scale agar titik grafik mengisi tinggi kartu dengan proporsional
-  const susutVals = data.map((d) => d.susutRataPct);
-  const maxSusut = Math.max(Math.max(...susutVals) + 0.12, 0.52);
-  const minSusut = Math.min(Math.min(...susutVals) - 0.08, 0.12);
-  const susutRange = maxSusut - minSusut || 1;
-
-  // 2. Bar Chart Data (Bahan vs Hasil) - tambahkan headroom 16% untuk angka indikator di atas balok
-  const maxBobot =
-    Math.max(...data.map((d) => Math.max(d.bahanDiproses, d.hasilProses)), 200000) * 1.16;
-
-  // 3. Time-Series Key Insights (Analisis Deret Waktu Khusus)
+  // Time-Series Key Insights (Analisis Deret Waktu Khusus)
   const sortedByEfficiency = [...data].sort((a, b) => a.susutRataPct - b.susutRataPct);
   const bestMonth = sortedByEfficiency[0];
   const worstMonth = sortedByEfficiency[sortedByEfficiency.length - 1];
@@ -201,147 +185,17 @@ export const TabBulanRekapBlend: React.FC<TabBulanProps> = ({
           onExpand={() => onZoomChart('Tren Susut Rata-rata (%) per Bulan', 'line_susut', data)}
         />
 
-        {/* CHART 2: BAHAN DIPROSES VS HASIL PROSES (Clickable to Maximize) */}
-        <div
-          onClick={() =>
+        {/* CHART 2: BAHAN DIPROSES VS HASIL PROSES (Grafik Balok dengan Pop Up Dinamis di Atas/Bawah Kursor) */}
+        <BarBahanHasilChartRekapBlend
+          data={data}
+          onExpand={() =>
             onZoomChart(
               'Perbandingan Bahan Diproses vs Hasil Proses (Kg)',
               'bar_bahan_hasil',
               data
             )
           }
-          className="bg-white border border-slate-200/90 hover:border-emerald-400 hover:shadow-md rounded-2xl p-4 sm:p-5 shadow-xs relative group cursor-pointer transition-all"
-          title="Klik untuk memperbesar grafik ke tengah layar"
-        >
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <h4 className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-1.5 group-hover:text-emerald-700 transition">
-                <BarChart2 className="w-4 h-4 text-emerald-600" />
-                Perbandingan Bahan Diproses vs Hasil Proses
-              </h4>
-              <div className="flex items-center gap-3 text-[11px] mt-0.5 flex-wrap">
-                <span className="flex items-center gap-1 text-blue-700 font-semibold">
-                  <span className="w-2.5 h-2.5 bg-blue-600 rounded-xs"></span> Bahan Masuk (rb Kg)
-                </span>
-                <span className="flex items-center gap-1 text-emerald-700 font-semibold">
-                  <span className="w-2.5 h-2.5 bg-emerald-600 rounded-xs"></span> Hasil Jadi (rb Kg)
-                </span>
-                <span className="text-[10px] text-slate-400 hidden sm:inline">
-                  • Satuan angka di atas balok: Ribu Kg (rb)
-                </span>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-1.5">
-              <span className="hidden sm:inline-block text-[10px] font-bold text-emerald-700 bg-emerald-50 group-hover:bg-emerald-100 px-2 py-0.5 rounded-md transition">
-                Klik untuk Expand ⤢
-              </span>
-              <div className="p-1.5 rounded-lg text-slate-400 group-hover:text-emerald-600 group-hover:bg-emerald-50 transition">
-                <Maximize2 className="w-4 h-4" />
-              </div>
-            </div>
-          </div>
-
-          <div className="w-full h-64 sm:h-72 relative select-none">
-            <svg className="w-full h-full" viewBox={`0 0 500 ${chartHeight}`} preserveAspectRatio="none">
-              {/* Baseline */}
-              <line
-                x1={paddingLeft}
-                y1={chartHeight - paddingBottom}
-                x2={500 - paddingRight}
-                y2={chartHeight - paddingBottom}
-                stroke="#cbd5e1"
-                strokeWidth="1"
-              />
-
-              {(() => {
-                const usableWidth = 500 - paddingLeft - paddingRight;
-                const colWidth = usableWidth / data.length;
-                const barW = Math.max(colWidth * 0.36, 6);
-
-                return data.map((d, i) => {
-                  const xBase = paddingLeft + i * colWidth;
-                  const hBahan = (d.bahanDiproses / maxBobot) * (chartHeight - paddingTop - paddingBottom);
-                  const hHasil = (d.hasilProses / maxBobot) * (chartHeight - paddingTop - paddingBottom);
-                  const yBahan = chartHeight - paddingBottom - hBahan;
-                  const yHasil = chartHeight - paddingBottom - hHasil;
-
-                  const xBahanCenter = xBase + colWidth * 0.08 + barW / 2;
-                  const xHasilCenter = xBase + colWidth * 0.08 + barW + 3 + barW / 2;
-
-                  const textBahan = (d.bahanDiproses / 1000).toLocaleString('id-ID', {
-                    minimumFractionDigits: 1,
-                    maximumFractionDigits: 1,
-                  });
-                  const textHasil = (d.hasilProses / 1000).toLocaleString('id-ID', {
-                    minimumFractionDigits: 1,
-                    maximumFractionDigits: 1,
-                  });
-
-                  return (
-                    <g key={d.label}>
-                      <title>{`${d.bulan}: Bahan Masuk = ${fmtKg(d.bahanDiproses)} Kg | Hasil Jadi = ${fmtKg(d.hasilProses)} Kg`}</title>
-
-                      {/* Bar Bahan */}
-                      <rect
-                        x={xBase + colWidth * 0.08}
-                        y={yBahan}
-                        width={barW}
-                        height={Math.max(hBahan, 3)}
-                        fill="#1a56c4"
-                        rx="2.5"
-                      />
-                      {/* Angka Indikator Bahan Masuk */}
-                      <text
-                        x={xBahanCenter}
-                        y={yBahan - 4}
-                        textAnchor="middle"
-                        fontSize="7"
-                        fill="#1a56c4"
-                        fontWeight="800"
-                      >
-                        {textBahan}
-                      </text>
-
-                      {/* Bar Hasil */}
-                      <rect
-                        x={xBase + colWidth * 0.08 + barW + 3}
-                        y={yHasil}
-                        width={barW}
-                        height={Math.max(hHasil, 3)}
-                        fill="#10b981"
-                        rx="2.5"
-                      />
-                      {/* Angka Indikator Hasil Jadi */}
-                      <text
-                        x={xHasilCenter}
-                        y={yHasil - 4}
-                        textAnchor="middle"
-                        fontSize="7"
-                        fill="#059669"
-                        fontWeight="800"
-                      >
-                        {textHasil}
-                      </text>
-
-                      {/* Label Bulan */}
-                      <text
-                        x={xBase + colWidth * 0.5}
-                        y={chartHeight - 12}
-                        textAnchor="middle"
-                        fontSize="9.5"
-                        fill="#64748b"
-                        fontWeight="600"
-                      >
-                        {d.bulan.substring(0, 3)}
-                      </text>
-                    </g>
-                  );
-                });
-              })()}
-            </svg>
-          </div>
-        </div>
+        />
       </div>
 
       {/* TABEL REKAP BULANAN */}

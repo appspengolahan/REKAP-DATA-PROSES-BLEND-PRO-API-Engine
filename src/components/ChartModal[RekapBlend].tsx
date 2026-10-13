@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { X, Maximize2, Minimize2, TrendingDown, Scale, BarChart2, Cpu, Calendar } from 'lucide-react';
 import { fmtKg, fmtPct } from '../api[RekapBlend]';
 import { TrenSusutChartRekapBlend } from './TrenSusutChart[RekapBlend]';
+import { BarBahanHasilChartRekapBlend } from './BarBahanHasilChart[RekapBlend]';
 
 interface ChartModalProps {
   isOpen: boolean;
@@ -88,108 +89,9 @@ export const ChartModalRekapBlend: React.FC<ChartModalProps> = ({
 
           {/* 2. BAR CHART BAHAN DIPROSES VS HASIL PROSES */}
           {chartType === 'bar_bahan_hasil' && (
-            <svg className="w-full h-full" viewBox={`0 0 900 ${chartHeight}`} preserveAspectRatio="none">
-              {(() => {
-                const list = data as any[];
-                const maxB =
-                  Math.max(...list.map((d) => Math.max(d.bahanDiproses, d.hasilProses)), 200000) * 1.15;
-                const usableW = 900 - paddingLeft - paddingRight;
-                const colW = usableW / list.length;
-                const barW = Math.max(colW * 0.36, 12);
-
-                return (
-                  <>
-                    <line
-                      x1={paddingLeft}
-                      y1={chartHeight - paddingBottom}
-                      x2={900 - paddingRight}
-                      y2={chartHeight - paddingBottom}
-                      stroke="#94a3b8"
-                      strokeWidth="1.5"
-                    />
-                    {list.map((d, i) => {
-                      const xBase = paddingLeft + i * colW;
-                      const hBahan = (d.bahanDiproses / maxB) * (chartHeight - paddingTop - paddingBottom);
-                      const hHasil = (d.hasilProses / maxB) * (chartHeight - paddingTop - paddingBottom);
-                      const yBahan = chartHeight - paddingBottom - hBahan;
-                      const yHasil = chartHeight - paddingBottom - hHasil;
-
-                      const xBahanCenter = xBase + colW * 0.08 + barW / 2;
-                      const xHasilCenter = xBase + colW * 0.08 + barW + 5 + barW / 2;
-
-                      const textBahan = `${(d.bahanDiproses / 1000).toLocaleString('id-ID', {
-                        minimumFractionDigits: 1,
-                        maximumFractionDigits: 1,
-                      })}k`;
-                      const textHasil = `${(d.hasilProses / 1000).toLocaleString('id-ID', {
-                        minimumFractionDigits: 1,
-                        maximumFractionDigits: 1,
-                      })}k`;
-
-                      return (
-                        <g key={d.label}>
-                          <title>{`${d.bulan}: Masuk = ${fmtKg(d.bahanDiproses)} Kg | Jadi = ${fmtKg(d.hasilProses)} Kg`}</title>
-
-                          {/* Bar Bahan */}
-                          <rect
-                            x={xBase + colW * 0.08}
-                            y={yBahan}
-                            width={barW}
-                            height={Math.max(hBahan, 3)}
-                            fill="#1a56c4"
-                            rx="4"
-                          />
-                          {/* Indikator Angka Bahan */}
-                          <text
-                            x={xBahanCenter}
-                            y={yBahan - 6}
-                            textAnchor="middle"
-                            fontSize="9"
-                            fill="#1a56c4"
-                            fontWeight="800"
-                          >
-                            {textBahan}
-                          </text>
-
-                          {/* Bar Hasil */}
-                          <rect
-                            x={xBase + colW * 0.08 + barW + 5}
-                            y={yHasil}
-                            width={barW}
-                            height={Math.max(hHasil, 3)}
-                            fill="#10b981"
-                            rx="4"
-                          />
-                          {/* Indikator Angka Hasil */}
-                          <text
-                            x={xHasilCenter}
-                            y={yHasil - 6}
-                            textAnchor="middle"
-                            fontSize="9"
-                            fill="#047857"
-                            fontWeight="800"
-                          >
-                            {textHasil}
-                          </text>
-
-                          {/* Month Text */}
-                          <text
-                            x={xBase + colW * 0.5}
-                            y={chartHeight - 20}
-                            textAnchor="middle"
-                            fontSize="11.5"
-                            fill="#475569"
-                            fontWeight="bold"
-                          >
-                            {d.bulan}
-                          </text>
-                        </g>
-                      );
-                    })}
-                  </>
-                );
-              })()}
-            </svg>
+            <div className="w-full flex-1 flex flex-col justify-center">
+              <BarBahanHasilChartRekapBlend data={data} isModal={true} />
+            </div>
           )}
 
           {/* 3. BAR CHART MERK / MOLEN */}
