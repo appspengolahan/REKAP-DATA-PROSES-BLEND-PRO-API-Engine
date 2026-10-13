@@ -483,6 +483,7 @@ export default function App() {
 
             {activeTab === 'merk' && (
               <TabMerkRekapBlend
+                allRows={dataset.allRows}
                 periodeLabel={dataset.rekapMerkPeriode.periodeLabel}
                 merkList={dataset.rekapMerkPeriode.list}
                 trendMerk={dataset.trendMerk}

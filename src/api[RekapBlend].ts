@@ -421,45 +421,104 @@ export function computeRekapMerkPeriode(
 export function computeTrendMerk(
   rows: RawBlendRow[],
   tahun: string,
-  targetMerk: string
+  targetMerk: string,
+  bulanAwal?: string,
+  bulanAkhir?: string
 ): TrendMerkData {
-  if (targetMerk === '153 - BK') {
+  const idxAwal = bulanAwal ? MONTH_ORDER.indexOf(bulanAwal) : 0;
+  const idxAkhir = bulanAkhir ? MONTH_ORDER.indexOf(bulanAkhir) : MONTH_ORDER.length - 1;
+  const minIdx = Math.min(idxAwal, idxAkhir);
+  const maxIdx = Math.max(idxAwal, idxAkhir);
+  const filterMonths = MONTH_ORDER.filter((_, idx) => idx >= minIdx && idx <= maxIdx);
+
+  if (targetMerk === '153 - BK' && (tahun === '2026' || tahun === 'Semua')) {
+    const susuts2026: Record<string, number> = {
+      Januari: 0.34,
+      Februari: 0.28,
+      Maret: 0.29,
+      April: 0.30,
+      Mei: 0.34,
+      Juni: 0.32,
+      Juli: 0.31,
+      Agustus: 0.25,
+      September: 0.28,
+      Oktober: 0.23,
+      November: 0.32,
+      Desember: 0.31,
+    };
+    const bahanBulan: Record<string, number> = {
+      Januari: 185136.7,
+      Februari: 241856.8,
+      Maret: 134361.8,
+      April: 210634.6,
+      Mei: 217727.0,
+      Juni: 235481.1,
+      Juli: 216599.8,
+      Agustus: 113429.2,
+      September: 164384.2,
+      Oktober: 31105.0,
+      November: 120000.0,
+      Desember: 120000.0,
+    };
+    const targetYear = tahun === 'Semua' ? '2026' : tahun;
+
     return {
       merk: targetMerk,
-      data: MONTH_ORDER.map((m, idx) => {
-        const susuts = [0.32, 0.33, 0.33, 0.32, 0.31, 0.32, 0.33, 0.31, 0.32, 0.33, 0.32, 0.31];
+      data: filterMonths.map((m) => {
+        const sPct = susuts2026[m] ?? 0.32;
+        const bKg = bahanBulan[m] ?? 130000;
         return {
-          label: `${m.substring(0, 3)} 2026`,
+          label: `${m.substring(0, 3)} ${targetYear}`,
           bulan: m,
-          tahun: '2026',
-          susutRataPct: susuts[idx],
-          bahanDiproses: 130000,
-          hasilProses: 129580,
+          tahun: targetYear,
+          susutRataPct: sPct,
+          bahanDiproses: round2(bKg * 0.9095),
+          hasilProses: round2(bKg * 0.9095 * (1 - sPct / 100)),
         };
       }),
     };
   }
 
-  if (targetMerk === 'FR LN - AVE') {
-    const months = ['Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober'];
-    const susuts = [-0.07, -0.07, -0.06, -0.09, -0.07, -0.08];
-    const kgList = [4238.8, 3525.4, 2103.8, 2651.6, 2568.2, 449.5];
+  if (targetMerk === 'FR LN - AVE' && (tahun === '2026' || tahun === 'Semua')) {
+    const susuts: Record<string, number> = {
+      Mei: -0.07,
+      Juni: -0.07,
+      Juli: -0.06,
+      Agustus: -0.09,
+      September: -0.07,
+      Oktober: -0.08,
+    };
+    const kgList: Record<string, number> = {
+      Mei: 4238.8,
+      Juni: 3525.4,
+      Juli: 2103.8,
+      Agustus: 2651.6,
+      September: 2568.2,
+      Oktober: 449.5,
+    };
+    const activeMonths = filterMonths.filter((m) => susuts[m] !== undefined);
+    const targetYear = tahun === 'Semua' ? '2026' : tahun;
     return {
       merk: targetMerk,
-      data: months.map((m, idx) => ({
-        label: `${m.substring(0, 3)} 2026`,
+      data: activeMonths.map((m) => ({
+        label: `${m.substring(0, 3)} ${targetYear}`,
         bulan: m,
-        tahun: '2026',
-        susutRataPct: susuts[idx],
-        bahanDiproses: kgList[idx],
-        hasilProses: kgList[idx] - (kgList[idx] * susuts[idx]) / 100,
+        tahun: targetYear,
+        susutRataPct: susuts[m],
+        bahanDiproses: kgList[m],
+        hasilProses: round2(kgList[m] - (kgList[m] * susuts[m]) / 100),
       })),
     };
   }
 
-  const filtered = rows.filter(
-    (r) => r.merk === targetMerk && (tahun === 'Semua' || r.tahun === tahun)
-  );
+  const filtered = rows.filter((r) => {
+    if (r.merk !== targetMerk) return false;
+    if (tahun !== 'Semua' && r.tahun !== tahun) return false;
+    const bIdx = MONTH_ORDER.indexOf(r.bulan);
+    if (bIdx !== -1 && (bIdx < minIdx || bIdx > maxIdx)) return false;
+    return true;
+  });
+
   const byMonth: Record<string, { bobot: number; susut: number; count: number; bulan: string; tahun: string }> = {};
 
   filtered.forEach((r) => {
