@@ -14,6 +14,9 @@ import {
   Scale,
   Thermometer,
   Sparkles,
+  Filter,
+  ArrowRight,
+  RotateCcw,
 } from 'lucide-react';
 import { TrenSusutChartRekapBlend } from './TrenSusutChart[RekapBlend]';
 import { BarBahanHasilChartRekapBlend } from './BarBahanHasilChart[RekapBlend]';
@@ -29,68 +32,221 @@ export const TabBulanRekapBlend: React.FC<TabBulanProps> = ({
   onExportPdf,
   onZoomChart,
 }) => {
+  // Daftar tahun yang ada dalam dataset (termasuk fallback default)
+  const availableYears = React.useMemo(() => {
+    const set = new Set<string>();
+    data.forEach((d) => {
+      if (d.tahun) set.add(d.tahun);
+    });
+    // Pastikan tahun berjalan 2026 dan tahun pembanding tersedia
+    ['2026', '2025'].forEach((y) => set.add(y));
+    const sorted = Array.from(set).sort((a, b) => Number(b) - Number(a));
+    return ['Semua', ...sorted];
+  }, [data]);
+
+  // Default periode: Tahun berjalan (2026), dari Januari sampai Oktober (atau Desember)
+  const [tahunFilter, setTahunFilter] = useState<string>('2026');
+  const [bulanAwal, setBulanAwal] = useState<string>('Januari');
+  const [bulanAkhir, setBulanAkhir] = useState<string>('Oktober');
+
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<'bulan_desc' | 'bulan_asc' | 'bobot' | 'susutPct'>('bulan_desc');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
-  // Filter & Sort
-  const filtered = [...data].filter((item) =>
-    item.label.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Filter deret data bulanan berdasarkan filter tahun & rentang bulan
+  const periodFilteredData = React.useMemo(() => {
+    const idxAwal = MONTH_ORDER.indexOf(bulanAwal);
+    const idxAkhir = MONTH_ORDER.indexOf(bulanAkhir);
+    const minIdx = Math.min(idxAwal, idxAkhir);
+    const maxIdx = Math.max(idxAwal, idxAkhir);
 
-  filtered.sort((a, b) => {
-    if (sortBy === 'bobot') {
-      return sortOrder === 'asc'
-        ? a.bahanDiproses - b.bahanDiproses
-        : b.bahanDiproses - a.bahanDiproses;
-    }
-    if (sortBy === 'susutPct') {
-      return sortOrder === 'asc'
-        ? a.susutRataPct - b.susutRataPct
-        : b.susutRataPct - a.susutRataPct;
-    }
-    if (sortBy === 'bulan_asc') {
+    return data.filter((item) => {
+      // Filter tahun
+      if (tahunFilter !== 'Semua' && item.tahun && item.tahun !== tahunFilter) {
+        return false;
+      }
+      // Filter rentang bulan
+      const bIdx = MONTH_ORDER.indexOf(item.bulan);
+      if (bIdx !== -1) {
+        if (bIdx < minIdx || bIdx > maxIdx) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [data, tahunFilter, bulanAwal, bulanAkhir]);
+
+  // Data terurut untuk tabel pencarian
+  const filtered = React.useMemo(() => {
+    const list = periodFilteredData.filter((item) =>
+      item.label.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    list.sort((a, b) => {
+      if (sortBy === 'bobot') {
+        return sortOrder === 'asc'
+          ? a.bahanDiproses - b.bahanDiproses
+          : b.bahanDiproses - a.bahanDiproses;
+      }
+      if (sortBy === 'susutPct') {
+        return sortOrder === 'asc'
+          ? a.susutRataPct - b.susutRataPct
+          : b.susutRataPct - a.susutRataPct;
+      }
+      if (sortBy === 'bulan_asc') {
+        const yearDiff = Number(a.tahun || 0) - Number(b.tahun || 0);
+        if (yearDiff !== 0) return yearDiff;
+        return MONTH_ORDER.indexOf(a.bulan) - MONTH_ORDER.indexOf(b.bulan);
+      }
+      // Default ('bulan_desc'): Periode bulan terbaru berada di posisi atas, terlama di paling bawah
+      const yearDiff = Number(b.tahun || 0) - Number(a.tahun || 0);
+      if (yearDiff !== 0) return yearDiff;
+      return MONTH_ORDER.indexOf(b.bulan) - MONTH_ORDER.indexOf(a.bulan);
+    });
+
+    return list;
+  }, [periodFilteredData, searchTerm, sortBy, sortOrder]);
+
+  // Data terurut kronologis (Januari -> Desember) khusus untuk grafik time series
+  const chartData = React.useMemo(() => {
+    const list = [...periodFilteredData];
+    list.sort((a, b) => {
       const yearDiff = Number(a.tahun || 0) - Number(b.tahun || 0);
       if (yearDiff !== 0) return yearDiff;
       return MONTH_ORDER.indexOf(a.bulan) - MONTH_ORDER.indexOf(b.bulan);
-    }
-    // Default ('bulan_desc'): Periode bulan terbaru berada di posisi atas, terlama di paling bawah
-    const yearDiff = Number(b.tahun || 0) - Number(a.tahun || 0);
-    if (yearDiff !== 0) return yearDiff;
-    return MONTH_ORDER.indexOf(b.bulan) - MONTH_ORDER.indexOf(a.bulan);
-  });
+    });
+    return list;
+  }, [periodFilteredData]);
 
-  // Time-Series Key Insights (Analisis Deret Waktu Khusus)
-  const sortedByEfficiency = [...data].sort((a, b) => a.susutRataPct - b.susutRataPct);
+  // Time-Series Key Insights (Analisis Deret Waktu berdasarkan data periode terpilih)
+  const sortedByEfficiency = [...periodFilteredData].sort((a, b) => a.susutRataPct - b.susutRataPct);
   const bestMonth = sortedByEfficiency[0];
   const worstMonth = sortedByEfficiency[sortedByEfficiency.length - 1];
-  const totalBahan = data.reduce((acc, d) => acc + d.bahanDiproses, 0);
-  const totalHasil = data.reduce((acc, d) => acc + d.hasilProses, 0);
-  const validSuhu = data.filter((d) => d.suhuRata !== null).map((d) => d.suhuRata as number);
+  const totalBahan = periodFilteredData.reduce((acc, d) => acc + d.bahanDiproses, 0);
+  const totalHasil = periodFilteredData.reduce((acc, d) => acc + d.hasilProses, 0);
+  const validSuhu = periodFilteredData.filter((d) => d.suhuRata !== null).map((d) => d.suhuRata as number);
   const avgSuhu = validSuhu.length ? validSuhu.reduce((a, b) => a + b, 0) / validSuhu.length : 29.3;
+
+  // Label periode yang dinamis
+  const headerPeriodeLabel = React.useMemo(() => {
+    const thText = tahunFilter === 'Semua' ? 'Semua Tahun' : tahunFilter;
+    if (bulanAwal === bulanAkhir) {
+      return `${bulanAwal} ${thText}`;
+    }
+    return `${bulanAwal} – ${bulanAkhir} ${thText}`;
+  }, [bulanAwal, bulanAkhir, tahunFilter]);
+
+  const handleResetFilter = () => {
+    setTahunFilter('2026');
+    setBulanAwal('Januari');
+    setBulanAkhir('Oktober');
+  };
 
   return (
     <div className="space-y-5">
-      {/* Tab Top Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-slate-200/90 shadow-sm no-print">
-        <div className="flex items-center gap-2">
-          <Calendar className="w-4 h-4 text-blue-600" />
-          <h3 className="text-sm font-bold text-slate-800">
-            Kinerja Deret Waktu Bulanan (Januari – Oktober 2026)
-          </h3>
-          <span className="hidden sm:inline-block text-[11px] text-slate-400 ml-2">
-            💡 Analisis tren fluktuasi mutu dan akumulasi per bulan
-          </span>
+      {/* Tab Top Bar & Period Filter Controls */}
+      <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200/90 shadow-sm space-y-3 no-print">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-blue-50 border border-blue-200 text-blue-600 flex items-center justify-center font-bold">
+              <Calendar className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
+                <span>Kinerja Deret Waktu Bulanan ({headerPeriodeLabel})</span>
+                <span className="text-[11px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">
+                  {periodFilteredData.length} Bulan
+                </span>
+              </h3>
+              <p className="text-[11px] text-slate-500">
+                💡 Analisis tren fluktuasi mutu dan akumulasi per bulan sesuai rentang periode yang dipilih
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 ml-auto">
+            <button
+              onClick={onExportPdf}
+              className="flex items-center gap-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg text-xs font-bold border border-blue-200 transition cursor-pointer"
+            >
+              <FileText className="w-3.5 h-3.5 text-blue-600" />
+              <span>📄 Export Tab Ini (PDF)</span>
+            </button>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2 ml-auto">
-          <button
-            onClick={onExportPdf}
-            className="flex items-center gap-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg text-xs font-bold border border-blue-200 transition cursor-pointer"
-          >
-            <FileText className="w-3.5 h-3.5 text-blue-600" />
-            <span>📄 Export Tab Ini (PDF)</span>
-          </button>
+        {/* Dropdown Filter Bar: Bulan Awal, Bulan Akhir, dan Tahun */}
+        <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center gap-2.5 sm:gap-3 text-xs">
+          <div className="flex items-center gap-1.5 text-slate-600 font-bold">
+            <Filter className="w-3.5 h-3.5 text-blue-600" />
+            <span>Filter Periode:</span>
+          </div>
+
+          {/* Bulan Awal */}
+          <div className="flex items-center gap-1">
+            <span className="text-slate-500 text-[11px] font-medium">Bulan Awal:</span>
+            <select
+              value={bulanAwal}
+              onChange={(e) => setBulanAwal(e.target.value)}
+              className="bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
+            >
+              {MONTH_ORDER.map((m) => (
+                <option key={`awal-${m}`} value={m}>
+                  {m}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <ArrowRight className="w-3.5 h-3.5 text-slate-400 hidden sm:inline-block" />
+
+          {/* Bulan Akhir */}
+          <div className="flex items-center gap-1">
+            <span className="text-slate-500 text-[11px] font-medium">Bulan Akhir:</span>
+            <select
+              value={bulanAkhir}
+              onChange={(e) => setBulanAkhir(e.target.value)}
+              className="bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
+            >
+              {MONTH_ORDER.map((m) => (
+                <option key={`akhir-${m}`} value={m}>
+                  {m}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Tahun */}
+          <div className="flex items-center gap-1">
+            <span className="text-slate-500 text-[11px] font-medium">Tahun:</span>
+            <select
+              value={tahunFilter}
+              onChange={(e) => setTahunFilter(e.target.value)}
+              className="bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
+            >
+              {availableYears.map((y) => (
+                <option key={y} value={y}>
+                  {y === 'Semua' ? 'Semua Tahun' : y}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Tombol Reset ke Default Tahun Berjalan */}
+          {(tahunFilter !== '2026' || bulanAwal !== 'Januari' || bulanAkhir !== 'Oktober') && (
+            <button
+              onClick={handleResetFilter}
+              className="flex items-center gap-1 text-[11px] font-semibold text-slate-500 hover:text-blue-600 bg-slate-100 hover:bg-blue-50 px-2.5 py-1 rounded-lg border border-slate-200 transition cursor-pointer"
+              title="Kembalikan ke periode default (Januari – Oktober 2026)"
+            >
+              <RotateCcw className="w-3 h-3" />
+              <span>Reset Default (2026)</span>
+            </button>
+          )}
+
+          <div className="ml-auto text-[11px] text-slate-400 hidden md:block">
+            Menampilkan deret data sesuai periode: <strong className="text-slate-700">{headerPeriodeLabel}</strong>
+          </div>
         </div>
       </div>
 
@@ -181,18 +337,24 @@ export const TabBulanRekapBlend: React.FC<TabBulanProps> = ({
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* CHART 1: TREN SUSUT % (Model Grafik Garis Sesuai Gambar Referensi) */}
         <TrenSusutChartRekapBlend
-          data={data}
-          onExpand={() => onZoomChart('Tren Susut Rata-rata (%) per Bulan', 'line_susut', data)}
+          data={chartData}
+          onExpand={() =>
+            onZoomChart(
+              `Tren Susut Rata-rata (%) per Bulan (${headerPeriodeLabel})`,
+              'line_susut',
+              chartData
+            )
+          }
         />
 
         {/* CHART 2: BAHAN DIPROSES VS HASIL PROSES (Grafik Balok dengan Pop Up Dinamis di Atas/Bawah Kursor) */}
         <BarBahanHasilChartRekapBlend
-          data={data}
+          data={chartData}
           onExpand={() =>
             onZoomChart(
-              'Perbandingan Bahan Diproses vs Hasil Proses (Kg)',
+              `Perbandingan Bahan Diproses vs Hasil Proses (Kg) (${headerPeriodeLabel})`,
               'bar_bahan_hasil',
-              data
+              chartData
             )
           }
         />
