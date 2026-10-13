@@ -1,4 +1,4 @@
-import React, { useState, useId } from 'react';
+import React, { useState, useId, useRef } from 'react';
 import { RekapBulanItem } from '../types[RekapBlend]';
 import { fmtKg, fmtPct, fmtInt } from '../api[RekapBlend]';
 import { TrendingDown, Maximize2, ShieldCheck, AlertTriangle } from 'lucide-react';
@@ -15,7 +15,9 @@ export const TrenSusutChartRekapBlend: React.FC<TrenSusutChartProps> = ({
   onExpand,
 }) => {
   const uniqueId = useId().replace(/:/g, '_');
+  const containerRef = useRef<HTMLDivElement>(null);
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+  const [mousePos, setMousePos] = useState<{ x: number; y: number; relativeY: number } | null>(null);
 
   if (!data || data.length === 0) {
     return (
@@ -160,7 +162,22 @@ export const TrenSusutChartRekapBlend: React.FC<TrenSusutChartProps> = ({
       </div>
 
       {/* SVG Container */}
-      <div className={`w-full relative ${isModal ? 'h-[360px] sm:h-[420px]' : 'h-64 sm:h-72'}`}>
+      <div
+        ref={containerRef}
+        className={`w-full relative ${isModal ? 'h-[360px] sm:h-[420px]' : 'h-64 sm:h-72'}`}
+        onMouseMove={(e) => {
+          if (!containerRef.current) return;
+          const rect = containerRef.current.getBoundingClientRect();
+          const x = e.clientX - rect.left;
+          const y = e.clientY - rect.top;
+          const relativeY = Math.max(0, Math.min(1, y / rect.height));
+          setMousePos({ x, y, relativeY });
+        }}
+        onMouseLeave={() => {
+          setHoveredIdx(null);
+          setMousePos(null);
+        }}
+      >
         <svg
           className="w-full h-full overflow-visible"
           viewBox={`0 0 ${chartWidth} ${chartHeight}`}
@@ -380,34 +397,45 @@ export const TrenSusutChartRekapBlend: React.FC<TrenSusutChartProps> = ({
                   height={usableH + 30}
                   fill="transparent"
                   className="cursor-pointer"
-                  onMouseEnter={() => setHoveredIdx(pt.index)}
-                  onMouseLeave={() => setHoveredIdx(null)}
+                  onMouseEnter={() => {
+                    setHoveredIdx(pt.index);
+                  }}
                 />
               </g>
             );
           })}
         </svg>
 
-        {/* Interactive Floating Dark Tooltip (matches high-end monitoring reference) */}
-        {activePoint && (
-          <div
-            className={`absolute z-30 pointer-events-none transition-all duration-150 ${
-              activePoint.index <= 1
-                ? 'translate-x-0'
-                : activePoint.index >= points.length - 2
-                ? '-translate-x-full'
-                : '-translate-x-1/2'
-            }`}
-            style={{
-              left:
+        {/* Interactive Floating Dark Tooltip (Dynamically positioned above or below cursor to never obstruct points) */}
+        {activePoint && (() => {
+          const containerW = containerRef.current?.clientWidth || chartWidth;
+          const containerH = containerRef.current?.clientHeight || chartHeight;
+
+          // If mousePos is available use exact mouse coordinates, otherwise use point scaled coordinates
+          const posX = mousePos ? mousePos.x : (activePoint.x / chartWidth) * containerW;
+          const posY = mousePos ? mousePos.y : (activePoint.y / chartHeight) * containerH;
+          const relativeY = mousePos ? mousePos.relativeY : activePoint.y / chartHeight;
+
+          // When cursor/point is in the lower half (>0.46), place tooltip ABOVE (with extra margin so dot and badge are visible)
+          // When cursor/point is in the upper half (<=0.46), place tooltip BELOW
+          const placeAbove = relativeY > 0.46;
+
+          return (
+            <div
+              className={`absolute z-30 pointer-events-none transition-transform duration-75 ease-out ${
                 activePoint.index <= 1
-                  ? `${Math.max(4, (activePoint.x / chartWidth) * 100 - 4)}%`
+                  ? 'translate-x-0'
                   : activePoint.index >= points.length - 2
-                  ? `${Math.min(96, (activePoint.x / chartWidth) * 100 + 4)}%`
-                  : `${(activePoint.x / chartWidth) * 100}%`,
-              top: `${Math.max(6, Math.min((activePoint.y / chartHeight) * 100 - (isModal ? 26 : 32), 62))}%`,
-            }}
-          >
+                  ? '-translate-x-full'
+                  : '-translate-x-1/2'
+              } ${placeAbove ? '-translate-y-full mb-4' : 'translate-y-0 mt-4'}`}
+              style={{
+                left: `${Math.max(12, Math.min(posX, containerW - 12))}px`,
+                top: placeAbove
+                  ? `${Math.max(10, posY - 18)}px`
+                  : `${Math.min(containerH - 10, posY + 18)}px`,
+              }}
+            >
             <div className="bg-slate-900/95 backdrop-blur-md text-white border border-slate-700/80 shadow-2xl rounded-xl p-3 min-w-[210px] text-xs">
               <div className="flex items-center justify-between border-b border-slate-700/70 pb-1.5 mb-2">
                 <span className="font-bold text-slate-200">
@@ -446,8 +474,9 @@ export const TrenSusutChartRekapBlend: React.FC<TrenSusutChartProps> = ({
                 </div>
               </div>
             </div>
-          </div>
-        )}
+            </div>
+          );
+        })()}
       </div>
 
       {/* Footer Info Legend */}
