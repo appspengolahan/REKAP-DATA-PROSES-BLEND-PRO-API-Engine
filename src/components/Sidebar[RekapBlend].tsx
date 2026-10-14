@@ -70,7 +70,7 @@ export const SidebarRekapBlend: React.FC<SidebarProps> = ({
     },
     {
       id: 'explorer' as ActiveTab,
-      label: 'Data Explorer',
+      label: 'Log Data Harian',
       sublabel: 'Audit Baris DATAMASTER',
       icon: Database,
       badge: `${cachedRowsCount} Baris`,

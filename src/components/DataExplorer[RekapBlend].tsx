@@ -23,6 +23,43 @@ interface DataExplorerProps {
   onExportCsv: () => void;
 }
 
+const NAMA_HARI = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+const NAMA_BULAN = [
+  'Januari',
+  'Februari',
+  'Maret',
+  'April',
+  'Mei',
+  'Juni',
+  'Juli',
+  'Agustus',
+  'September',
+  'Oktober',
+  'November',
+  'Desember',
+];
+
+/**
+ * Format tanggal dari "YYYY-MM-DD" menjadi "Hari, Tanggal Bulan Tahun"
+ * Contoh: "2026-10-16" -> "Jumat, 16 Oktober 2026"
+ */
+export function formatTanggalLengkap(dateStr: string): string {
+  if (!dateStr) return '-';
+  const parts = dateStr.trim().split('-');
+  if (parts.length === 3) {
+    const year = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1;
+    const day = parseInt(parts[2], 10);
+    if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
+      const d = new Date(year, month, day, 12, 0, 0);
+      const dayName = NAMA_HARI[d.getDay()];
+      const monthName = NAMA_BULAN[month] || parts[1];
+      return `${dayName}, ${day} ${monthName} ${year}`;
+    }
+  }
+  return dateStr;
+}
+
 export const DataExplorerRekapBlend: React.FC<DataExplorerProps> = ({
   rows,
   currentRole,
@@ -53,12 +90,22 @@ export const DataExplorerRekapBlend: React.FC<DataExplorerProps> = ({
       if (searchTerm) {
         const term = searchTerm.toLowerCase();
         const matchTanggal = r.tanggal && r.tanggal.toLowerCase().includes(term);
+        const formattedTgl = formatTanggalLengkap(r.tanggal).toLowerCase();
+        const matchFormattedTanggal = formattedTgl.includes(term);
         const matchMerk = r.merk && r.merk.toLowerCase().includes(term);
         const matchMolen = r.molen && r.molen.toLowerCase().includes(term);
         const matchRow = String(r.srcRow).includes(term);
         const matchBulan = r.bulan && r.bulan.toLowerCase().includes(term);
         const matchTahun = r.tahun && String(r.tahun).includes(term);
-        if (!matchTanggal && !matchMerk && !matchMolen && !matchRow && !matchBulan && !matchTahun) {
+        if (
+          !matchTanggal &&
+          !matchFormattedTanggal &&
+          !matchMerk &&
+          !matchMolen &&
+          !matchRow &&
+          !matchBulan &&
+          !matchTahun
+        ) {
           return false;
         }
       }
@@ -105,7 +152,7 @@ export const DataExplorerRekapBlend: React.FC<DataExplorerProps> = ({
             </div>
             <div>
               <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2 flex-wrap">
-                <span>Data Explorer & Audit Baris DATAMASTER</span>
+                <span>Log Data Harian & Audit Baris DATAMASTER</span>
                 <span className="text-[11px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full flex items-center gap-1">
                   {sortOrder === 'desc' ? (
                     <>
@@ -121,7 +168,8 @@ export const DataExplorerRekapBlend: React.FC<DataExplorerProps> = ({
                 </span>
               </h3>
               <p className="text-[11px] text-slate-500">
-                Pemeriksaan entri mentah proses blend · Posisi urutan data: {sortOrder === 'desc' ? 'Terbaru ke Terlama' : 'Terlama ke Terbaru'}
+                Pemeriksaan entri harian proses blend · Posisi urutan data:{' '}
+                {sortOrder === 'desc' ? 'Terbaru ke Terlama' : 'Terlama ke Terbaru'}
               </p>
             </div>
           </div>
@@ -158,7 +206,7 @@ export const DataExplorerRekapBlend: React.FC<DataExplorerProps> = ({
             <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
-              placeholder="Cari nomor baris, tanggal (yyyy-mm-dd), merk..."
+              placeholder="Cari nomor baris, hari/tanggal (misal: Jumat, 16 Oktober), merk, molen..."
               value={searchTerm}
               onChange={(e) => {
                 setSearchTerm(e.target.value);
@@ -260,12 +308,12 @@ export const DataExplorerRekapBlend: React.FC<DataExplorerProps> = ({
         </div>
 
         <div className="overflow-x-auto scrollbar-thin">
-          <table className="w-full min-w-[800px] text-left text-xs border-collapse whitespace-nowrap">
+          <table className="w-full min-w-[760px] text-left text-xs border-collapse whitespace-nowrap">
             <thead>
               <tr className="bg-slate-100/70 border-b border-slate-200 text-slate-600 font-bold">
                 <th
                   onClick={toggleSortOrder}
-                  className="py-2.5 px-3 cursor-pointer hover:text-blue-700 select-none group"
+                  className="py-2.5 px-3 cursor-pointer hover:text-blue-700 select-none group w-24"
                   title="Klik untuk membalik urutan"
                 >
                   <div className="flex items-center gap-1">
@@ -279,7 +327,7 @@ export const DataExplorerRekapBlend: React.FC<DataExplorerProps> = ({
                   title="Klik untuk membalik urutan"
                 >
                   <div className="flex items-center gap-1">
-                    <span>Tanggal</span>
+                    <span>Tanggal & Hari</span>
                     {sortOrder === 'desc' ? (
                       <ArrowDown className="w-3 h-3 text-blue-600" />
                     ) : (
@@ -287,7 +335,6 @@ export const DataExplorerRekapBlend: React.FC<DataExplorerProps> = ({
                     )}
                   </div>
                 </th>
-                <th className="py-2.5 px-3">Bulan / Tahun</th>
                 <th className="py-2.5 px-3">Merk Blend</th>
                 <th className="py-2.5 px-3 text-right">Bobot Baku (Kg)</th>
                 <th className="py-2.5 px-3 text-right">Hasil (Kg)</th>
@@ -301,16 +348,24 @@ export const DataExplorerRekapBlend: React.FC<DataExplorerProps> = ({
               {paginated.map((r, idx) => {
                 const badge = getPctBadgeClass(r.susutPct);
                 return (
-                  <tr key={`${r.srcRow}-${r.tanggal}-${idx}`} className="hover:bg-slate-50/80 transition">
+                  <tr
+                    key={`${r.srcRow}-${r.tanggal}-${idx}`}
+                    className="hover:bg-slate-50/80 transition"
+                  >
                     <td className="py-2 px-3 font-mono text-slate-400 font-medium">#{r.srcRow}</td>
-                    <td className="py-2 px-3 font-semibold text-slate-800">{r.tanggal}</td>
-                    <td className="py-2 px-3 text-slate-600">
-                      {r.bulan} {r.tahun}
+                    <td className="py-2 px-3 font-semibold text-slate-800">
+                      {formatTanggalLengkap(r.tanggal)}
                     </td>
                     <td className="py-2 px-3 font-bold text-slate-900">{r.merk}</td>
-                    <td className="py-2 px-3 text-right font-medium text-blue-900">{fmtKg(r.bobot)}</td>
-                    <td className="py-2 px-3 text-right font-medium text-emerald-900">{fmtKg(r.hasil)}</td>
-                    <td className="py-2 px-3 text-right font-medium text-slate-700">{fmtKg(r.susutKg)}</td>
+                    <td className="py-2 px-3 text-right font-medium text-blue-900">
+                      {fmtKg(r.bobot)}
+                    </td>
+                    <td className="py-2 px-3 text-right font-medium text-emerald-900">
+                      {fmtKg(r.hasil)}
+                    </td>
+                    <td className="py-2 px-3 text-right font-medium text-slate-700">
+                      {fmtKg(r.susutKg)}
+                    </td>
                     <td className="py-2 px-3 text-right font-bold">
                       <span className={`${badge.color}`}>{fmtPct(r.susutPct)}%</span>
                     </td>

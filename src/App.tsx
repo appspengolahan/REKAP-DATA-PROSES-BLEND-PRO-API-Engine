@@ -449,7 +449,7 @@ export default function App() {
                 activeTab === 'explorer' ? 'bg-blue-600 text-white' : 'text-slate-600'
               }`}
             >
-              Audit Explorer
+              Log Data Harian
             </button>
           </div>
 
