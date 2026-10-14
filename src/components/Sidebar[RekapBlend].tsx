@@ -167,6 +167,36 @@ export const SidebarRekapBlend: React.FC<SidebarProps> = ({
             </button>
           );
         })}
+        {/* Switchboard Susut Nav Item */}
+        <div className="pt-2 mt-2 border-t border-slate-800/80">
+          <button
+            onClick={onOpenSwitchApp}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition relative group cursor-pointer text-slate-300 hover:bg-slate-800 hover:text-white border border-slate-800/90 hover:border-amber-500/40"
+            title={isCollapsed ? 'Switchboard Susut' : undefined}
+          >
+            <Layers className="w-5 h-5 shrink-0 text-amber-400 group-hover:scale-110 transition" />
+
+            {!isCollapsed && (
+              <div className="flex-1 truncate">
+                <div className="text-xs font-semibold truncate text-white">Switchboard Susut</div>
+                <div className="text-[10px] truncate text-slate-400">Portal Ekosistem PP1</div>
+              </div>
+            )}
+
+            {!isCollapsed && (
+              <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                Portal
+              </span>
+            )}
+
+            {isCollapsed && (
+              <div className="absolute left-full ml-2 px-2.5 py-1.5 bg-slate-800 text-white text-xs rounded-lg whitespace-nowrap shadow-xl border border-slate-700 pointer-events-none opacity-0 group-hover:opacity-100 transition z-50">
+                Switchboard Susut
+                <div className="text-[10px] text-amber-400">Portal Ekosistem PP1</div>
+              </div>
+            )}
+          </button>
+        </div>
       </nav>
 
       {/* Bottom Information & Control Box */}
@@ -187,15 +217,15 @@ export const SidebarRekapBlend: React.FC<SidebarProps> = ({
               </div>
             </div>
 
-            {/* Quick Actions (Switch App & Bantuan) */}
+            {/* Quick Actions (Switchboard Susut & Bantuan) */}
             <div className="grid grid-cols-2 gap-1.5">
               <button
                 onClick={onOpenSwitchApp}
-                className="flex items-center justify-center gap-1.5 py-1.5 px-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-[11px] font-semibold border border-slate-700/80 transition cursor-pointer"
-                title="Pindah Board"
+                className="flex items-center justify-center gap-1.5 py-1.5 px-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-[11px] font-semibold border border-slate-700/80 transition cursor-pointer truncate"
+                title="Buka Switchboard Susut"
               >
-                <Layers className="w-3.5 h-3.5 text-amber-400" />
-                <span>Switch App</span>
+                <Layers className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                <span className="truncate">Switchboard Susut</span>
               </button>
 
               <button
@@ -203,7 +233,7 @@ export const SidebarRekapBlend: React.FC<SidebarProps> = ({
                 className="flex items-center justify-center gap-1.5 py-1.5 px-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-[11px] font-semibold border border-slate-700/80 transition cursor-pointer"
                 title="Bantuan & Panduan"
               >
-                <HelpCircle className="w-3.5 h-3.5 text-blue-400" />
+                <HelpCircle className="w-3.5 h-3.5 text-blue-400 shrink-0" />
                 <span>Bantuan</span>
               </button>
             </div>
@@ -244,7 +274,7 @@ export const SidebarRekapBlend: React.FC<SidebarProps> = ({
             <button
               onClick={onOpenSwitchApp}
               className="p-2 rounded-lg bg-slate-800 text-amber-400 hover:bg-slate-700 transition cursor-pointer"
-              title="Switch App"
+              title="Switchboard Susut"
             >
               <Layers className="w-4 h-4" />
             </button>

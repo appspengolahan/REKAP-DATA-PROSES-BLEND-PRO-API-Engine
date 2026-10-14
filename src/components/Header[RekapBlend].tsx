@@ -392,16 +392,22 @@ export const HeaderRekapBlend: React.FC<HeaderProps> = ({
                     <span>Export Ringkasan (PDF)</span>
                   </button>
 
-                  {/* Switch App Board */}
+                  {/* Switchboard Susut */}
                   <button
                     onClick={() => {
                       setIsMenuOpen(false);
                       onOpenSwitchApp();
                     }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition cursor-pointer"
+                    className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition cursor-pointer group"
+                    title="Buka Switchboard Susut (Portal Aplikasi PP1)"
                   >
-                    <Layers className="w-4 h-4 text-amber-400" />
-                    <span>Switch App (Sistem Lain PP1)</span>
+                    <div className="flex items-center gap-2.5">
+                      <Layers className="w-4 h-4 text-amber-400 group-hover:scale-110 transition shrink-0" />
+                      <span className="font-semibold text-slate-200 group-hover:text-white">Switchboard Susut</span>
+                    </div>
+                    <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 shrink-0">
+                      Ekosistem PP1
+                    </span>
                   </button>
 
                   {/* GAS Center (Khusus PM / Super Admin) */}

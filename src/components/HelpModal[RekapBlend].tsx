@@ -82,8 +82,8 @@ export const HelpModalRekapBlend: React.FC<HelpModalProps> = ({ isOpen, onClose 
               spreadsheet.
             </li>
             <li>
-              Gunakan tombol <strong>🔀 Switch App</strong> di pojok kanan atas untuk berpindah ke
-              Monitoring Board komoditas lain.
+              Gunakan menu <strong>🔀 Switchboard Susut</strong> pada Sidebar atau menu Header untuk berpindah ke
+              Monitoring Board komoditas lain (Krosok, Tembakau, Cengkeh, dan Stock PP1).
             </li>
             <li>
               Klik tombol <strong>Install App</strong> atau banner biru di atas untuk memasang aplikasi langsung ke layar utama Smartphone (Android/iOS) atau Laptop/PC agar dapat dibuka cepat (0.01 detik) seperti aplikasi native.
