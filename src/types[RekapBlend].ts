@@ -11,11 +11,13 @@ export interface RawBlendRow {
   bulan: string;   // 'Januari'..'Desember'
   tahun: string;   // '2025', '2026'
   merk: string;
+  noMolen?: string | number; // Nomer Molen (Camp urut harian: 1, 2, 3...)
   bobot: number;   // Kg (Bahan Diproses)
   hasil: number;   // Kg (Hasil Proses)
   susutKg: number; // Kg
   susutPct: number;// %
-  molen: string;   // 'A', 'B', dll.
+  molen: string;   // 'MOLEN AA'..'MOLEN AF' (agregasi untuk Tab Rekap Molen)
+  molenDetail?: string; // 'MOLEN AA 1', 'MOLEN AA 2' (siklus putaran kerja untuk Log Data Harian)
   suhu: number | null; // °C
 }
 

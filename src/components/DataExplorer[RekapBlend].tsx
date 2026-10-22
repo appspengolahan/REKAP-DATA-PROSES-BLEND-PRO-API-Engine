@@ -93,7 +93,9 @@ export const DataExplorerRekapBlend: React.FC<DataExplorerProps> = ({
         const formattedTgl = formatTanggalLengkap(r.tanggal).toLowerCase();
         const matchFormattedTanggal = formattedTgl.includes(term);
         const matchMerk = r.merk && r.merk.toLowerCase().includes(term);
+        const matchNoMolen = r.noMolen !== undefined && String(r.noMolen).toLowerCase().includes(term);
         const matchMolen = r.molen && r.molen.toLowerCase().includes(term);
+        const matchMolenDetail = r.molenDetail && r.molenDetail.toLowerCase().includes(term);
         const matchRow = String(r.srcRow).includes(term);
         const matchBulan = r.bulan && r.bulan.toLowerCase().includes(term);
         const matchTahun = r.tahun && String(r.tahun).includes(term);
@@ -101,7 +103,9 @@ export const DataExplorerRekapBlend: React.FC<DataExplorerProps> = ({
           !matchTanggal &&
           !matchFormattedTanggal &&
           !matchMerk &&
+          !matchNoMolen &&
           !matchMolen &&
+          !matchMolenDetail &&
           !matchRow &&
           !matchBulan &&
           !matchTahun
@@ -336,6 +340,7 @@ export const DataExplorerRekapBlend: React.FC<DataExplorerProps> = ({
                   </div>
                 </th>
                 <th className="py-2.5 px-3">Merk Blend</th>
+                <th className="py-2.5 px-3 text-center">No. Molen</th>
                 <th className="py-2.5 px-3 text-right">Bobot Baku (Kg)</th>
                 <th className="py-2.5 px-3 text-right">Hasil (Kg)</th>
                 <th className="py-2.5 px-3 text-right">Susut (Kg)</th>
@@ -357,6 +362,9 @@ export const DataExplorerRekapBlend: React.FC<DataExplorerProps> = ({
                       {formatTanggalLengkap(r.tanggal)}
                     </td>
                     <td className="py-2 px-3 font-bold text-slate-900">{r.merk}</td>
+                    <td className="py-2 px-3 text-center font-mono font-bold text-slate-700 bg-slate-50/60">
+                      {r.noMolen !== undefined && r.noMolen !== null && r.noMolen !== '' ? r.noMolen : '-'}
+                    </td>
                     <td className="py-2 px-3 text-right font-medium text-blue-900">
                       {fmtKg(r.bobot)}
                     </td>
@@ -369,7 +377,9 @@ export const DataExplorerRekapBlend: React.FC<DataExplorerProps> = ({
                     <td className="py-2 px-3 text-right font-bold">
                       <span className={`${badge.color}`}>{fmtPct(r.susutPct)}%</span>
                     </td>
-                    <td className="py-2 px-3 text-slate-600 font-medium">{r.molen}</td>
+                    <td className="py-2 px-3 text-slate-700 font-semibold">
+                      {r.molenDetail || r.molen}
+                    </td>
                     <td className="py-2 px-3 text-right text-slate-600">
                       {r.suhu !== null ? `${fmtSuhu(r.suhu)} °C` : '-'}
                     </td>

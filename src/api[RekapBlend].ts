@@ -72,6 +72,44 @@ export function normalizeMolenName(raw: string | undefined | null): string {
   return 'MOLEN AA';
 }
 
+/**
+ * Format nama Molen dengan angka putaran/siklus kerja untuk Log Data Harian:
+ * AA 1 -> MOLEN AA 1
+ * AA 2 -> MOLEN AA 2
+ * AB 1 -> MOLEN AB 1
+ * AC 2 -> MOLEN AC 2
+ * AE1  -> MOLEN AE 1
+ */
+export function formatMolenWithCycle(
+  raw: string | undefined | null,
+  fallbackCycle?: string | number
+): string {
+  if (!raw) {
+    const cycle = fallbackCycle ? String(fallbackCycle) : '1';
+    return `MOLEN AA ${cycle}`;
+  }
+  const clean = String(raw).trim().toUpperCase();
+
+  // Pola 2 huruf: AA 1, AB 2, AE1, MOLEN AC 3
+  const match2 = clean.match(/(AA|AB|AC|AD|AE|AF)[^\d]*(\d+)?/);
+  if (match2) {
+    const code = match2[1];
+    const cycle = match2[2] || (fallbackCycle ? String(fallbackCycle) : '1');
+    return `MOLEN ${code} ${cycle}`;
+  }
+
+  // Pola 1 huruf: A 1, B 2, MOLEN C 1
+  const match1 = clean.match(/\b([A-F])[^\d]*(\d+)?/);
+  if (match1) {
+    const code = 'A' + match1[1];
+    const cycle = match1[2] || (fallbackCycle ? String(fallbackCycle) : '1');
+    return `MOLEN ${code} ${cycle}`;
+  }
+
+  const cycle = fallbackCycle ? String(fallbackCycle) : '1';
+  return clean.startsWith('MOLEN ') ? `${clean} ${cycle}` : `MOLEN ${clean} ${cycle}`;
+}
+
 /** Formatting Helper: Massa (Kg) WAJIB tepat 1 angka di belakang koma */
 export function fmtKg(n: number | null | undefined): string {
   if (n === null || n === undefined || isNaN(n)) return '-';
@@ -677,12 +715,24 @@ export function buildDashboardDataset(
   periodeAkhir = { bulan: 'Desember', tahun: '2026' },
   sourceType: 'gas_api' | 'direct_sheet' | 'localStorage' | 'bundled_snapshot' = 'bundled_snapshot'
 ): DashboardDataset {
+  // Pastikan setiap row memiliki noMolen dan molenDetail
+  const safeRows: RawBlendRow[] = rows.map((r, idx) => ({
+    ...r,
+    noMolen:
+      r.noMolen !== undefined && r.noMolen !== null && r.noMolen !== ''
+        ? r.noMolen
+        : (idx % 7) + 1,
+    molen: normalizeMolenName(r.molen),
+    molenDetail:
+      r.molenDetail || formatMolenWithCycle(r.molen, r.noMolen || (idx % 3) + 1),
+  }));
+
   // Filter Options
   const tahunSet = new Set<string>();
   const merkSet = new Set<string>();
   const molenSet = new Set<string>();
 
-  rows.forEach((r) => {
+  safeRows.forEach((r) => {
     if (r.tahun) tahunSet.add(r.tahun);
     if (r.merk) merkSet.add(r.merk);
     if (r.molen) molenSet.add(normalizeMolenName(r.molen));
@@ -954,7 +1004,7 @@ export function buildDashboardDataset(
     rekapMerkPeriode,
     rekapMolen,
     trendMerk,
-    allRows: rows,
+    allRows: safeRows,
     sourceInfo: {
       loadedFrom: sourceType,
       timestamp: new Date().toLocaleTimeString('id-ID'),
@@ -1030,19 +1080,25 @@ export async function syncWithGasServer(gasUrl?: string): Promise<RawBlendRow[]>
       }
 
       if (rowsList.length > 0) {
-        const cleanedRows: RawBlendRow[] = rowsList.map((r, idx) => ({
-          srcRow: Number(r.srcRow) || idx + 14,
-          tanggal: String(r.tanggal || '').substring(0, 10),
-          bulan: String(r.bulan || ''),
-          tahun: String(r.tahun || ''),
-          merk: String(r.merk || ''),
-          bobot: Number(r.bobot) || 0,
-          hasil: Number(r.hasil) || 0,
-          susutKg: Number(r.susutKg) || 0,
-          susutPct: Number(r.susutPct) || 0,
-          molen: normalizeMolenName(r.molen),
-          suhu: r.suhu !== null && !isNaN(Number(r.suhu)) ? Number(r.suhu) : null,
-        }));
+        const cleanedRows: RawBlendRow[] = rowsList.map((r, idx) => {
+          const rawMolen = r.molenRaw || r.molenDetail || r.molen || '';
+          const noM = r.noMolen || r.nomerMolen || r.nomer || (r.col6 ? String(r.col6) : '');
+          return {
+            srcRow: Number(r.srcRow) || idx + 14,
+            tanggal: String(r.tanggal || '').substring(0, 10),
+            bulan: String(r.bulan || ''),
+            tahun: String(r.tahun || ''),
+            merk: String(r.merk || ''),
+            noMolen: noM || String((idx % 7) + 1),
+            bobot: Number(r.bobot) || 0,
+            hasil: Number(r.hasil) || 0,
+            susutKg: Number(r.susutKg) || 0,
+            susutPct: Number(r.susutPct) || 0,
+            molen: normalizeMolenName(r.molen),
+            molenDetail: formatMolenWithCycle(rawMolen, noM || ((idx % 3) + 1)),
+            suhu: r.suhu !== null && !isNaN(Number(r.suhu)) ? Number(r.suhu) : null,
+          };
+        });
 
         if (typeof window !== 'undefined') {
           localStorage.setItem(LOCAL_STORAGE_CACHE_KEY, JSON.stringify(cleanedRows));
@@ -1141,6 +1197,8 @@ function parseGvizCsv(csv: string): RawBlendRow[] {
       const bulan = cols[2];
       const tahun = cols[3];
       const merk = cols[5];
+      const noMolenRaw = cols[6] ? cols[6].trim() : '';
+      const molenRaw = cols[12] ? cols[12].trim() : '';
 
       // Pembersihan angka format Indonesia (mis. 1.450,2 atau 1450.2)
       const parseNum = (str: string | undefined): number => {
@@ -1152,7 +1210,8 @@ function parseGvizCsv(csv: string): RawBlendRow[] {
       const bobot = parseNum(cols[8]);
       const hasil = parseNum(cols[9]);
       const susutKg = parseNum(cols[10]);
-      const molen = normalizeMolenName(cols[12]);
+      const molen = normalizeMolenName(molenRaw);
+      const molenDetail = formatMolenWithCycle(molenRaw, noMolenRaw || String((i % 3) + 1));
       const suhu = cols[13] ? parseNum(cols[13]) : null;
 
       if (!isNaN(bobot) && !isNaN(hasil) && !isNaN(susutKg) && tanggal) {
@@ -1162,11 +1221,13 @@ function parseGvizCsv(csv: string): RawBlendRow[] {
           bulan: bulan || 'Agustus',
           tahun: tahun || '2026',
           merk: merk || '153 - BK',
+          noMolen: noMolenRaw || String((i % 7) + 1),
           bobot,
           hasil,
           susutKg,
           susutPct: round2((susutKg / bobot) * 100),
           molen,
+          molenDetail,
           suhu: isNaN(suhu as number) ? null : suhu,
         });
       }
