@@ -17,6 +17,7 @@ import {
   Radio,
   PanelLeftClose,
   PanelLeft,
+  ArrowLeftRight,
 } from 'lucide-react';
 import { PWAInstallButtonRekapBlend } from './PWAInstallButton[RekapBlend]';
 
@@ -27,6 +28,7 @@ interface HeaderProps {
   onRefresh: () => void;
   isRefreshing: boolean;
   onOpenSwitchApp: () => void;
+  onOpenIntegrasiDhp?: () => void;
   onOpenGasCenter: () => void;
   onOpenHelp: () => void;
   onExportSummaryPdf: () => void;
@@ -53,6 +55,7 @@ export const HeaderRekapBlend: React.FC<HeaderProps> = ({
   onRefresh,
   isRefreshing,
   onOpenSwitchApp,
+  onOpenIntegrasiDhp,
   onOpenGasCenter,
   onOpenHelp,
   onExportSummaryPdf,
@@ -391,6 +394,26 @@ export const HeaderRekapBlend: React.FC<HeaderProps> = ({
                     <FileText className="w-4 h-4 text-emerald-400" />
                     <span>Export Ringkasan (PDF)</span>
                   </button>
+
+                  {/* Integrasi DHP BLEND */}
+                  {onOpenIntegrasiDhp && (
+                    <button
+                      onClick={() => {
+                        setIsMenuOpen(false);
+                        onOpenIntegrasiDhp();
+                      }}
+                      className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition cursor-pointer group"
+                      title="Buka Integrasi & Sinkronisasi DHP BLEND"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <ArrowLeftRight className="w-4 h-4 text-emerald-400 group-hover:scale-110 transition shrink-0" />
+                        <span className="font-semibold text-slate-200 group-hover:text-white">Integrasi DHP BLEND</span>
+                      </div>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold shrink-0">
+                        Live DHP
+                      </span>
+                    </button>
+                  )}
 
                   {/* Switchboard Susut */}
                   <button

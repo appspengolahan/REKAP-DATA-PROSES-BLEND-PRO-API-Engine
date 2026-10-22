@@ -27,6 +27,7 @@ import { TabMolenRekapBlend } from './components/TabMolen[RekapBlend]';
 import { DataExplorerRekapBlend } from './components/DataExplorer[RekapBlend]';
 import { HelpModalRekapBlend } from './components/HelpModal[RekapBlend]';
 import { SwitchBoardModalRekapBlend } from './components/SwitchBoardModal[RekapBlend]';
+import { IntegrasiDhpModalRekapBlend } from './components/IntegrasiDhpModal[RekapBlend]';
 import { GasCenterModalRekapBlend } from './components/GasCenterModal[RekapBlend]';
 import { ChartModalRekapBlend } from './components/ChartModal[RekapBlend]';
 import { PWAInstallButtonRekapBlend } from './components/PWAInstallButton[RekapBlend]';
@@ -63,6 +64,7 @@ export default function App() {
   // Modals
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [isSwitchAppOpen, setIsSwitchAppOpen] = useState(false);
+  const [isIntegrasiDhpOpen, setIsIntegrasiDhpOpen] = useState(false);
   const [isGasCenterOpen, setIsGasCenterOpen] = useState(false);
   const [chartModal, setChartModal] = useState<{
     isOpen: boolean;
@@ -359,6 +361,7 @@ export default function App() {
         onRefresh={() => handleRefresh(false)}
         isRefreshing={isRefreshing}
         onOpenSwitchApp={() => setIsSwitchAppOpen(true)}
+        onOpenIntegrasiDhp={() => setIsIntegrasiDhpOpen(true)}
         onOpenGasCenter={() => setIsGasCenterOpen(true)}
         onOpenHelp={() => setIsHelpOpen(true)}
         onExportSummaryPdf={handleExportSummaryPdf}
@@ -382,6 +385,7 @@ export default function App() {
           onRoleChange={handleRoleChange}
           cachedRowsCount={dataset.allRows.length}
           onOpenSwitchApp={() => setIsSwitchAppOpen(true)}
+          onOpenIntegrasiDhp={() => setIsIntegrasiDhpOpen(true)}
           onOpenGasCenter={() => setIsGasCenterOpen(true)}
           onOpenHelp={() => setIsHelpOpen(true)}
         />
@@ -534,6 +538,14 @@ export default function App() {
       <SwitchBoardModalRekapBlend
         isOpen={isSwitchAppOpen}
         onClose={() => setIsSwitchAppOpen(false)}
+      />
+
+      <IntegrasiDhpModalRekapBlend
+        isOpen={isIntegrasiDhpOpen}
+        onClose={() => setIsIntegrasiDhpOpen(false)}
+        rekapRows={dataset.allRows}
+        currentRole={currentRole}
+        onRefreshRekap={() => handleRefresh(false)}
       />
 
       <GasCenterModalRekapBlend

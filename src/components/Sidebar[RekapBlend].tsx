@@ -12,6 +12,7 @@ import {
   HelpCircle,
   Settings,
   ShieldCheck,
+  ArrowLeftRight,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -23,6 +24,7 @@ interface SidebarProps {
   onRoleChange?: (role: UserRole) => void;
   cachedRowsCount: number;
   onOpenSwitchApp?: () => void;
+  onOpenIntegrasiDhp?: () => void;
   onOpenGasCenter?: () => void;
   onOpenHelp?: () => void;
 }
@@ -36,6 +38,7 @@ export const SidebarRekapBlend: React.FC<SidebarProps> = ({
   onRoleChange,
   cachedRowsCount,
   onOpenSwitchApp,
+  onOpenIntegrasiDhp,
   onOpenGasCenter,
   onOpenHelp,
 }) => {
@@ -167,19 +170,48 @@ export const SidebarRekapBlend: React.FC<SidebarProps> = ({
             </button>
           );
         })}
-        {/* Switchboard Susut Nav Item */}
-        <div className="pt-2 mt-2 border-t border-slate-800/80">
+        {/* Integrasi & Sinkronisasi DHP BLEND */}
+        <div className="pt-2 mt-2 border-t border-slate-800/80 space-y-1">
           <button
-            onClick={onOpenSwitchApp}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition relative group cursor-pointer text-slate-300 hover:bg-slate-800 hover:text-white border border-slate-800/90 hover:border-amber-500/40"
-            title={isCollapsed ? 'Switchboard Susut' : undefined}
+            onClick={onOpenIntegrasiDhp}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition relative group cursor-pointer text-slate-200 hover:bg-blue-900/40 hover:text-white border border-blue-900/50 hover:border-blue-500/70 shadow-xs"
+            title={isCollapsed ? 'Integrasi DHP BLEND' : undefined}
           >
-            <Layers className="w-5 h-5 shrink-0 text-amber-400 group-hover:scale-110 transition" />
+            <ArrowLeftRight className="w-5 h-5 shrink-0 text-blue-400 group-hover:scale-110 transition" />
 
             {!isCollapsed && (
               <div className="flex-1 truncate">
-                <div className="text-xs font-semibold truncate text-white">Switchboard Susut</div>
-                <div className="text-[10px] truncate text-slate-400">Portal Ekosistem PP1</div>
+                <div className="text-xs font-bold truncate text-white">Integrasi DHP BLEND</div>
+                <div className="text-[10px] truncate text-blue-300">Sinkronisasi Otomatis</div>
+              </div>
+            )}
+
+            {!isCollapsed && (
+              <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold bg-blue-500/25 text-blue-300 border border-blue-400/30">
+                Live DHP
+              </span>
+            )}
+
+            {isCollapsed && (
+              <div className="absolute left-full ml-2 px-2.5 py-1.5 bg-slate-800 text-white text-xs rounded-lg whitespace-nowrap shadow-xl border border-slate-700 pointer-events-none opacity-0 group-hover:opacity-100 transition z-50">
+                Integrasi DHP BLEND
+                <div className="text-[10px] text-blue-400">Pencocokan & Transfer Data</div>
+              </div>
+            )}
+          </button>
+
+          {/* Switchboard Susut Nav Item */}
+          <button
+            onClick={onOpenSwitchApp}
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left transition relative group cursor-pointer text-slate-400 hover:bg-slate-800 hover:text-white border border-slate-800/80 hover:border-amber-500/40"
+            title={isCollapsed ? 'Switchboard Susut' : undefined}
+          >
+            <Layers className="w-4 h-4 shrink-0 text-amber-400 group-hover:scale-110 transition" />
+
+            {!isCollapsed && (
+              <div className="flex-1 truncate">
+                <div className="text-xs font-semibold truncate text-slate-300">Switchboard Susut</div>
+                <div className="text-[10px] truncate text-slate-500">Portal Ekosistem PP1</div>
               </div>
             )}
 
@@ -271,6 +303,13 @@ export const SidebarRekapBlend: React.FC<SidebarProps> = ({
           </>
         ) : (
           <div className="flex flex-col items-center gap-2 py-1">
+            <button
+              onClick={onOpenIntegrasiDhp}
+              className="p-2 rounded-lg bg-blue-900/40 text-blue-400 hover:bg-blue-800 hover:text-white transition cursor-pointer"
+              title="Integrasi DHP BLEND"
+            >
+              <ArrowLeftRight className="w-4 h-4" />
+            </button>
             <button
               onClick={onOpenSwitchApp}
               className="p-2 rounded-lg bg-slate-800 text-amber-400 hover:bg-slate-700 transition cursor-pointer"
