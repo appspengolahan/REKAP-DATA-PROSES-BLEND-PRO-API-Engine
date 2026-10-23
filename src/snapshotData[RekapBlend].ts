@@ -76,19 +76,19 @@ export const SNAPSHOT_BLEND_ROWS: RawBlendRow[] = [
   { srcRow: 4619, tanggal: '2026-10-05', bulan: 'Oktober', tahun: '2026', merk: '153 - BK', bobot: 876.5, hasil: 873.6, susutKg: 2.9, susutPct: 0.33, molen: 'MOLEN AE', suhu: 29.0 },
   { srcRow: 4620, tanggal: '2026-10-05', bulan: 'Oktober', tahun: '2026', merk: '153 - BK', bobot: 876.1, hasil: 874.3, susutKg: 1.8, susutPct: 0.21, molen: 'MOLEN AE', suhu: 33.0 },
 
-  // 23 Oktober 2026 (Transaksi Terbaru Terverifikasi di DATAMASTER)
-  { srcRow: 4717, tanggal: '2026-10-23', bulan: 'Oktober', tahun: '2026', merk: 'KARANG - BK', noMolen: '1', bobot: 874.7, hasil: 870.0, susutKg: 4.7, susutPct: 0.54, molen: 'MOLEN AE', molenDetail: 'AE 01', suhu: 30.0 },
+  // 23 Oktober 2026 (Transaksi Terbaru Terverifikasi di DATAMASTER - Suhu Asli tanpa Data Semu)
+  { srcRow: 4717, tanggal: '2026-10-23', bulan: 'Oktober', tahun: '2026', merk: 'KARANG - BK', noMolen: '1', bobot: 874.7, hasil: 870.0, susutKg: 4.7, susutPct: 0.54, molen: 'MOLEN AE', molenDetail: 'AE 01', suhu: null },
   { srcRow: 4718, tanggal: '2026-10-23', bulan: 'Oktober', tahun: '2026', merk: '153 - BK', noMolen: '1', bobot: 876.1, hasil: 873.9, susutKg: 2.2, susutPct: 0.25, molen: 'MOLEN AA', molenDetail: 'AA 01', suhu: 31.0 },
-  { srcRow: 4719, tanggal: '2026-10-23', bulan: 'Oktober', tahun: '2026', merk: '153 - BK', noMolen: '2', bobot: 876.1, hasil: 870.0, susutKg: 6.1, susutPct: 0.70, molen: 'MOLEN AA', molenDetail: 'AA 02', suhu: 31.0 },
+  { srcRow: 4719, tanggal: '2026-10-23', bulan: 'Oktober', tahun: '2026', merk: '153 - BK', noMolen: '2', bobot: 876.1, hasil: 870.0, susutKg: 6.1, susutPct: 0.70, molen: 'MOLEN AA', molenDetail: 'AA 02', suhu: 33.0 },
   { srcRow: 4720, tanggal: '2026-10-23', bulan: 'Oktober', tahun: '2026', merk: '153 - BK', noMolen: '3', bobot: 876.1, hasil: 873.6, susutKg: 2.5, susutPct: 0.29, molen: 'MOLEN AB', molenDetail: 'AB 03', suhu: 31.0 },
-  { srcRow: 4721, tanggal: '2026-10-23', bulan: 'Oktober', tahun: '2026', merk: '153 - BK', noMolen: '4', bobot: 875.6, hasil: 870.0, susutKg: 5.6, susutPct: 0.64, molen: 'MOLEN AB', molenDetail: 'AB 04', suhu: 31.0 },
-  { srcRow: 4722, tanggal: '2026-10-23', bulan: 'Oktober', tahun: '2026', merk: '153 - BK', noMolen: '5', bobot: 876.6, hasil: 870.0, susutKg: 6.6, susutPct: 0.75, molen: 'MOLEN AB', molenDetail: 'AB 05', suhu: 31.0 },
+  { srcRow: 4721, tanggal: '2026-10-23', bulan: 'Oktober', tahun: '2026', merk: '153 - BK', noMolen: '4', bobot: 875.6, hasil: 870.0, susutKg: 5.6, susutPct: 0.64, molen: 'MOLEN AB', molenDetail: 'AB 04', suhu: 33.0 },
+  { srcRow: 4722, tanggal: '2026-10-23', bulan: 'Oktober', tahun: '2026', merk: '153 - BK', noMolen: '5', bobot: 876.6, hasil: 870.0, susutKg: 6.6, susutPct: 0.75, molen: 'MOLEN AB', molenDetail: 'AB 05', suhu: null },
   { srcRow: 4723, tanggal: '2026-10-23', bulan: 'Oktober', tahun: '2026', merk: '153 - BK', noMolen: '6', bobot: 876.1, hasil: 873.7, susutKg: 2.4, susutPct: 0.27, molen: 'MOLEN AC', molenDetail: 'AC 06', suhu: 31.0 },
-  { srcRow: 4724, tanggal: '2026-10-23', bulan: 'Oktober', tahun: '2026', merk: '153 - BK', noMolen: '7', bobot: 876.3, hasil: 870.0, susutKg: 6.3, susutPct: 0.72, molen: 'MOLEN AC', molenDetail: 'AC 07', suhu: 31.0 },
+  { srcRow: 4724, tanggal: '2026-10-23', bulan: 'Oktober', tahun: '2026', merk: '153 - BK', noMolen: '7', bobot: 876.3, hasil: 870.0, susutKg: 6.3, susutPct: 0.72, molen: 'MOLEN AC', molenDetail: 'AC 07', suhu: 33.0 },
   { srcRow: 4725, tanggal: '2026-10-23', bulan: 'Oktober', tahun: '2026', merk: '153 - BK', noMolen: '8', bobot: 875.8, hasil: 873.4, susutKg: 2.4, susutPct: 0.27, molen: 'MOLEN AD', molenDetail: 'AD 08', suhu: 30.0 },
-  { srcRow: 4726, tanggal: '2026-10-23', bulan: 'Oktober', tahun: '2026', merk: '153 - BK', noMolen: '9', bobot: 875.8, hasil: 870.0, susutKg: 5.8, susutPct: 0.66, molen: 'MOLEN AD', molenDetail: 'AD 09', suhu: 30.0 },
+  { srcRow: 4726, tanggal: '2026-10-23', bulan: 'Oktober', tahun: '2026', merk: '153 - BK', noMolen: '9', bobot: 875.8, hasil: 870.0, susutKg: 5.8, susutPct: 0.66, molen: 'MOLEN AD', molenDetail: 'AD 09', suhu: null },
   { srcRow: 4727, tanggal: '2026-10-23', bulan: 'Oktober', tahun: '2026', merk: '153 - BK', noMolen: '10', bobot: 876.0, hasil: 873.2, susutKg: 2.8, susutPct: 0.32, molen: 'MOLEN AE', molenDetail: 'AE 10', suhu: 30.0 },
-  { srcRow: 4728, tanggal: '2026-10-23', bulan: 'Oktober', tahun: '2026', merk: '153 - BK', noMolen: '11', bobot: 876.0, hasil: 870.0, susutKg: 6.0, susutPct: 0.68, molen: 'MOLEN AE', molenDetail: 'AE 11', suhu: 30.0 },
+  { srcRow: 4728, tanggal: '2026-10-23', bulan: 'Oktober', tahun: '2026', merk: '153 - BK', noMolen: '11', bobot: 876.0, hasil: 870.0, susutKg: 6.0, susutPct: 0.68, molen: 'MOLEN AE', molenDetail: 'AE 11', suhu: null },
 
   // Data historis 2025 pembanding
   { srcRow: 60, tanggal: '2025-10-14', bulan: 'Oktober', tahun: '2025', merk: '153 - BK', bobot: 884.0, hasil: 881.0, susutKg: 3.0, susutPct: 0.34, molen: 'MOLEN AA', suhu: 29.1 },
