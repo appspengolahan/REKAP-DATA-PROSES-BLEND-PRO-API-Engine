@@ -40,24 +40,53 @@ const NAMA_BULAN = [
 ];
 
 /**
- * Format tanggal dari "YYYY-MM-DD" menjadi "Hari, Tanggal Bulan Tahun"
- * Contoh: "2026-10-16" -> "Jumat, 16 Oktober 2026"
+ * Format tanggal menjadi format baku: "Hari, Tanggal Bulan Tahun"
+ * Contoh: "2026-10-23" atau "23 October 2026" atau "23 Oktober" -> "Jumat, 23 Oktober 2026"
  */
 export function formatTanggalLengkap(dateStr: string): string {
   if (!dateStr) return '-';
-  const parts = dateStr.trim().split('-');
-  if (parts.length === 3) {
-    const year = parseInt(parts[0], 10);
-    const month = parseInt(parts[1], 10) - 1;
-    const day = parseInt(parts[2], 10);
-    if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
-      const d = new Date(year, month, day, 12, 0, 0);
-      const dayName = NAMA_HARI[d.getDay()];
-      const monthName = NAMA_BULAN[month] || parts[1];
-      return `${dayName}, ${day} ${monthName} ${year}`;
+  let s = dateStr.trim();
+
+  // Jika sudah memuat nama hari Indonesia (misal: "Jumat, 23 Oktober 2026")
+  if (/^(Minggu|Senin|Selasa|Rabu|Kamis|Jumat|Sabtu),/i.test(s)) {
+    return s;
+  }
+
+  // Normalisasi teks bulan bahasa Inggris ke bahasa Indonesia
+  const enToId: Record<string, string> = {
+    january: 'Januari', february: 'Februari', march: 'Maret', april: 'April',
+    may: 'Mei', june: 'Juni', july: 'Juli', august: 'Agustus',
+    september: 'September', october: 'Oktober', november: 'November', december: 'Desember'
+  };
+  for (const [en, id] of Object.entries(enToId)) {
+    const reg = new RegExp(en, 'gi');
+    if (reg.test(s)) s = s.replace(reg, id);
+  }
+
+  // Pola 1: ISO Format (YYYY-MM-DD)
+  const isoMatch = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (isoMatch) {
+    const y = parseInt(isoMatch[1], 10);
+    const m = parseInt(isoMatch[2], 10) - 1;
+    const d = parseInt(isoMatch[3], 10);
+    const dt = new Date(y, m, d, 12, 0, 0);
+    return `${NAMA_HARI[dt.getDay()]}, ${d} ${NAMA_BULAN[m]} ${y}`;
+  }
+
+  // Pola 2: Format "DD Bulan YYYY" atau "DD Bulan" (misal: "23 Oktober 2026" atau "23 Oktober")
+  const dmyMatch = s.match(/^(\d{1,2})\s+([A-Za-z]+)(?:\s+(\d{4}))?/);
+  if (dmyMatch) {
+    const d = parseInt(dmyMatch[1], 10);
+    const mStr = dmyMatch[2];
+    const y = dmyMatch[3] ? parseInt(dmyMatch[3], 10) : 2026;
+    const mIdx = NAMA_BULAN.findIndex((b) => b.toLowerCase() === mStr.toLowerCase());
+    if (mIdx !== -1) {
+      const dt = new Date(y, mIdx, d, 12, 0, 0);
+      return `${NAMA_HARI[dt.getDay()]}, ${d} ${NAMA_BULAN[mIdx]} ${y}`;
     }
   }
-  return dateStr;
+
+  return s;
 }
 
 export const DataExplorerRekapBlend: React.FC<DataExplorerProps> = ({
