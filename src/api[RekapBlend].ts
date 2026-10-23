@@ -86,16 +86,16 @@ export function formatMolenWithCycle(
 ): string {
   if (!raw) {
     const cycle = fallbackCycle ? String(fallbackCycle) : '1';
-    return `MOLEN AA ${cycle}`;
+    return `AA ${cycle}`;
   }
   const clean = String(raw).trim().toUpperCase();
 
-  // Pola 2 huruf: AA 1, AB 2, AE1, MOLEN AC 3
+  // Pola 2 huruf: AA 01, AA 1, AB 2, AE1, MOLEN AC 3
   const match2 = clean.match(/(AA|AB|AC|AD|AE|AF)[^\d]*(\d+)?/);
   if (match2) {
     const code = match2[1];
     const cycle = match2[2] || (fallbackCycle ? String(fallbackCycle) : '1');
-    return `MOLEN ${code} ${cycle}`;
+    return `${code} ${cycle}`;
   }
 
   // Pola 1 huruf: A 1, B 2, MOLEN C 1
@@ -103,11 +103,11 @@ export function formatMolenWithCycle(
   if (match1) {
     const code = 'A' + match1[1];
     const cycle = match1[2] || (fallbackCycle ? String(fallbackCycle) : '1');
-    return `MOLEN ${code} ${cycle}`;
+    return `${code} ${cycle}`;
   }
 
   const cycle = fallbackCycle ? String(fallbackCycle) : '1';
-  return clean.startsWith('MOLEN ') ? `${clean} ${cycle}` : `MOLEN ${clean} ${cycle}`;
+  return clean.replace(/^MOLEN\s+/i, '');
 }
 
 /** Formatting Helper: Massa (Kg) WAJIB tepat 1 angka di belakang koma */
@@ -215,22 +215,84 @@ function periodeLabel(
   return labelMulai === labelAkhir ? labelMulai : `${labelMulai} — ${labelAkhir}`;
 }
 
+/**
+ * Konversi teks tanggal (ISO YYYY-MM-DD, teks Indonesia "23 Oktober 2026", "Jumat, 23 Oktober 2026", dll.)
+ * ke timestamp numerik milidetik agar perbandingan kronologis akurat 100%.
+ */
+export function parseTanggalToTimestamp(dateStr: string | null | undefined): number {
+  if (!dateStr) return 0;
+  let s = String(dateStr).trim();
+
+  // Bersihkan awalan nama hari ("Jumat, ", "Senin, ", etc.)
+  s = s.replace(/^(Minggu|Senin|Selasa|Rabu|Kamis|Jumat|Sabtu),\s*/i, '').trim();
+
+  // Normalisasi bulan bahasa Inggris ke bahasa Indonesia
+  const enToId: Record<string, string> = {
+    january: 'Januari', february: 'Februari', march: 'Maret', april: 'April',
+    may: 'Mei', june: 'Juni', july: 'Juli', august: 'Agustus',
+    september: 'September', october: 'Oktober', november: 'November', december: 'Desember'
+  };
+  for (const [en, id] of Object.entries(enToId)) {
+    const reg = new RegExp(en, 'gi');
+    if (reg.test(s)) s = s.replace(reg, id);
+  }
+
+  // Pola 1: ISO Format (YYYY-MM-DD)
+  const isoMatch = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (isoMatch) {
+    const y = parseInt(isoMatch[1], 10);
+    const m = parseInt(isoMatch[2], 10) - 1;
+    const d = parseInt(isoMatch[3], 10);
+    return new Date(y, m, d, 12, 0, 0).getTime();
+  }
+
+  // Pola 2: Format "DD Bulan YYYY" (misal: "23 Oktober 2026" atau "9 Oktober 2026")
+  const dmyMatch = s.match(/^(\d{1,2})\s+([A-Za-z]+)(?:\s+(\d{4}))?/);
+  if (dmyMatch) {
+    const d = parseInt(dmyMatch[1], 10);
+    const mStr = dmyMatch[2];
+    const y = dmyMatch[3] ? parseInt(dmyMatch[3], 10) : 2026;
+    const mIdx = MONTH_ORDER.findIndex((b) => b.toLowerCase() === mStr.toLowerCase());
+    if (mIdx !== -1) {
+      return new Date(y, mIdx, d, 12, 0, 0).getTime();
+    }
+  }
+
+  // Pola 3: DD/MM/YYYY
+  const slashMatch = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (slashMatch) {
+    const d = parseInt(slashMatch[1], 10);
+    const m = parseInt(slashMatch[2], 10) - 1;
+    const y = parseInt(slashMatch[3], 10);
+    return new Date(y, m, d, 12, 0, 0).getTime();
+  }
+
+  const parsed = Date.parse(s);
+  return isNaN(parsed) ? 0 : parsed;
+}
+
 /** Tanggal entri data TERBARU yang terbaca dari baris DATAMASTER */
 export function getEntriTerkini(rows: RawBlendRow[]): string {
-  if (!rows || rows.length === 0) return '5 Oktober 2026';
-  let maxTanggal = '2026-10-05';
+  if (!rows || rows.length === 0) return '23 Oktober 2026';
+  let maxTime = -Infinity;
+  let maxRow: RawBlendRow | null = null;
+
   rows.forEach((r) => {
-    if (r.tanggal && r.tanggal > maxTanggal) maxTanggal = r.tanggal;
+    const t = parseTanggalToTimestamp(r.tanggal);
+    if (t > maxTime || (t === maxTime && (r.srcRow || 0) > (maxRow?.srcRow || 0))) {
+      maxTime = t;
+      maxRow = r;
+    }
   });
-  const parts = maxTanggal.split('-');
-  if (parts.length === 3) {
-    const tahun = parts[0];
-    const bIdx = parseInt(parts[1], 10) - 1;
-    const hari = parseInt(parts[2], 10);
-    const namaBulan = MONTH_ORDER[bIdx] || parts[1];
-    return `${hari} ${namaBulan} ${tahun}`;
+
+  if (maxRow && maxTime > 0) {
+    const dt = new Date(maxTime);
+    const d = dt.getDate();
+    const m = MONTH_ORDER[dt.getMonth()] || 'Oktober';
+    const y = dt.getFullYear();
+    return `${d} ${m} ${y}`;
   }
-  return maxTanggal;
+  return '23 Oktober 2026';
 }
 
 /** Ringkasan kalkulasi matematis generik */

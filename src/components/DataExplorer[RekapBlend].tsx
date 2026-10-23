@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { RawBlendRow, UserRole } from '../types[RekapBlend]';
-import { fmtKg, fmtPct, fmtSuhu, getPctBadgeClass } from '../api[RekapBlend]';
+import { fmtKg, fmtPct, fmtSuhu, getPctBadgeClass, parseTanggalToTimestamp } from '../api[RekapBlend]';
 import {
   Database,
   Search,
@@ -150,13 +150,11 @@ export const DataExplorerRekapBlend: React.FC<DataExplorerProps> = ({
   const sorted = useMemo(() => {
     const list = [...filtered];
     list.sort((a, b) => {
-      // Prioritas 1: Bandingkan tanggal (format ISO: YYYY-MM-DD)
-      const dateA = a.tanggal || '';
-      const dateB = b.tanggal || '';
-      if (dateA !== dateB) {
-        return sortOrder === 'desc'
-          ? dateB.localeCompare(dateA)
-          : dateA.localeCompare(dateB);
+      // Prioritas 1: Bandingkan tanggal secara kronologis sebenarnya (timestamp numerik)
+      const timeA = parseTanggalToTimestamp(a.tanggal);
+      const timeB = parseTanggalToTimestamp(b.tanggal);
+      if (timeA !== timeB) {
+        return sortOrder === 'desc' ? timeB - timeA : timeA - timeB;
       }
       // Prioritas 2: Jika tanggal sama, bandingkan nomor baris spreadsheet (srcRow lebih besar = entri lebih baru)
       const rowA = a.srcRow || 0;
@@ -407,7 +405,7 @@ export const DataExplorerRekapBlend: React.FC<DataExplorerProps> = ({
                       <span className={`${badge.color}`}>{fmtPct(r.susutPct)}%</span>
                     </td>
                     <td className="py-2 px-3 text-slate-700 font-semibold">
-                      {r.molenDetail || r.molen}
+                      {(r.molenDetail || r.molen || '').replace(/^molen\s+/i, '')}
                     </td>
                     <td className="py-2 px-3 text-right text-slate-600">
                       {r.suhu !== null ? `${fmtSuhu(r.suhu)} °C` : '-'}
