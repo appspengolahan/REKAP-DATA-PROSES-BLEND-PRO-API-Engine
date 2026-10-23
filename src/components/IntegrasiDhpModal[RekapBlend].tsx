@@ -380,17 +380,44 @@ var CONFIG_INTEGRASI_BLEND = {
 };
 
 /**
- * Mencari posisi indeks kolom berdasarkan nama header di Baris 13 DATAMASTER
- * Menghindari salah kolom jika header SUHU berada di Kolom M atau Kolom N
+ * Mencari posisi indeks kolom berdasarkan nama header di Baris 10 DATAMASTER
+ * Secara cerdas membedakan:
+ * - Kolom G (7) = NO. MOLEN / BATCH (Nomor urut camp: 1..16, hanya menerima angka)
+ * - Kolom M (13) = MOLEN (Identitas mesin putaran: AA 01, AA 02, AB 03, AE 01, dst)
+ * - Kolom N (14) = SUHU (Suhu aktual proses: 31,0 °C, dst)
  */
 function cariIndexKolomHeader(sheet, namaHeader, defaultColIndex) {
   try {
     var maxCol = Math.min(sheet.getLastColumn(), 26);
-    var headers = sheet.getRange(13, 1, 1, maxCol).getValues()[0];
-    for (var c = 0; c < headers.length; c++) {
-      var h = String(headers[c] || '').trim().toUpperCase();
-      if (h === namaHeader.toUpperCase() || h.indexOf(namaHeader.toUpperCase()) >= 0) {
-        return c + 1; // 1-based index
+    // Header resmi DATAMASTER terletak di Baris 10
+    var headerRows = [10, 9, 8];
+    for (var r = 0; r < headerRows.length; r++) {
+      var rH = headerRows[r];
+      var headers = sheet.getRange(rH, 1, 1, maxCol).getValues()[0];
+      
+      // 1. Prioritas 1: Cocokkan PERSIS (Exact Match)
+      for (var c = 0; c < headers.length; c++) {
+        var h = String(headers[c] || '').trim().toUpperCase();
+        if (h === namaHeader.toUpperCase()) {
+          // Khusus pencarian 'MOLEN', jangan sampai mengambil Kolom G (Kolom 7)
+          if (namaHeader.toUpperCase() === 'MOLEN' && (c + 1) === 7) continue;
+          return c + 1;
+        }
+      }
+
+      // 2. Prioritas 2: Cocokkan Parsial dengan filter aman
+      for (var c = 0; c < headers.length; c++) {
+        var h = String(headers[c] || '').trim().toUpperCase();
+        if (namaHeader.toUpperCase() === 'MOLEN') {
+          // Abaikan Kolom 7 atau teks yang mengandung "NO" / "BATCH" / "CAMP"
+          if ((c + 1) === 7 || h.indexOf('NO') >= 0 || h.indexOf('BATCH') >= 0 || h.indexOf('CAMP') >= 0) {
+            continue;
+          }
+        }
+        if (h.indexOf(namaHeader.toUpperCase()) >= 0) {
+          if (namaHeader.toUpperCase() === 'MOLEN' && (c + 1) === 7) continue;
+          return c + 1;
+        }
       }
     }
   } catch(e) {}
@@ -466,6 +493,12 @@ function sinkronkanDhpBlendKeRekap() {
   // Deteksi indeks kolom header di DATAMASTER secara dinamis
   var colMolenRekap = cariIndexKolomHeader(shRekap, 'MOLEN', 13);
   var colSuhuRekap = cariIndexKolomHeader(shRekap, 'SUHU', 14);
+  // Proteksi mutlak nomor kolom DATAMASTER:
+  // Kolom G (7) = NO. MOLEN / BATCH (1..16) -> hanya menerima integer
+  // Kolom M (13) = MOLEN (AA 01, AA 02, AB 03, AE 01, dst) -> teks identitas molen
+  // Kolom N (14) = SUHU (31,0 °C, dst) -> angka suhu
+  if (colMolenRekap === 7 || colMolenRekap <= 0) colMolenRekap = 13;
+  if (colSuhuRekap <= 0 || colSuhuRekap === 7 || colSuhuRekap === colMolenRekap) colSuhuRekap = 14;
   Logger.log('Posisi Kolom Rekap: MOLEN = Kolom ' + colMolenRekap + ', SUHU = Kolom ' + colSuhuRekap);
 
   var realLastRow = cariBarisTerakhirAktif(shRekap);
@@ -544,14 +577,14 @@ function sinkronkanDhpBlendKeRekap() {
         // Perbarui Bobot Baku (Kolom I) & Hasil Proses (Kolom J)
         shRekap.getRange(existing.row, 9, 1, 2).setValues([[rawBaku, rawHasil]]);
         
-        // INSTRUKSI: Kirim Nama Molen dari Kolom B DHP ke Header MOLEN
-        if (molenDhp && colMolenRekap > 0) {
+        // INSTRUKSI: Kirim Nama Molen dari Kolom B DHP ke Header MOLEN (Kolom M / 13)
+        // PROTEKSI: Tidak boleh menulis ke Kolom G (7)
+        if (molenDhp && colMolenRekap > 0 && colMolenRekap !== 7) {
           shRekap.getRange(existing.row, colMolenRekap).setValue(molenDhp);
         }
 
-        // INSTRUKSI: Kirim Nilai Suhu aktual dari Kolom W DHP ke Header SUHU (Kolom N)
-        // Jika tidak ada data suhu (null), kosongkan sel agar tidak menjadi data semu
-        if (colSuhuRekap > 0) {
+        // INSTRUKSI: Kirim Nilai Suhu aktual dari Kolom W DHP ke Header SUHU (Kolom N / 14)
+        if (colSuhuRekap > 0 && colSuhuRekap !== 7 && colSuhuRekap !== colMolenRekap) {
           if (rawSuhu !== null && rawSuhu !== undefined) {
             shRekap.getRange(existing.row, colSuhuRekap).setValue(rawSuhu).setNumberFormat('0.0 "°C"');
           } else {
@@ -598,13 +631,14 @@ function sinkronkanDhpBlendKeRekap() {
     for (var a = 0; a < addedCount; a++) {
       var item = rowsToAppend[a];
       var rIdx = startRow + a;
+      var campInt = parseInt(item.camp, 10) || 1;
       shRekap.getRange(rIdx, 1, 1, 2).setValues([[item.rowId, item.tglDate]]);
       shRekap.getRange(rIdx, 2).setNumberFormat("dd mmmm yyyy");
-      shRekap.getRange(rIdx, 5, 1, 3).setValues([[item.nomerPrefix, item.merk, item.camp]]);
+      shRekap.getRange(rIdx, 5, 1, 3).setValues([[item.nomerPrefix, item.merk, campInt]]);
       shRekap.getRange(rIdx, 9, 1, 2).setValues([[item.baku, item.hasil]]);
       
-      if (colMolenRekap > 0) shRekap.getRange(rIdx, colMolenRekap).setValue(item.molen);
-      if (colSuhuRekap > 0) {
+      if (colMolenRekap > 0 && colMolenRekap !== 7) shRekap.getRange(rIdx, colMolenRekap).setValue(item.molen);
+      if (colSuhuRekap > 0 && colSuhuRekap !== 7 && colSuhuRekap !== colMolenRekap) {
         if (item.suhu !== null && item.suhu !== undefined) {
           shRekap.getRange(rIdx, colSuhuRekap).setValue(item.suhu).setNumberFormat('0.0 "°C"');
         } else {
@@ -628,7 +662,7 @@ function sinkronkanDhpBlendKeRekap() {
 /**
  * FUNGSI 2 (SOLUSI INSTAN): Hapus Baris Duplikat 4742+ & Perbaiki Baris 4730-4741
  * Menghapus baris 4742 ke bawah yang terlanjur ter-append dengan tanggal invalid teks
- * Lalu memperbarui baris 4730 s/d 4741 dengan tanggal sah Date object, Molen (Kolom B DHP), dan Suhu Asli (Kolom W DHP)
+ * Lalu memperbarui baris 4730 s/d 4741 dengan tanggal sah Date object, Molen (Kolom M / 13), dan Suhu Asli (Kolom N / 14)
  */
 function bersihkanDuplikasiDanPerbaikiTanggal23Okt() {
   var ssRekap = SpreadsheetApp.openById(CONFIG_INTEGRASI_BLEND.REKAP_SS_ID);
@@ -637,6 +671,9 @@ function bersihkanDuplikasiDanPerbaikiTanggal23Okt() {
   // Deteksi kolom header dinamis
   var colMolenRekap = cariIndexKolomHeader(shRekap, 'MOLEN', 13);
   var colSuhuRekap = cariIndexKolomHeader(shRekap, 'SUHU', 14);
+  // Proteksi mutlak nomor kolom: Kolom G (7) adalah nomor batch 1..16, Kolom M (13) adalah nama Molen, Kolom N (14) adalah Suhu
+  if (colMolenRekap === 7 || colMolenRekap <= 0) colMolenRekap = 13;
+  if (colSuhuRekap <= 0 || colSuhuRekap === 7 || colSuhuRekap === colMolenRekap) colSuhuRekap = 14;
 
   // 1. HAPUS BARIS DUPLIKAT (Baris 4742 ke atas)
   var lastRow = shRekap.getLastRow();
@@ -673,16 +710,22 @@ function bersihkanDuplikasiDanPerbaikiTanggal23Okt() {
     // Set Tanggal Kolom B sebagai Objek Date resmi (Bebas error merah)
     shRekap.getRange(r, 2).setValue(tglDateResmi).setNumberFormat("dd mmmm yyyy");
 
+    // Pastikan Kolom E (NOMER), F (JENIS TBK BLEND), G (NO. MOLEN / BATCH: 1..16) terisi data yang valid
+    // PENTING: Kolom G (7) HANYA menerima angka integer (1..16) sesuai validasi dropdown
+    var campInt = parseInt(item.camp, 10) || 1;
+    shRekap.getRange(r, 5, 1, 3).setValues([['23/BLD/10/26', item.merk, campInt]]);
+
     // Set Kolom I (Bobot Baku) & Kolom J (Hasil Proses)
     shRekap.getRange(r, 9, 1, 2).setValues([[item.baku, item.hasil]]);
 
-    // Set Kolom MOLEN dari Kolom B DHP (AA 01, AB 03, AE 01, dll.)
-    if (colMolenRekap > 0) {
+    // Set Kolom MOLEN (Kolom M / 13) dari Kolom B DHP (AA 01, AB 03, AE 01, dll.)
+    // PROTEKSI KETAT: Wajib Kolom 13 (M), DILARANG KERAS menulis teks ke Kolom 7 (G)!
+    if (colMolenRekap > 0 && colMolenRekap !== 7) {
       shRekap.getRange(r, colMolenRekap).setValue(item.molen);
     }
 
-    // Set Kolom SUHU dari Kolom W DHP (Diisi bila ada nilai, kosongkan bila null)
-    if (colSuhuRekap > 0) {
+    // Set Kolom SUHU (Kolom N / 14) dari Kolom W DHP
+    if (colSuhuRekap > 0 && colSuhuRekap !== 7 && colSuhuRekap !== colMolenRekap) {
       if (item.suhu !== null && item.suhu !== undefined) {
         shRekap.getRange(r, colSuhuRekap).setValue(item.suhu).setNumberFormat('0.0 "°C"');
       } else {
@@ -709,6 +752,7 @@ function kirimSuhuDhpKeDatamaster() {
   var ssRekap = SpreadsheetApp.openById(CONFIG_INTEGRASI_BLEND.REKAP_SS_ID);
   var shRekap = ssRekap.getSheetByName(CONFIG_INTEGRASI_BLEND.REKAP_SHEET_NAME);
   var colSuhuRekap = cariIndexKolomHeader(shRekap, 'SUHU', 14);
+  if (colSuhuRekap <= 0 || colSuhuRekap === 7 || colSuhuRekap === 13) colSuhuRekap = 14;
 
   var ssDhp = SpreadsheetApp.openById(CONFIG_INTEGRASI_BLEND.DHP_SS_ID);
   var shDhp = ssDhp.getSheetByName(CONFIG_INTEGRASI_BLEND.DHP_SHEET_NAME);
@@ -1273,9 +1317,9 @@ function doGet(e) {
                       </tr>
                       <tr>
                         <td className="p-2.5 font-mono font-bold text-slate-800">Kolom G</td>
-                        <td className="p-2.5 font-medium">No. Molen / Camp</td>
-                        <td className="p-2.5">Kolom B (No. Molen)</td>
-                        <td className="p-2.5 text-slate-600">Nomor urut camp harian: 1, 2, 3...</td>
+                        <td className="p-2.5 font-medium">BATCH (Camp)</td>
+                        <td className="p-2.5">Nomor Urut Camp (1..16)</td>
+                        <td className="p-2.5 text-slate-600">Nomor urut putaran harian: 1, 2, 3...</td>
                         <td className="p-2.5 text-center">
                           <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-[10px] font-semibold">
                             Data Bersih

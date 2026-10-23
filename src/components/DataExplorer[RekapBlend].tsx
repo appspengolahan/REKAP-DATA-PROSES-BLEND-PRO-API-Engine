@@ -366,13 +366,13 @@ export const DataExplorerRekapBlend: React.FC<DataExplorerProps> = ({
                     )}
                   </div>
                 </th>
-                <th className="py-2.5 px-3">Merk Blend</th>
-                <th className="py-2.5 px-3 text-center">No. Molen</th>
+                <th className="py-2.5 px-3">Jenis Tbk Blend</th>
+                <th className="py-2.5 px-3 text-center">Batch</th>
                 <th className="py-2.5 px-3 text-right">Bobot Baku (Kg)</th>
                 <th className="py-2.5 px-3 text-right">Hasil (Kg)</th>
                 <th className="py-2.5 px-3 text-right">Susut (Kg)</th>
                 <th className="py-2.5 px-3 text-right">% Susut</th>
-                <th className="py-2.5 px-3">Molen</th>
+                <th className="py-2.5 px-3 text-center">Molen</th>
                 <th className="py-2.5 px-3 text-right">Suhu (°C)</th>
               </tr>
             </thead>
