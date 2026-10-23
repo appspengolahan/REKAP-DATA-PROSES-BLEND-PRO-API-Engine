@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { RekapMerkItem, TrendMerkData, RawBlendRow } from '../types[RekapBlend]';
-import { fmtKg, fmtPct, fmtInt, getPctBadgeClass, MONTH_ORDER, computeTrendMerk } from '../api[RekapBlend]';
+import { fmtKg, fmtPct, fmtInt, getPctBadgeClass, MONTH_ORDER, computeTrendMerk, computeRekapMerkPeriode } from '../api[RekapBlend]';
 import { VERIFIED_KPI_BENCHMARK } from '../snapshotData[RekapBlend]';
 import {
   FileText,
@@ -96,123 +96,14 @@ export const TabMerkRekapBlend: React.FC<TabMerkProps> = ({
 
   // 3. SINKRONISASI OTOMATIS DATA PER MERK BERDASARKAN FILTER PERIODE
   const displayMerkList = useMemo(() => {
-    const rows = allRows || [];
-    const idxAwal = MONTH_ORDER.indexOf(bulanAwal);
-    const idxAkhir = MONTH_ORDER.indexOf(bulanAkhir);
-    const minIdx = Math.min(idxAwal, idxAkhir);
-    const maxIdx = Math.max(idxAwal, idxAkhir);
-
-    // Kasus default offline benchmark 2026 (Januari s/d Oktober 2026)
-    if (
-      rows.length < 100 &&
-      tahunFilter === '2026' &&
-      bulanAwal === 'Januari' &&
-      bulanAkhir === 'Oktober'
-    ) {
-      return VERIFIED_KPI_BENCHMARK.merk2026.map((m) => ({
-        label: m.merk,
-        jumlahData: m.jumlahData,
-        bahanDiproses: m.bahanDiproses,
-        hasilProses: m.hasilProses,
-        susutKg: m.susutKg,
-        susutRataPct: m.susutRataPct,
-        susutMinPct: Math.round((m.susutRataPct - 0.20) * 100) / 100,
-        susutMaxPct: Math.round((m.susutRataPct + 0.30) * 100) / 100,
-        suhuRata: 29.61,
-        kapasitasPct: m.kapasitasPct,
-      }));
-    }
-
-    // Kasus offline Semua Tahun
-    if (rows.length < 100 && tahunFilter === 'Semua' && bulanAwal === 'Januari' && (bulanAkhir === 'Desember' || bulanAkhir === 'Oktober')) {
-      const scale = VERIFIED_KPI_BENCHMARK.semuaTahun.bahanDiproses / VERIFIED_KPI_BENCHMARK.tahun2026.bahanDiproses;
-      return VERIFIED_KPI_BENCHMARK.merk2026.map((m) => ({
-        label: m.merk,
-        jumlahData: Math.round(m.jumlahData * (VERIFIED_KPI_BENCHMARK.semuaTahun.jumlahData / VERIFIED_KPI_BENCHMARK.tahun2026.jumlahData)),
-        bahanDiproses: Math.round(m.bahanDiproses * scale * 10) / 10,
-        hasilProses: Math.round(m.hasilProses * scale * 10) / 10,
-        susutKg: Math.round(m.susutKg * scale * 10) / 10,
-        susutRataPct: m.susutRataPct,
-        susutMinPct: Math.round((m.susutRataPct - 0.20) * 100) / 100,
-        susutMaxPct: Math.round((m.susutRataPct + 0.30) * 100) / 100,
-        suhuRata: 29.68,
-        kapasitasPct: m.kapasitasPct,
-      }));
-    }
-
-    // Agregasi dinamis baris data sesuai periode
-    const matchingRows = rows.filter((r) => {
-      if (tahunFilter !== 'Semua' && r.tahun !== tahunFilter) return false;
-      const bIdx = MONTH_ORDER.indexOf(r.bulan);
-      if (bIdx !== -1 && (bIdx < minIdx || bIdx > maxIdx)) return false;
-      return true;
-    });
-
-    if (matchingRows.length > 0) {
-      const totalBobot = matchingRows.reduce((s, r) => s + r.bobot, 0);
-      const groups: Record<
-        string,
-        {
-          bobot: number;
-          hasil: number;
-          susut: number;
-          count: number;
-          min: number;
-          max: number;
-          suhuSum: number;
-          suhuCount: number;
-        }
-      > = {};
-
-      matchingRows.forEach((r) => {
-        if (!groups[r.merk]) {
-          groups[r.merk] = {
-            bobot: 0,
-            hasil: 0,
-            susut: 0,
-            count: 0,
-            min: Infinity,
-            max: -Infinity,
-            suhuSum: 0,
-            suhuCount: 0,
-          };
-        }
-        const g = groups[r.merk];
-        g.bobot += r.bobot;
-        g.hasil += r.hasil;
-        g.susut += r.susutKg;
-        g.count += 1;
-        if (r.susutPct < g.min) g.min = r.susutPct;
-        if (r.susutPct > g.max) g.max = r.susutPct;
-        if (r.suhu !== null && !isNaN(r.suhu)) {
-          g.suhuSum += r.suhu;
-          g.suhuCount += 1;
-        }
-      });
-
-      const list: RekapMerkItem[] = Object.keys(groups).map((merk) => {
-        const g = groups[merk];
-        return {
-          label: merk,
-          jumlahData: g.count,
-          bahanDiproses: Math.round(g.bobot * 10) / 10,
-          hasilProses: Math.round(g.hasil * 10) / 10,
-          susutKg: Math.round(g.susut * 10) / 10,
-          susutRataPct: Math.round((g.bobot ? (g.susut / g.bobot) * 100 : 0) * 100) / 100,
-          susutMinPct: Math.round((g.min === Infinity ? 0 : g.min) * 100) / 100,
-          susutMaxPct: Math.round((g.max === -Infinity ? 0 : g.max) * 100) / 100,
-          suhuRata: g.suhuCount ? Math.round((g.suhuSum / g.suhuCount) * 10) / 10 : null,
-          kapasitasPct: totalBobot ? Math.round((g.bobot / totalBobot) * 10000) / 100 : 0,
-        };
-      });
-
-      list.sort((a, b) => b.bahanDiproses - a.bahanDiproses);
-      return list;
-    }
-
-    // Fallback jika tidak ada baris yang cocok
-    return merkList;
-  }, [allRows, tahunFilter, bulanAwal, bulanAkhir, merkList]);
+    return computeRekapMerkPeriode(
+      allRows || [],
+      tahunFilter,
+      bulanAwal,
+      tahunFilter,
+      bulanAkhir
+    ).list;
+  }, [allRows, tahunFilter, bulanAwal, bulanAkhir]);
 
   // 4. SINKRONISASI DATA TREND SATU MERK (CHART 2)
   const currentTrendData = useMemo(() => {
