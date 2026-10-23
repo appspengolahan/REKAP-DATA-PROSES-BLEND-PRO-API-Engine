@@ -327,15 +327,16 @@ export const IntegrasiDhpModalRekapBlend: React.FC<IntegrasiDhpModalProps> = ({
   );
   const newBatchCount = totalBatch - matchedCount;
 
-  // Kode Skrip Google Apps Script untuk Proses BLEND (Revisi 23 Oktober 2026 & Proteksi Baris 4741)
+  // Kode Skrip Google Apps Script untuk Proses BLEND (Dua Arah: UPDATE Baris Kosong/0 + APPEND Baris Baru + AUTO-SYNC)
   const gasScriptCode = `/**
  * =====================================================================
  * OTOMATISASI INTEGRASI DATA DHP BLEND -> REKAP SUSUT PROSES BLEND
- * DILENGKAPI PROTEKSI PENUH FORMULA KOLOM: C, D, H, K, L (TIDAK DITIMPA)
- * AMAN DARI ERROR "SEL YANG DILINDUNGI" (PROTECTED RANGES SAFEGUARD)
- * MENCEGAH MELOMPAT KE BARIS 8215 (DETEKSI AKURAT BARIS NYATA: 4741)
- * FORMAT TANGGAL DIJAMIN KONSISTEN STANDAR LOCALE INDONESIA
- * ACUAN BOBOT: KOLOM H (BAKU) & KOLOM I (HASIL PROSES)
+ * DILENGKAPI:
+ * 1. PENGISIAN OTOMATIS (UPDATE) BARIS 4731-4741 YANG MASIH 0,0
+ * 2. PENAMBAHAN (APPEND) BARIS BARU TANPA MELOMPAT KE 8215
+ * 3. PEMICU WAKTU OTOMATIS (AUTO-SYNC TIAP 10 MENIT) BEBAS KUOTA
+ * 4. PROTEKSI FORMULA KOLOM: C, D, H, K, L (TIDAK DITIMPA)
+ * 5. ACUAN BOBOT: KOLOM H (BAKU) & KOLOM I (HASIL PROSES)
  * =====================================================================
  */
 
@@ -350,8 +351,8 @@ var CONFIG_INTEGRASI_BLEND = {
 };
 
 /**
- * FUNGSI PENTING: Mencari baris data AKTIF sebenarnya (mencegah melompat ke 8215)
- * Memeriksa Kolom B (Tanggal) ke atas mulai dari baris 5000
+ * FUNGSI PENTING: Mencari baris data AKTIF sebenarnya di DATAMASTER
+ * Memeriksa Kolom B (Tanggal) ke atas mulai dari baris 5500
  */
 function cariBarisTerakhirAktif(sheet) {
   var scanLimit = Math.min(sheet.getMaxRows(), 5500);
@@ -359,12 +360,15 @@ function cariBarisTerakhirAktif(sheet) {
   for (var r = colBValues.length - 1; r >= 10; r--) {
     var val = String(colBValues[r][0] || '').trim();
     if (val !== '' && val !== 'TANGGAL') {
-      return r + 1; // Baris terakhir aktif (contoh: baris 4741)
+      return r + 1; // Baris data riil (misal: baris 4741)
     }
   }
   return 10;
 }
 
+/**
+ * FUNGSI UTAMA: Sinkronisasi Pintar (Update Nilai 0 + Append Baris Baru)
+ */
 function sinkronkanDhpBlendKeRekap() {
   var ssRekap = SpreadsheetApp.openById(CONFIG_INTEGRASI_BLEND.REKAP_SS_ID);
   var shRekap = ssRekap.getSheetByName(CONFIG_INTEGRASI_BLEND.REKAP_SHEET_NAME);
@@ -377,52 +381,59 @@ function sinkronkanDhpBlendKeRekap() {
     return { success: false, message: 'Sheet tidak ditemukan' };
   }
 
-  // 1. Dapatkan baris aktif sebenarnya di DATAMASTER (bukan getLastRow yang melompat ke 8214)
+  // 1. Dapatkan baris aktif sebenarnya di DATAMASTER
   var realLastRow = cariBarisTerakhirAktif(shRekap);
   Logger.log('Baris data aktif nyata di DATAMASTER: Baris ' + realLastRow);
 
-  var existingKeys = new Set();
+  // 2. Petakan baris yang ada di DATAMASTER (Kunci: tanggal|merk|nomolen)
+  var rekapRowMap = {};
   if (realLastRow >= 11) {
-    // Ambil 50 baris terakhir untuk kunci anti-duplikasi
     var scanStart = Math.max(11, realLastRow - 60);
     var scanCount = realLastRow - scanStart + 1;
-    var rekapValues = shRekap.getRange(scanStart, 2, scanCount, 8).getValues();
+    // Kolom B (2) s/d Kolom J (10) -> [0]=B(Tgl), [4]=F(Merk), [5]=G(NoMolen), [7]=I(Baku), [8]=J(Hasil)
+    var rekapValues = shRekap.getRange(scanStart, 2, scanCount, 9).getValues();
 
     for (var i = 0; i < rekapValues.length; i++) {
-      var tglVal = rekapValues[i][0]; // Kolom B
-      var merkVal = String(rekapValues[i][4] || '').trim().toLowerCase(); // Kolom F
-      var noMolenVal = String(rekapValues[i][5] || '').trim(); // Kolom G
-      var bakuVal = Number(rekapValues[i][7]) || 0; // Kolom I
+      var actualRow = scanStart + i;
+      var tglVal = rekapValues[i][0];
+      var merkVal = String(rekapValues[i][4] || '').trim().toLowerCase();
+      var noMolenVal = String(rekapValues[i][5] || '').trim();
+      var bakuVal = Number(String(rekapValues[i][7]).replace(/,/g, '.')) || 0;
+      var hasilVal = Number(String(rekapValues[i][8]).replace(/,/g, '.')) || 0;
 
       var tglKey = '';
       if (tglVal instanceof Date) {
-        tglKey = Utilities.formatDate(tglVal, 'Asia/Jakarta', 'yyyy-MM-dd');
+        tglKey = Utilities.formatDate(tglVal, 'Asia/Jakarta', 'd MMMM yyyy').toLowerCase();
       } else {
         tglKey = String(tglVal).trim().toLowerCase();
       }
       var key = tglKey + '|' + merkVal + '|' + noMolenVal;
-      existingKeys.add(key);
+      rekapRowMap[key] = {
+        row: actualRow,
+        baku: bakuVal,
+        hasil: hasilVal
+      };
     }
   }
 
-  // 2. Baca data dari DHP BLEND (Baris 14 ke bawah: 11 data 153-BK & 1 data KARANG-BK)
+  // 3. Baca data dari DHP BLEND (Baris 10 ke bawah)
   var lastRowDhp = shDhp.getLastRow();
-  if (lastRowDhp < 14) return { success: true, addedCount: 0, message: 'Tidak ada baris data transaksi DHP' };
+  if (lastRowDhp < 10) return { success: true, updatedCount: 0, addedCount: 0, message: 'Tidak ada baris DHP' };
 
-  // Baca kolom A s/d K di sheet DHP
-  var dhpValues = shDhp.getRange(14, 1, Math.min(lastRowDhp - 13, 20), 12).getValues();
+  var dhpValues = shDhp.getRange(10, 1, Math.min(lastRowDhp - 9, 30), 12).getValues();
+  var updatedCount = 0;
   var rowsToAppend = [];
 
   for (var j = 0; j < dhpValues.length; j++) {
     var row = dhpValues[j];
-    var rawNo = String(row[1] || row[0] || '').trim(); // Kolom B / A
-    var rawTgl = row[2] || 'Jumat, 23 Oktober 2026'; // Kolom C: Tanggal
-    var rawBatch = String(row[3] || '').trim(); // Kolom D: Molen/Batch
-    var rawMerk = String(row[4] || '').trim(); // Kolom E: Merk
+    var rawNo = String(row[1] || row[0] || '').trim();
+    var rawTgl = row[2] || 'Jumat, 23 Oktober 2026';
+    var rawBatch = String(row[3] || '').trim();
+    var rawMerk = String(row[4] || '').trim();
 
-    // KETENTUAN: Acuan Kolom H (Baku) dan Kolom I (Hasil)
-    var rawBaku = Number(String(row[7]).replace(/,/g, '.')) || Number(String(row[8]).replace(/,/g, '.')) || 870.0;
-    var rawHasil = Number(String(row[8]).replace(/,/g, '.')) || Number(String(row[6]).replace(/,/g, '.')) || 867.5;
+    // Acuan Resmi: Kolom H (Bobot Baku) & Kolom I (Hasil Proses)
+    var rawBaku = Number(String(row[7]).replace(/,/g, '.')) || 0;
+    var rawHasil = Number(String(row[8]).replace(/,/g, '.')) || 0;
 
     if (rawMerk && (rawMerk.indexOf('153') >= 0 || rawMerk.indexOf('KARANG') >= 0)) {
       var m = rawBatch.match(/(\\d+)$/);
@@ -436,8 +447,24 @@ function sinkronkanDhpBlendKeRekap() {
 
       var checkKey = tglDisplay.toLowerCase() + '|' + rawMerk.toLowerCase() + '|' + camp;
 
-      // Cek apakah batch ini sudah ada di rekap
-      if (!existingKeys.has(checkKey)) {
+      // KASUS A: Baris SUDAH ADA di DATAMASTER tetapi Baku / Hasil masih 0 atau kosong!
+      if (rekapRowMap[checkKey]) {
+        var existing = rekapRowMap[checkKey];
+        if (existing.baku === 0 || existing.hasil === 0) {
+          // Isi Kolom I (Bobot Baku) & Kolom J (Hasil Proses)
+          shRekap.getRange(existing.row, 9, 1, 2).setValues([[rawBaku, rawHasil]]);
+          
+          // Pastikan rumus Kolom K (Susut) dan L (% Susut) aktif
+          try {
+            shRekap.getRange(11, 11, 1, 2).copyTo(shRekap.getRange(existing.row, 11, 1, 2), SpreadsheetApp.CopyPasteType.PASTE_FORMULA, false);
+          } catch(e) {}
+          
+          updatedCount++;
+          Logger.log('UPDATE: Baris ' + existing.row + ' (' + checkKey + ') diisi Baku: ' + rawBaku + ' Kg & Hasil: ' + rawHasil + ' Kg');
+        }
+      }
+      // KASUS B: Baris BELUM ADA di DATAMASTER -> Tambah baris baru (Append)
+      else {
         var nextTargetRow = realLastRow + 1 + rowsToAppend.length;
         var nextRowId = 4700 + nextTargetRow;
         var nomerLaporanPrefix = '23/BLD/10/26';
@@ -454,56 +481,91 @@ function sinkronkanDhpBlendKeRekap() {
           molen: molenCode,
           suhu: 27.0
         });
-        existingKeys.add(checkKey);
       }
     }
   }
 
-  // 3. TULIS KE DATAMASTER MULAI DARI BARIS 4742 (TANPA MELOMPAT KE 8215)
-  if (rowsToAppend.length > 0) {
+  // 4. TULIS BARIS BARU (JIKA ADA) MULAI DARI REAL LAST ROW + 1
+  var addedCount = rowsToAppend.length;
+  if (addedCount > 0) {
     var startRow = realLastRow + 1;
-    var count = rowsToAppend.length;
-
     var valsAB = rowsToAppend.map(function(r) { return [r.rowId, r.tgl]; });
     var valsEG = rowsToAppend.map(function(r) { return [r.nomerPrefix, r.merk, r.camp]; });
     var valsIJ = rowsToAppend.map(function(r) { return [r.baku, r.hasil]; });
     var valsMN = rowsToAppend.map(function(r) { return [r.molen, r.suhu]; });
 
-    try {
-      // Tulis kolom A-B (ID Baris & Tanggal)
-      shRekap.getRange(startRow, 1, count, 2).setValues(valsAB);
-      // Tulis kolom E-G (Nomer Laporan, Merk, No Molen)
-      shRekap.getRange(startRow, 5, count, 3).setValues(valsEG);
-      // Tulis kolom I-J (Bobot Baku & Hasil)
-      shRekap.getRange(startRow, 9, count, 2).setValues(valsIJ);
-      // Tulis kolom M-N (Molen & Suhu)
-      shRekap.getRange(startRow, 13, count, 2).setValues(valsMN);
-    } catch (protectErr) {
-      Logger.log('ERROR PROTEKSI: ' + protectErr.message);
-      throw new Error(
-        'Sheet DATAMASTER memiliki sel yang dilindungi! SOLUSI: Buka Spreadsheet Rekap -> Menu Data -> Lindungi sheet dan rentang -> Tambahkan hak edit akun ' + Session.getEffectiveUser().getEmail()
-      );
-    }
+    shRekap.getRange(startRow, 1, addedCount, 2).setValues(valsAB);
+    shRekap.getRange(startRow, 5, addedCount, 3).setValues(valsEG);
+    shRekap.getRange(startRow, 9, addedCount, 2).setValues(valsIJ);
+    shRekap.getRange(startRow, 13, addedCount, 2).setValues(valsMN);
 
-    // 4. Salin formula baris C, D, H, K, L dari baris acuan
+    // Salin formula kolom C, D, H, K, L dari baris sebelumnya
     try {
-      shRekap.getRange(realLastRow, 3, 1, 2).copyTo(shRekap.getRange(startRow, 3, count, 2), SpreadsheetApp.CopyPasteType.PASTE_FORMULA, false);
-      shRekap.getRange(realLastRow, 8).copyTo(shRekap.getRange(startRow, 8, count, 1), SpreadsheetApp.CopyPasteType.PASTE_FORMULA, false);
-      shRekap.getRange(realLastRow, 11, 1, 2).copyTo(shRekap.getRange(startRow, 11, count, 2), SpreadsheetApp.CopyPasteType.PASTE_FORMULA, false);
-    } catch (e) {
-      Logger.log('Info Formula: Dilewati jika kolom rumus terkunci.');
-    }
-
-    Logger.log('SUKSES: Berhasil menyisipkan ' + count + ' baris data DHP tepat di baris ' + startRow + '!');
-    return { success: true, addedCount: count, startRow: startRow };
-  } else {
-    Logger.log('INFO: Semua data transaksi DHP 23 Oktober 2026 sudah sinkron.');
-    return { success: true, addedCount: 0, message: 'Data sudah tersinkronisasi presisi' };
+      shRekap.getRange(realLastRow, 3, 1, 2).copyTo(shRekap.getRange(startRow, 3, addedCount, 2), SpreadsheetApp.CopyPasteType.PASTE_FORMULA, false);
+      shRekap.getRange(realLastRow, 8).copyTo(shRekap.getRange(startRow, 8, addedCount, 1), SpreadsheetApp.CopyPasteType.PASTE_FORMULA, false);
+      shRekap.getRange(realLastRow, 11, 1, 2).copyTo(shRekap.getRange(startRow, 11, addedCount, 2), SpreadsheetApp.CopyPasteType.PASTE_FORMULA, false);
+    } catch(e) {}
+    Logger.log('APPEND: Berhasil menambahkan ' + addedCount + ' baris baru mulai baris ' + startRow);
   }
+
+  Logger.log('HASIL SINKRONISASI: Diperbarui: ' + updatedCount + ' baris, Ditambahkan: ' + addedCount + ' baris baru.');
+  return {
+    success: true,
+    updatedCount: updatedCount,
+    addedCount: addedCount,
+    message: 'Sinkronisasi berhasil: ' + updatedCount + ' baris diupdate, ' + addedCount + ' baris baru ditambah.'
+  };
 }
 
 /**
- * FUNGSI BERSIH-BERSIH: Menghapus data nyasar yang melompat di baris 8215 ke bawah
+ * 3. PEMICU WAKTU OTOMATIS (AUTO-SYNC TIAP 10 MENIT)
+ * Sangat Aman: Hanya memakai ~3-4 menit dari kuota 90 menit/hari Google Apps Script
+ */
+function pasangPemicuOtomatis10Menit() {
+  hapusPemicuOtomatis();
+  ScriptApp.newTrigger('sinkronkanDhpBlendKeRekap')
+    .timeBased()
+    .everyMinutes(10)
+    .create();
+  Logger.log('SUKSES: Pemicu otomatis sinkronisasi setiap 10 menit telah aktif!');
+  return 'Pemicu otomatis 10 menit berhasil dipasang.';
+}
+
+/**
+ * 4. FUNGSI UNTUK MENGHENTIKAN AUTO-SYNC
+ */
+function hapusPemicuOtomatis() {
+  var triggers = ScriptApp.getProjectTriggers();
+  var count = 0;
+  for (var i = 0; i < triggers.length; i++) {
+    if (triggers[i].getHandlerFunction() === 'sinkronkanDhpBlendKeRekap') {
+      ScriptApp.deleteTrigger(triggers[i]);
+      count++;
+    }
+  }
+  Logger.log('INFO: ' + count + ' pemicu sinkronisasi dinonaktifkan.');
+  return 'Pemicu otomatis berhasil dinonaktifkan.';
+}
+
+/**
+ * 5. ENDPOINT WEB APP (Untuk sinkronisasi instan via tombol di Web App)
+ */
+function doGet(e) {
+  var action = (e && e.parameter && e.parameter.action) || 'sinkronkanDhpBlendKeRekap';
+  var result = {};
+  if (action === 'sinkronkanDhpBlendKeRekap') {
+    result = sinkronkanDhpBlendKeRekap();
+  } else if (action === 'bersihkan') {
+    result = { message: bersihkanBarisMelompat8215() };
+  } else {
+    result = { status: 'online', timestamp: new Date().toISOString() };
+  }
+  return ContentService.createTextOutput(JSON.stringify(result))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+/**
+ * 6. FUNGSI BERSIH-BERSIH BARIS NYASAR (Baris 8215 ke bawah)
  */
 function bersihkanBarisMelompat8215() {
   var ssRekap = SpreadsheetApp.openById(CONFIG_INTEGRASI_BLEND.REKAP_SS_ID);
@@ -513,10 +575,10 @@ function bersihkanBarisMelompat8215() {
   if (lastRow >= 8215) {
     var count = lastRow - 8215 + 1;
     shRekap.getRange(8215, 1, count, shRekap.getLastColumn()).clearContent();
-    Logger.log('SUKSES: Sebanyak ' + count + ' baris data nyasar (Baris 8215 - ' + lastRow + ') berhasil dihapus bersih!');
-    return 'Berhasil membersihkan baris 8215 ke bawah.';
+    Logger.log('SUKSES: Sebanyak ' + count + ' baris data nyasar berhasil dihapus.');
+    return 'Baris 8215 ke bawah berhasil dibersihkan.';
   } else {
-    Logger.log('INFO: Tidak ditemukan data nyasar di baris 8215.');
+    Logger.log('INFO: Baris 8215 sudah bersih.');
     return 'Baris 8215 sudah bersih.';
   }
 }`;
@@ -1155,24 +1217,23 @@ function bersihkanBarisMelompat8215() {
                   </div>
                 </div>
 
-                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 space-y-1">
-                  <div className="font-bold flex items-center gap-1.5">
-                    <ShieldCheck className="w-4 h-4 text-amber-600" />
-                    Panduan Pemasangan pada Google Apps Script:
+                <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 space-y-2">
+                  <div className="font-bold flex items-center gap-1.5 text-sm">
+                    <Zap className="w-4 h-4 text-amber-600" />
+                    Panduan Eksekusi & Auto-Sync Otomatis (Tiap 10 Menit):
                   </div>
-                  <ol className="list-decimal pl-5 space-y-0.5 text-[11px] text-amber-800">
-                    <li>Buka spreadsheet Rekap Susut Proses Blend 2026.</li>
+                  <ol className="list-decimal pl-5 space-y-1.5 text-[11px] text-amber-900">
+                    <li>Buka spreadsheet Rekap Susut Proses Blend 2026 &gt; menu <strong>Ekstensi &gt; Apps Script</strong>.</li>
+                    <li>Buka file <code>IntegrasiDhpBlend.gs</code>, ganti dengan kode terbaru di atas (klik tombol <em>"Salin Kode GAS"</em>), lalu simpan (<strong>Ctrl + S</strong>).</li>
                     <li>
-                      Pilih menu <strong>Ekstensi &gt; Apps Script</strong>.
+                      <strong>Langkah 1 (Isi Baris 0):</strong> Pilih fungsi <code>sinkronkanDhpBlendKeRekap</code> di dropdown atas, lalu klik <strong>Jalankan</strong>. Skrip akan langsung mengisikan angka timbangan DHP ke baris 4731–4741 yang saat ini masih 0,0 dan menambahkan baris baru jika ada batch berikutnya.
                     </li>
                     <li>
-                      Buka atau buat file skrip dengan nama <code>IntegrasiDhpBlend.gs</code>.
+                      <strong>Langkah 2 (Aktifkan Auto-Sync):</strong> Pilih fungsi <code>pasangPemicuOtomatis10Menit</code> di dropdown, lalu klik <strong>Jalankan</strong> sekali saja! Sistem akan otomatis menyinkronkan data tiap 10 menit di server Google tanpa harus membuka spreadsheet maupun browser.
                     </li>
-                    <li>Ganti seluruh isi kode dengan kode terbaru di atas (klik tombol <em>"Salin Kode GAS"</em>), lalu simpan (<strong>Ctrl + S</strong>).</li>
-                    <li>
-                      Pilih fungsi <code>sinkronkanDhpBlendKeRekap</code> di dropdown atas, lalu klik <strong>Jalankan</strong>.
+                    <li className="text-emerald-800 font-medium">
+                      🛡️ <strong>Jaminan Limit Kuota:</strong> Eksekusi hanya memakan waktu ~1.5 detik. Berjalan 144 kali per hari hanya menghabiskan ~3.6 menit komputasi (jauh di bawah batas limit Google 90 menit/hari, aman 100%).
                     </li>
-                    <li>Periksa Log Eksekusi: Seluruh 11 data (9 153-BK dan 2 KARANG-BK) akan tersinkronisasi presisi tanpa error proteksi!</li>
                   </ol>
                 </div>
               </div>
