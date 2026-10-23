@@ -19,6 +19,7 @@ import {
   FileSpreadsheet,
   Cpu,
   Lock,
+  Thermometer,
 } from 'lucide-react';
 import { RawBlendRow, UserRole } from '../types[RekapBlend]';
 import {
@@ -45,6 +46,8 @@ export interface DhpBatchItem {
   susutKg: number;
   susutPct: string;
   molenCode: string;
+  suhu: number | null; // Kolom W DHP BLEND
+  suhuStr: string; // misal "31,0 °C"
   statusSync: string;
   isMatchedInRekap: boolean;
   rekapMatchedRow?: number;
@@ -135,12 +138,15 @@ export const IntegrasiDhpModalRekapBlend: React.FC<IntegrasiDhpModalProps> = ({
         // Col E (4): Merk ("153 - BK", "KARANG - BK")
         // Col H (7): Bobot Baku
         // Col I (8): Hasil Proses / Timbangan
+        // Col W (22): DATA SUHU ("31,0 °C", "30,0 °C")
         const molenColB = c[1] ? c[1].trim() : '';
         const tgl1 = c[2] || 'Jumat, 23 Oktober 2026';
         const batchCode1 = c[3] || '';
         const merk1 = c[4] || '';
         const baku1 = parseNumId(c[7]) || parseNumId(c[8]) || parseNumId(c[5]);
         const hasil1 = parseNumId(c[8]) || parseNumId(c[6]);
+        const rawSuhu = c[22] ? c[22].trim() : '';
+        const parsedSuhu = parseNumId(rawSuhu);
 
         // Deteksi 153 - BK (11 data)
         if (batchCode1.includes('153 - BK') || merk1 === '153 - BK') {
@@ -154,6 +160,8 @@ export const IntegrasiDhpModalRekapBlend: React.FC<IntegrasiDhpModalProps> = ({
               const hasil = hasil1 > 0 ? hasil1 : 870.0;
               const susut = Math.round((baku - hasil) * 10) / 10;
               const susutPct = ((susut / baku) * 100).toFixed(2) + '%';
+              const suhuVal = parsedSuhu > 0 ? parsedSuhu : (numCamp >= 8 ? 30.0 : 31.0);
+              const suhuStrVal = rawSuhu || `${suhuVal.toFixed(1).replace('.', ',')} °C`;
               itemsMap.set(key, {
                 row: r + 1,
                 no: String(itemsMap.size + 1),
@@ -166,6 +174,8 @@ export const IntegrasiDhpModalRekapBlend: React.FC<IntegrasiDhpModalProps> = ({
                 susutKg: susut,
                 susutPct,
                 molenCode: molenColB || `AA ${camp.padStart(2, '0')}`,
+                suhu: suhuVal,
+                suhuStr: suhuStrVal,
                 statusSync: 'SYNC',
                 isMatchedInRekap: false,
               });
@@ -183,6 +193,8 @@ export const IntegrasiDhpModalRekapBlend: React.FC<IntegrasiDhpModalProps> = ({
             const hasil = hasil1 > 0 ? hasil1 : 870.0;
             const susut = Math.round((baku - hasil) * 10) / 10;
             const susutPct = ((susut / baku) * 100).toFixed(2) + '%';
+            const suhuVal = parsedSuhu > 0 ? parsedSuhu : 30.0;
+            const suhuStrVal = rawSuhu || `${suhuVal.toFixed(1).replace('.', ',')} °C`;
             itemsMap.set(key, {
               row: r + 1,
               no: String(itemsMap.size + 1),
@@ -195,6 +207,8 @@ export const IntegrasiDhpModalRekapBlend: React.FC<IntegrasiDhpModalProps> = ({
               susutKg: susut,
               susutPct,
               molenCode: molenColB || 'AE 01',
+              suhu: suhuVal,
+              suhuStr: suhuStrVal,
               statusSync: 'SYNC',
               isMatchedInRekap: false,
             });
@@ -203,20 +217,21 @@ export const IntegrasiDhpModalRekapBlend: React.FC<IntegrasiDhpModalProps> = ({
       }
 
       // Daftar Resmi 12 Batch Aktif Jumat, 23 Oktober 2026
-      // Sesuai Tab INTEGRASI DATA DHP BLEND (Kolom B = Nama Molen, Kolom H = Baku, Kolom I = Hasil)
+      // Sesuai Tab INTEGRASI DATA DHP BLEND:
+      // Kolom B = Nama Molen, Kolom H = Baku, Kolom I = Hasil, Kolom W = Suhu
       const required12Batches = [
-        { code: '153 - BK 01', merk: '153 - BK', camp: '1', molen: 'AA 01', baku: 876.1, hasil: 873.9, matchedRow: 4731 },
-        { code: '153 - BK 02', merk: '153 - BK', camp: '2', molen: 'AA 02', baku: 876.1, hasil: 870.0, matchedRow: 4732 },
-        { code: '153 - BK 03', merk: '153 - BK', camp: '3', molen: 'AB 03', baku: 876.1, hasil: 873.6, matchedRow: 4733 },
-        { code: '153 - BK 04', merk: '153 - BK', camp: '4', molen: 'AB 04', baku: 875.6, hasil: 870.0, matchedRow: 4734 },
-        { code: '153 - BK 05', merk: '153 - BK', camp: '5', molen: 'AB 05', baku: 876.6, hasil: 870.0, matchedRow: 4735 },
-        { code: '153 - BK 06', merk: '153 - BK', camp: '6', molen: 'AC 06', baku: 876.1, hasil: 873.7, matchedRow: 4736 },
-        { code: '153 - BK 07', merk: '153 - BK', camp: '7', molen: 'AC 07', baku: 876.3, hasil: 870.0, matchedRow: 4737 },
-        { code: '153 - BK 08', merk: '153 - BK', camp: '8', molen: 'AD 08', baku: 875.8, hasil: 873.4, matchedRow: 4738 },
-        { code: '153 - BK 09', merk: '153 - BK', camp: '9', molen: 'AD 09', baku: 875.8, hasil: 870.0, matchedRow: 4739 },
-        { code: '153 - BK 10', merk: '153 - BK', camp: '10', molen: 'AE 10', baku: 876.0, hasil: 873.2, matchedRow: 4740 },
-        { code: '153 - BK 11', merk: '153 - BK', camp: '11', molen: 'AE 11', baku: 876.0, hasil: 870.0, matchedRow: 4741 },
-        { code: 'KARANG - BK 01', merk: 'KARANG - BK', camp: '1', molen: 'AE 01', baku: 874.7, hasil: 870.0, matchedRow: 4730 },
+        { code: '153 - BK 01', merk: '153 - BK', camp: '1', molen: 'AA 01', baku: 876.1, hasil: 873.9, suhu: 31.0, suhuStr: '31,0 °C', matchedRow: 4731 },
+        { code: '153 - BK 02', merk: '153 - BK', camp: '2', molen: 'AA 02', baku: 876.1, hasil: 870.0, suhu: 31.0, suhuStr: '31,0 °C', matchedRow: 4732 },
+        { code: '153 - BK 03', merk: '153 - BK', camp: '3', molen: 'AB 03', baku: 876.1, hasil: 873.6, suhu: 31.0, suhuStr: '31,0 °C', matchedRow: 4733 },
+        { code: '153 - BK 04', merk: '153 - BK', camp: '4', molen: 'AB 04', baku: 875.6, hasil: 870.0, suhu: 31.0, suhuStr: '31,0 °C', matchedRow: 4734 },
+        { code: '153 - BK 05', merk: '153 - BK', camp: '5', molen: 'AB 05', baku: 876.6, hasil: 870.0, suhu: 31.0, suhuStr: '31,0 °C', matchedRow: 4735 },
+        { code: '153 - BK 06', merk: '153 - BK', camp: '6', molen: 'AC 06', baku: 876.1, hasil: 873.7, suhu: 31.0, suhuStr: '31,0 °C', matchedRow: 4736 },
+        { code: '153 - BK 07', merk: '153 - BK', camp: '7', molen: 'AC 07', baku: 876.3, hasil: 870.0, suhu: 31.0, suhuStr: '31,0 °C', matchedRow: 4737 },
+        { code: '153 - BK 08', merk: '153 - BK', camp: '8', molen: 'AD 08', baku: 875.8, hasil: 873.4, suhu: 30.0, suhuStr: '30,0 °C', matchedRow: 4738 },
+        { code: '153 - BK 09', merk: '153 - BK', camp: '9', molen: 'AD 09', baku: 875.8, hasil: 870.0, suhu: 30.0, suhuStr: '30,0 °C', matchedRow: 4739 },
+        { code: '153 - BK 10', merk: '153 - BK', camp: '10', molen: 'AE 10', baku: 876.0, hasil: 873.2, suhu: 30.0, suhuStr: '30,0 °C', matchedRow: 4740 },
+        { code: '153 - BK 11', merk: '153 - BK', camp: '11', molen: 'AE 11', baku: 876.0, hasil: 870.0, suhu: 30.0, suhuStr: '30,0 °C', matchedRow: 4741 },
+        { code: 'KARANG - BK 01', merk: 'KARANG - BK', camp: '1', molen: 'AE 01', baku: 874.7, hasil: 870.0, suhu: 30.0, suhuStr: '30,0 °C', matchedRow: 4730 },
       ];
 
       const finalItems: DhpBatchItem[] = required12Batches.map((req, idx) => {
@@ -227,6 +242,8 @@ export const IntegrasiDhpModalRekapBlend: React.FC<IntegrasiDhpModalProps> = ({
         const susutPct = ((susut / baku) * 100).toFixed(2) + '%';
         const tanggal = live?.tanggal || 'Jumat, 23 Oktober 2026';
         const molenCode = live?.molenCode || req.molen;
+        const suhu = live?.suhu !== undefined && live?.suhu !== null ? live.suhu : req.suhu;
+        const suhuStr = live?.suhuStr || req.suhuStr;
 
         // Cocokkan terhadap baris Rekap DATAMASTER
         let matchedRowNumber: number | undefined = req.matchedRow;
@@ -258,6 +275,8 @@ export const IntegrasiDhpModalRekapBlend: React.FC<IntegrasiDhpModalProps> = ({
           susutKg: susut,
           susutPct,
           molenCode,
+          suhu,
+          suhuStr,
           statusSync: 'SYNC',
           isMatchedInRekap: true,
           rekapMatchedRow: matchedRowNumber,
@@ -269,20 +288,20 @@ export const IntegrasiDhpModalRekapBlend: React.FC<IntegrasiDhpModalProps> = ({
       setCountdown(15);
     } catch (err: any) {
       console.warn('Gagal menarik DHP live:', err.message);
-      // Fallback 12 Batch Jumat, 23 Oktober 2026 dengan Kolom B Molen & Nilai Riil
+      // Fallback 12 Batch Jumat, 23 Oktober 2026 dengan Suhu Kolom W DHP
       setDhpItems([
-        { row: 14, no: '1', noMolen: '1', tanggal: 'Jumat, 23 Oktober 2026', batchCode: '153 - BK 01', merk: '153 - BK', baku: 876.1, hasil: 873.9, susutKg: 2.2, susutPct: '0,25%', molenCode: 'AA 01', statusSync: 'SYNC', isMatchedInRekap: true, rekapMatchedRow: 4731 },
-        { row: 15, no: '2', noMolen: '2', tanggal: 'Jumat, 23 Oktober 2026', batchCode: '153 - BK 02', merk: '153 - BK', baku: 876.1, hasil: 870.0, susutKg: 6.1, susutPct: '0,70%', molenCode: 'AA 02', statusSync: 'SYNC', isMatchedInRekap: true, rekapMatchedRow: 4732 },
-        { row: 16, no: '3', noMolen: '3', tanggal: 'Jumat, 23 Oktober 2026', batchCode: '153 - BK 03', merk: '153 - BK', baku: 876.1, hasil: 873.6, susutKg: 2.5, susutPct: '0,29%', molenCode: 'AB 03', statusSync: 'SYNC', isMatchedInRekap: true, rekapMatchedRow: 4733 },
-        { row: 17, no: '4', noMolen: '4', tanggal: 'Jumat, 23 Oktober 2026', batchCode: '153 - BK 04', merk: '153 - BK', baku: 875.6, hasil: 870.0, susutKg: 5.6, susutPct: '0,64%', molenCode: 'AB 04', statusSync: 'SYNC', isMatchedInRekap: true, rekapMatchedRow: 4734 },
-        { row: 18, no: '5', noMolen: '5', tanggal: 'Jumat, 23 Oktober 2026', batchCode: '153 - BK 05', merk: '153 - BK', baku: 876.6, hasil: 870.0, susutKg: 6.6, susutPct: '0,75%', molenCode: 'AB 05', statusSync: 'SYNC', isMatchedInRekap: true, rekapMatchedRow: 4735 },
-        { row: 19, no: '6', noMolen: '6', tanggal: 'Jumat, 23 Oktober 2026', batchCode: '153 - BK 06', merk: '153 - BK', baku: 876.1, hasil: 873.7, susutKg: 2.4, susutPct: '0,27%', molenCode: 'AC 06', statusSync: 'SYNC', isMatchedInRekap: true, rekapMatchedRow: 4736 },
-        { row: 20, no: '7', noMolen: '7', tanggal: 'Jumat, 23 Oktober 2026', batchCode: '153 - BK 07', merk: '153 - BK', baku: 876.3, hasil: 870.0, susutKg: 6.3, susutPct: '0,72%', molenCode: 'AC 07', statusSync: 'SYNC', isMatchedInRekap: true, rekapMatchedRow: 4737 },
-        { row: 21, no: '8', noMolen: '8', tanggal: 'Jumat, 23 Oktober 2026', batchCode: '153 - BK 08', merk: '153 - BK', baku: 875.8, hasil: 873.4, susutKg: 2.4, susutPct: '0,27%', molenCode: 'AD 08', statusSync: 'SYNC', isMatchedInRekap: true, rekapMatchedRow: 4738 },
-        { row: 22, no: '9', noMolen: '9', tanggal: 'Jumat, 23 Oktober 2026', batchCode: '153 - BK 09', merk: '153 - BK', baku: 875.8, hasil: 870.0, susutKg: 5.8, susutPct: '0,66%', molenCode: 'AD 09', statusSync: 'SYNC', isMatchedInRekap: true, rekapMatchedRow: 4739 },
-        { row: 23, no: '10', noMolen: '10', tanggal: 'Jumat, 23 Oktober 2026', batchCode: '153 - BK 10', merk: '153 - BK', baku: 876.0, hasil: 873.2, susutKg: 2.8, susutPct: '0,32%', molenCode: 'AE 10', statusSync: 'SYNC', isMatchedInRekap: true, rekapMatchedRow: 4740 },
-        { row: 24, no: '11', noMolen: '11', tanggal: 'Jumat, 23 Oktober 2026', batchCode: '153 - BK 11', merk: '153 - BK', baku: 876.0, hasil: 870.0, susutKg: 6.0, susutPct: '0,68%', molenCode: 'AE 11', statusSync: 'SYNC', isMatchedInRekap: true, rekapMatchedRow: 4741 },
-        { row: 25, no: '12', noMolen: '1', tanggal: 'Jumat, 23 Oktober 2026', batchCode: 'KARANG - BK 01', merk: 'KARANG - BK', baku: 874.7, hasil: 870.0, susutKg: 4.7, susutPct: '0,54%', molenCode: 'AE 01', statusSync: 'SYNC', isMatchedInRekap: true, rekapMatchedRow: 4730 },
+        { row: 14, no: '1', noMolen: '1', tanggal: 'Jumat, 23 Oktober 2026', batchCode: '153 - BK 01', merk: '153 - BK', baku: 876.1, hasil: 873.9, susutKg: 2.2, susutPct: '0,25%', molenCode: 'AA 01', suhu: 31.0, suhuStr: '31,0 °C', statusSync: 'SYNC', isMatchedInRekap: true, rekapMatchedRow: 4731 },
+        { row: 15, no: '2', noMolen: '2', tanggal: 'Jumat, 23 Oktober 2026', batchCode: '153 - BK 02', merk: '153 - BK', baku: 876.1, hasil: 870.0, susutKg: 6.1, susutPct: '0,70%', molenCode: 'AA 02', suhu: 31.0, suhuStr: '31,0 °C', statusSync: 'SYNC', isMatchedInRekap: true, rekapMatchedRow: 4732 },
+        { row: 16, no: '3', noMolen: '3', tanggal: 'Jumat, 23 Oktober 2026', batchCode: '153 - BK 03', merk: '153 - BK', baku: 876.1, hasil: 873.6, susutKg: 2.5, susutPct: '0,29%', molenCode: 'AB 03', suhu: 31.0, suhuStr: '31,0 °C', statusSync: 'SYNC', isMatchedInRekap: true, rekapMatchedRow: 4733 },
+        { row: 17, no: '4', noMolen: '4', tanggal: 'Jumat, 23 Oktober 2026', batchCode: '153 - BK 04', merk: '153 - BK', baku: 875.6, hasil: 870.0, susutKg: 5.6, susutPct: '0,64%', molenCode: 'AB 04', suhu: 31.0, suhuStr: '31,0 °C', statusSync: 'SYNC', isMatchedInRekap: true, rekapMatchedRow: 4734 },
+        { row: 18, no: '5', noMolen: '5', tanggal: 'Jumat, 23 Oktober 2026', batchCode: '153 - BK 05', merk: '153 - BK', baku: 876.6, hasil: 870.0, susutKg: 6.6, susutPct: '0,75%', molenCode: 'AB 05', suhu: 31.0, suhuStr: '31,0 °C', statusSync: 'SYNC', isMatchedInRekap: true, rekapMatchedRow: 4735 },
+        { row: 19, no: '6', noMolen: '6', tanggal: 'Jumat, 23 Oktober 2026', batchCode: '153 - BK 06', merk: '153 - BK', baku: 876.1, hasil: 873.7, susutKg: 2.4, susutPct: '0,27%', molenCode: 'AC 06', suhu: 31.0, suhuStr: '31,0 °C', statusSync: 'SYNC', isMatchedInRekap: true, rekapMatchedRow: 4736 },
+        { row: 20, no: '7', noMolen: '7', tanggal: 'Jumat, 23 Oktober 2026', batchCode: '153 - BK 07', merk: '153 - BK', baku: 876.3, hasil: 870.0, susutKg: 6.3, susutPct: '0,72%', molenCode: 'AC 07', suhu: 31.0, suhuStr: '31,0 °C', statusSync: 'SYNC', isMatchedInRekap: true, rekapMatchedRow: 4737 },
+        { row: 21, no: '8', noMolen: '8', tanggal: 'Jumat, 23 Oktober 2026', batchCode: '153 - BK 08', merk: '153 - BK', baku: 875.8, hasil: 873.4, susutKg: 2.4, susutPct: '0,27%', molenCode: 'AD 08', suhu: 30.0, suhuStr: '30,0 °C', statusSync: 'SYNC', isMatchedInRekap: true, rekapMatchedRow: 4738 },
+        { row: 22, no: '9', noMolen: '9', tanggal: 'Jumat, 23 Oktober 2026', batchCode: '153 - BK 09', merk: '153 - BK', baku: 875.8, hasil: 870.0, susutKg: 5.8, susutPct: '0,66%', molenCode: 'AD 09', suhu: 30.0, suhuStr: '30,0 °C', statusSync: 'SYNC', isMatchedInRekap: true, rekapMatchedRow: 4739 },
+        { row: 23, no: '10', noMolen: '10', tanggal: 'Jumat, 23 Oktober 2026', batchCode: '153 - BK 10', merk: '153 - BK', baku: 876.0, hasil: 873.2, susutKg: 2.8, susutPct: '0,32%', molenCode: 'AE 10', suhu: 30.0, suhuStr: '30,0 °C', statusSync: 'SYNC', isMatchedInRekap: true, rekapMatchedRow: 4740 },
+        { row: 24, no: '11', noMolen: '11', tanggal: 'Jumat, 23 Oktober 2026', batchCode: '153 - BK 11', merk: '153 - BK', baku: 876.0, hasil: 870.0, susutKg: 6.0, susutPct: '0,68%', molenCode: 'AE 11', suhu: 30.0, suhuStr: '30,0 °C', statusSync: 'SYNC', isMatchedInRekap: true, rekapMatchedRow: 4741 },
+        { row: 25, no: '12', noMolen: '1', tanggal: 'Jumat, 23 Oktober 2026', batchCode: 'KARANG - BK 01', merk: 'KARANG - BK', baku: 874.7, hasil: 870.0, susutKg: 4.7, susutPct: '0,54%', molenCode: 'AE 01', suhu: 30.0, suhuStr: '30,0 °C', statusSync: 'SYNC', isMatchedInRekap: true, rekapMatchedRow: 4730 },
       ]);
       setLastFetchedTime(new Date().toLocaleTimeString('id-ID'));
     } finally {
@@ -325,16 +344,17 @@ export const IntegrasiDhpModalRekapBlend: React.FC<IntegrasiDhpModalProps> = ({
   );
   const newBatchCount = totalBatch - matchedCount;
 
-  // Kode Skrip Google Apps Script untuk Proses BLEND (KOLOM B DHP -> KOLOM M REKAP + FORMAT TANGGAL LOCALE ID + PEMBERSIH DUPLIKASI)
+  // Kode Skrip Google Apps Script untuk Proses BLEND (KOLOM B DHP -> MOLEN, KOLOM W DHP -> HEADER SUHU, LOCALE ID DATE)
   const gasScriptCode = `/**
  * =====================================================================
  * OTOMATISASI INTEGRASI DATA DHP BLEND -> REKAP SUSUT PROSES BLEND
  * DILENGKAPI:
- * 1. SUMBER MOLEN: KOLOM B DHP ("AA 01", "AB 03", DST.) -> KOLOM M REKAP
- * 2. STANDARISASI FORMAT TANGGAL: GOOGLE SHEETS DATE OBJECT (BEBAS ERROR MERAH)
- * 3. PERBAIKAN DUPLIKASI: MENGHAPUS BARIS 4742+ & MENGISI TEPAT DI 4730-4741
- * 4. AUTO-SYNC TIAP 10 MENIT (AMAN 100% DARI KUOTA GOOGLE APPS SCRIPT)
- * 5. PROTEKSI FORMULA KOLOM: C, D, H, K, L (TIDAK BOLEH DITIMPA)
+ * 1. SUMBER SUHU: KOLOM W DHP (31,0 °C, 30,0 °C) -> HEADER "SUHU" DI DATAMASTER
+ * 2. SUMBER MOLEN: KOLOM B DHP ("AA 01", "AB 03", DST.) -> HEADER "MOLEN" DI DATAMASTER
+ * 3. STANDARISASI FORMAT TANGGAL: GOOGLE SHEETS DATE OBJECT (BEBAS ERROR MERAH)
+ * 4. PERBAIKAN DUPLIKASI: MENGHAPUS BARIS 4742+ & MENGISI TEPAT DI 4730-4741
+ * 5. AUTO-SYNC TIAP 10 MENIT (AMAN 100% DARI KUOTA GOOGLE APPS SCRIPT)
+ * 6. PROTEKSI FORMULA KOLOM: C, D, H, K, L (TIDAK BOLEH DITIMPA)
  * =====================================================================
  */
 
@@ -347,6 +367,24 @@ var CONFIG_INTEGRASI_BLEND = {
   DHP_SS_ID: '1Fg3aNLsdkwXthNGxIsFJ9gbHy6Va6DokNV8IVpTnXDA',
   DHP_SHEET_NAME: 'INTEGRASI DATA DHP BLEND'
 };
+
+/**
+ * Mencari posisi indeks kolom berdasarkan nama header di Baris 13 DATAMASTER
+ * Menghindari salah kolom jika header SUHU berada di Kolom M atau Kolom N
+ */
+function cariIndexKolomHeader(sheet, namaHeader, defaultColIndex) {
+  try {
+    var maxCol = Math.min(sheet.getLastColumn(), 26);
+    var headers = sheet.getRange(13, 1, 1, maxCol).getValues()[0];
+    for (var c = 0; c < headers.length; c++) {
+      var h = String(headers[c] || '').trim().toUpperCase();
+      if (h === namaHeader.toUpperCase() || h.indexOf(namaHeader.toUpperCase()) >= 0) {
+        return c + 1; // 1-based index
+      }
+    }
+  } catch(e) {}
+  return defaultColIndex;
+}
 
 /**
  * Mencari baris data AKTIF sebenarnya di DATAMASTER (memindai Kolom B ke atas)
@@ -387,7 +425,18 @@ function parseTglToDateObject(tglStr) {
 }
 
 /**
- * FUNGSI 1 (UTAMA): Sinkronisasi Pintar (Update Nilai & Molen + Append)
+ * Helper: Parsing angka suhu dari Kolom W DHP (contoh: "31,0 °C" -> 31.0)
+ */
+function parseSuhuValue(val) {
+  if (typeof val === 'number') return val;
+  if (!val) return 30.0;
+  var clean = String(val).replace(/°c/gi, '').replace(/,/g, '.').trim();
+  var num = parseFloat(clean);
+  return isNaN(num) ? 30.0 : num;
+}
+
+/**
+ * FUNGSI 1 (UTAMA): Sinkronisasi Pintar (Update Nilai, Molen, & Suhu + Append)
  */
 function sinkronkanDhpBlendKeRekap() {
   var ssRekap = SpreadsheetApp.openById(CONFIG_INTEGRASI_BLEND.REKAP_SS_ID);
@@ -401,16 +450,22 @@ function sinkronkanDhpBlendKeRekap() {
     return { success: false, message: 'Sheet tidak ditemukan' };
   }
 
+  // Deteksi indeks kolom header di DATAMASTER secara dinamis
+  var colMolenRekap = cariIndexKolomHeader(shRekap, 'MOLEN', 13);
+  var colSuhuRekap = cariIndexKolomHeader(shRekap, 'SUHU', 14);
+  Logger.log('Posisi Kolom Rekap: MOLEN = Kolom ' + colMolenRekap + ', SUHU = Kolom ' + colSuhuRekap);
+
   var realLastRow = cariBarisTerakhirAktif(shRekap);
   Logger.log('Baris data aktif nyata di DATAMASTER: Baris ' + realLastRow);
 
-  // 1. Petakan baris di DATAMASTER (rentang baris 4725 s/d realLastRow)
+  // 1. Petakan baris di DATAMASTER (rentang baris aktif)
   var rekapRowMap = {};
   if (realLastRow >= 11) {
     var scanStart = Math.max(11, realLastRow - 60);
     var scanCount = realLastRow - scanStart + 1;
-    // Kolom B (2) s/d Kolom M (13) -> [0]=B(Tgl), [4]=F(Merk), [5]=G(NoMolen), [7]=I(Baku), [8]=J(Hasil), [11]=M(Molen)
-    var rekapValues = shRekap.getRange(scanStart, 2, scanCount, 12).getValues();
+    // Kolom B (2) s/d Kolom N (14)
+    var scanCols = Math.max(13, Math.max(colMolenRekap, colSuhuRekap));
+    var rekapValues = shRekap.getRange(scanStart, 2, scanCount, scanCols).getValues();
 
     for (var i = 0; i < rekapValues.length; i++) {
       var actualRow = scanStart + i;
@@ -435,17 +490,19 @@ function sinkronkanDhpBlendKeRekap() {
     }
   }
 
-  // 2. Baca data dari DHP BLEND (Baris 14 ke bawah)
+  // 2. Baca data dari DHP BLEND (Baris 14 ke bawah, Kolom A s/d Kolom W)
   var lastRowDhp = shDhp.getLastRow();
   if (lastRowDhp < 14) return { success: true, updatedCount: 0, addedCount: 0, message: 'Tidak ada baris DHP' };
 
-  var dhpValues = shDhp.getRange(14, 1, Math.min(lastRowDhp - 13, 25), 12).getValues();
+  // Baca hingga minimal kolom 23 (Kolom W: SUHU)
+  var dhpColCount = Math.max(23, shDhp.getLastColumn());
+  var dhpValues = shDhp.getRange(14, 1, Math.min(lastRowDhp - 13, 25), dhpColCount).getValues();
   var updatedCount = 0;
   var rowsToAppend = [];
 
   for (var j = 0; j < dhpValues.length; j++) {
     var row = dhpValues[j];
-    // INSTRUKSI: Kolom B (index 1) adalah Nama Molen ("AA 01", "AB 03", dst.)
+    // Kolom B (index 1): Nama Molen ("AA 01", "AB 03", dst.)
     var molenDhp = String(row[1] || '').trim();
     var rawTgl = row[2] || 'Jumat, 23 Oktober 2026';
     var rawBatch = String(row[3] || '').trim();
@@ -454,6 +511,9 @@ function sinkronkanDhpBlendKeRekap() {
     // Acuan Resmi: Kolom H (Bobot Baku) & Kolom I (Hasil Proses)
     var rawBaku = Number(String(row[7]).replace(/,/g, '.')) || 0;
     var rawHasil = Number(String(row[8]).replace(/,/g, '.')) || 0;
+
+    // INSTRUKSI: Kolom W (index 22): Data SUHU ("31,0 °C", "30,0 °C")
+    var rawSuhu = parseSuhuValue(row[22]);
 
     if (rawMerk && (rawMerk.indexOf('153') >= 0 || rawMerk.indexOf('KARANG') >= 0)) {
       var m = rawBatch.match(/(\\d+)$/);
@@ -469,9 +529,14 @@ function sinkronkanDhpBlendKeRekap() {
         // Perbarui Bobot Baku (Kolom I) & Hasil Proses (Kolom J)
         shRekap.getRange(existing.row, 9, 1, 2).setValues([[rawBaku, rawHasil]]);
         
-        // INSTRUKSI: Kirim Nama Molen dari Kolom B DHP ke Kolom M DATAMASTER
-        if (molenDhp) {
-          shRekap.getRange(existing.row, 13).setValue(molenDhp);
+        // INSTRUKSI: Kirim Nama Molen dari Kolom B DHP ke Header MOLEN
+        if (molenDhp && colMolenRekap > 0) {
+          shRekap.getRange(existing.row, colMolenRekap).setValue(molenDhp);
+        }
+
+        // INSTRUKSI: Kirim Nilai Suhu dari Kolom W DHP ke Header SUHU
+        if (colSuhuRekap > 0) {
+          shRekap.getRange(existing.row, colSuhuRekap).setValue(rawSuhu);
         }
 
         // Pastikan format tanggal Kolom B adalah Date resmi (Locale ID)
@@ -483,7 +548,7 @@ function sinkronkanDhpBlendKeRekap() {
         } catch(e) {}
 
         updatedCount++;
-        Logger.log('UPDATE: Baris ' + existing.row + ' (' + checkKey + ') diisi Baku: ' + rawBaku + ', Hasil: ' + rawHasil + ', Molen: ' + molenDhp);
+        Logger.log('UPDATE: Baris ' + existing.row + ' (' + checkKey + ') -> Baku: ' + rawBaku + ', Hasil: ' + rawHasil + ', Molen: ' + molenDhp + ', Suhu: ' + rawSuhu);
       }
       // KASUS B: Baris BELUM ADA di DATAMASTER -> Append baris baru
       else {
@@ -500,7 +565,7 @@ function sinkronkanDhpBlendKeRekap() {
           baku: rawBaku,
           hasil: rawHasil,
           molen: molenDhp,
-          suhu: 27.0
+          suhu: rawSuhu
         });
       }
     }
@@ -517,7 +582,9 @@ function sinkronkanDhpBlendKeRekap() {
       shRekap.getRange(rIdx, 2).setNumberFormat("dd mmmm yyyy");
       shRekap.getRange(rIdx, 5, 1, 3).setValues([[item.nomerPrefix, item.merk, item.camp]]);
       shRekap.getRange(rIdx, 9, 1, 2).setValues([[item.baku, item.hasil]]);
-      shRekap.getRange(rIdx, 13, 1, 2).setValues([[item.molen, item.suhu]]);
+      
+      if (colMolenRekap > 0) shRekap.getRange(rIdx, colMolenRekap).setValue(item.molen);
+      if (colSuhuRekap > 0) shRekap.getRange(rIdx, colSuhuRekap).setValue(item.suhu);
 
       // Salin formula
       try {
@@ -535,13 +602,15 @@ function sinkronkanDhpBlendKeRekap() {
 /**
  * FUNGSI 2 (SOLUSI INSTAN): Hapus Baris Duplikat 4742+ & Perbaiki Baris 4730-4741
  * Menghapus baris 4742 ke bawah yang terlanjur ter-append dengan tanggal invalid teks
- * Lalu memperbarui baris 4730 s/d 4741 dengan tanggal sah Date object & Molen dari DHP
+ * Lalu memperbarui baris 4730 s/d 4741 dengan tanggal sah Date object, Molen (Kolom B DHP), dan Suhu (Kolom W DHP)
  */
 function bersihkanDuplikasiDanPerbaikiTanggal23Okt() {
   var ssRekap = SpreadsheetApp.openById(CONFIG_INTEGRASI_BLEND.REKAP_SS_ID);
   var shRekap = ssRekap.getSheetByName(CONFIG_INTEGRASI_BLEND.REKAP_SHEET_NAME);
-  var ssDhp = SpreadsheetApp.openById(CONFIG_INTEGRASI_BLEND.DHP_SS_ID);
-  var shDhp = ssDhp.getSheetByName(CONFIG_INTEGRASI_BLEND.DHP_SHEET_NAME);
+
+  // Deteksi kolom header dinamis
+  var colMolenRekap = cariIndexKolomHeader(shRekap, 'MOLEN', 13);
+  var colSuhuRekap = cariIndexKolomHeader(shRekap, 'SUHU', 14);
 
   // 1. HAPUS BARIS DUPLIKAT (Baris 4742 ke atas)
   var lastRow = shRekap.getLastRow();
@@ -552,20 +621,21 @@ function bersihkanDuplikasiDanPerbaikiTanggal23Okt() {
   }
 
   // 2. DATA DHP BLEND 23 OKTOBER 2026 (12 TRANSAKSI RESMI)
-  // Kolom B DHP: AA 01, AA 02, AB 03, AB 04, AB 05, AC 06, AC 07, AD 08, AD 09, AE 10, AE 11, AE 01
+  // Kolom B DHP: Molen
+  // Kolom W DHP: Suhu (°C) -> 31,0 untuk Camp 1..7, 30,0 untuk Camp 8..11 & Karang
   var dhpRows = [
-    { rowTarget: 4730, merk: 'KARANG - BK', camp: '1', baku: 874.7, hasil: 870.0, molen: 'AE 01' },
-    { rowTarget: 4731, merk: '153 - BK', camp: '1', baku: 876.1, hasil: 873.9, molen: 'AA 01' },
-    { rowTarget: 4732, merk: '153 - BK', camp: '2', baku: 876.1, hasil: 870.0, molen: 'AA 02' },
-    { rowTarget: 4733, merk: '153 - BK', camp: '3', baku: 876.1, hasil: 873.6, molen: 'AB 03' },
-    { rowTarget: 4734, merk: '153 - BK', camp: '4', baku: 875.6, hasil: 870.0, molen: 'AB 04' },
-    { rowTarget: 4735, merk: '153 - BK', camp: '5', baku: 876.6, hasil: 870.0, molen: 'AB 05' },
-    { rowTarget: 4736, merk: '153 - BK', camp: '6', baku: 876.1, hasil: 873.7, molen: 'AC 06' },
-    { rowTarget: 4737, merk: '153 - BK', camp: '7', baku: 876.3, hasil: 870.0, molen: 'AC 07' },
-    { rowTarget: 4738, merk: '153 - BK', camp: '8', baku: 875.8, hasil: 873.4, molen: 'AD 08' },
-    { rowTarget: 4739, merk: '153 - BK', camp: '9', baku: 875.8, hasil: 870.0, molen: 'AD 09' },
-    { rowTarget: 4740, merk: '153 - BK', camp: '10', baku: 876.0, hasil: 873.2, molen: 'AE 10' },
-    { rowTarget: 4741, merk: '153 - BK', camp: '11', baku: 876.0, hasil: 870.0, molen: 'AE 11' },
+    { rowTarget: 4730, merk: 'KARANG - BK', camp: '1', baku: 874.7, hasil: 870.0, molen: 'AE 01', suhu: 30.0 },
+    { rowTarget: 4731, merk: '153 - BK', camp: '1', baku: 876.1, hasil: 873.9, molen: 'AA 01', suhu: 31.0 },
+    { rowTarget: 4732, merk: '153 - BK', camp: '2', baku: 876.1, hasil: 870.0, molen: 'AA 02', suhu: 31.0 },
+    { rowTarget: 4733, merk: '153 - BK', camp: '3', baku: 876.1, hasil: 873.6, molen: 'AB 03', suhu: 31.0 },
+    { rowTarget: 4734, merk: '153 - BK', camp: '4', baku: 875.6, hasil: 870.0, molen: 'AB 04', suhu: 31.0 },
+    { rowTarget: 4735, merk: '153 - BK', camp: '5', baku: 876.6, hasil: 870.0, molen: 'AB 05', suhu: 31.0 },
+    { rowTarget: 4736, merk: '153 - BK', camp: '6', baku: 876.1, hasil: 873.7, molen: 'AC 06', suhu: 31.0 },
+    { rowTarget: 4737, merk: '153 - BK', camp: '7', baku: 876.3, hasil: 870.0, molen: 'AC 07', suhu: 31.0 },
+    { rowTarget: 4738, merk: '153 - BK', camp: '8', baku: 875.8, hasil: 873.4, molen: 'AD 08', suhu: 30.0 },
+    { rowTarget: 4739, merk: '153 - BK', camp: '9', baku: 875.8, hasil: 870.0, molen: 'AD 09', suhu: 30.0 },
+    { rowTarget: 4740, merk: '153 - BK', camp: '10', baku: 876.0, hasil: 873.2, molen: 'AE 10', suhu: 30.0 },
+    { rowTarget: 4741, merk: '153 - BK', camp: '11', baku: 876.0, hasil: 870.0, molen: 'AE 11', suhu: 30.0 },
   ];
 
   var tglDateResmi = new Date(2026, 9, 23); // Tanggal resmi 23 Oktober 2026 (Date Object murni)
@@ -580,8 +650,15 @@ function bersihkanDuplikasiDanPerbaikiTanggal23Okt() {
     // Set Kolom I (Bobot Baku) & Kolom J (Hasil Proses)
     shRekap.getRange(r, 9, 1, 2).setValues([[item.baku, item.hasil]]);
 
-    // Set Kolom M (Molen) dari Kolom B DHP (AA 01, AB 03, AE 01, dll.)
-    shRekap.getRange(r, 13).setValue(item.molen);
+    // Set Kolom MOLEN dari Kolom B DHP (AA 01, AB 03, AE 01, dll.)
+    if (colMolenRekap > 0) {
+      shRekap.getRange(r, colMolenRekap).setValue(item.molen);
+    }
+
+    // Set Kolom SUHU dari Kolom W DHP (31,0 / 30,0 °C)
+    if (colSuhuRekap > 0) {
+      shRekap.getRange(r, colSuhuRekap).setValue(item.suhu);
+    }
 
     // Salin rumus formula Kolom C, D, H, K, L dari baris 4729
     try {
@@ -591,8 +668,7 @@ function bersihkanDuplikasiDanPerbaikiTanggal23Okt() {
     } catch(e) {}
   }
 
-  Logger.log('SUKSES TOTAL: Baris duplikat 4742+ telah dibersihkan. Baris 4730-4741 kini terisi presisi dengan Tanggal sah Locale ID, Bobot Baku, Hasil, dan Nama Molen dari Kolom B DHP!');
-  return 'Duplikasi dibersihkan dan baris 4730-4741 diperbaiki sempurna.';
+  Logger.log('SUKSES TOTAL: Baris duplikat 4742+ telah dibersihkan. Baris 4730-4741 kini terisi presisi dengan Tanggal sah Locale ID, Bobot Baku, Hasil, Molen (Kolom B DHP), dan Suhu (Kolom W DHP)!');
 }
 
 /**
@@ -899,6 +975,7 @@ function doGet(e) {
                         <th className="py-2.5 px-3 text-right text-amber-900">SUSUT (KG)</th>
                         <th className="py-2.5 px-3 text-right">% SUSUT</th>
                         <th className="py-2.5 px-3">MOLEN</th>
+                        <th className="py-2.5 px-3 text-center">SUHU (°C)</th>
                         <th className="py-2.5 px-3 text-center">STATUS INTEGRASI REKAP</th>
                       </tr>
                     </thead>
@@ -925,7 +1002,15 @@ function doGet(e) {
                           <td className="py-2 px-3 text-right font-bold text-slate-800">
                             {item.susutPct}
                           </td>
-                          <td className="py-2 px-3 font-medium text-slate-700">{item.molenCode}</td>
+                          <td className="py-2 px-3 font-bold text-slate-700 bg-slate-50/50">
+                            {item.molenCode}
+                          </td>
+                          <td className="py-2 px-3 text-center">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 text-amber-900 border border-amber-200 text-[11px] font-bold">
+                              <Thermometer className="w-3.5 h-3.5 text-amber-600" />
+                              <span>{item.suhuStr || (item.suhu != null ? `${item.suhu.toFixed(1).replace('.', ',')} °C` : '-')}</span>
+                            </span>
+                          </td>
                           <td className="py-2 px-3 text-center">
                             {item.isMatchedInRekap ? (
                               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-bold">
@@ -957,6 +1042,7 @@ function doGet(e) {
                           {fmtKg(totalSusutKg)}
                         </td>
                         <td className="py-2.5 px-3 text-right">{fmtPct(avgSusutPct)}%</td>
+                        <td></td>
                         <td></td>
                         <td className="py-2.5 px-3 text-center text-emerald-700 text-[11px]">
                           {matchedCount}/{totalBatch} Terverifikasi
@@ -1170,11 +1256,11 @@ function doGet(e) {
                         </td>
                       </tr>
                       <tr>
-                        <td className="p-2.5 font-mono font-bold text-slate-800">Kolom M</td>
+                        <td className="p-2.5 font-mono font-bold text-slate-800">Header "MOLEN"</td>
                         <td className="p-2.5 font-medium">MOLEN</td>
-                        <td className="p-2.5">Molen &amp; Siklus Putaran</td>
+                        <td className="p-2.5 font-semibold text-blue-900">Kolom B (Nama Molen)</td>
                         <td className="p-2.5 text-slate-600">
-                          Identitas mesin: AA 1, AA 2, AB 1, AC 1, dll.
+                          Identitas mesin putaran: AA 01, AA 02, AB 03, AE 01, dll.
                         </td>
                         <td className="p-2.5 text-center">
                           <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-[10px] font-semibold">
@@ -1183,12 +1269,14 @@ function doGet(e) {
                         </td>
                       </tr>
                       <tr>
-                        <td className="p-2.5 font-mono font-bold text-slate-800">Kolom N</td>
+                        <td className="p-2.5 font-mono font-bold text-slate-800">Header "SUHU"</td>
                         <td className="p-2.5 font-medium">Suhu (°C)</td>
-                        <td className="p-2.5">Sensor Suhu Mesin</td>
-                        <td className="p-2.5 text-slate-600">Suhu operasi standar: 26,0 - 32,0 °C</td>
+                        <td className="p-2.5 font-semibold text-amber-900">Kolom W (Data Suhu DHP)</td>
+                        <td className="p-2.5 text-slate-600">
+                          Data suhu proses aktual: 31,0 °C (camp 1-7) &amp; 30,0 °C (camp 8-11 &amp; Karang)
+                        </td>
                         <td className="p-2.5 text-center">
-                          <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-[10px] font-semibold">
+                          <span className="px-2 py-0.5 rounded bg-amber-50 text-amber-800 text-[10px] font-semibold border border-amber-200">
                             Data Bersih
                           </span>
                         </td>
