@@ -380,17 +380,17 @@ var CONFIG_INTEGRASI_BLEND = {
 };
 
 /**
- * Mencari posisi indeks kolom berdasarkan nama header di Baris 10 DATAMASTER
+ * Mencari posisi indeks kolom berdasarkan nama header di Baris 13 DATAMASTER
  * Secara cerdas membedakan:
- * - Kolom G (7) = NO. MOLEN / BATCH (Nomor urut camp: 1..16, hanya menerima angka)
+ * - Kolom G (7) = BATCH / Camp (Nomor urut: 1..16, hanya menerima angka)
  * - Kolom M (13) = MOLEN (Identitas mesin putaran: AA 01, AA 02, AB 03, AE 01, dst)
  * - Kolom N (14) = SUHU (Suhu aktual proses: 31,0 °C, dst)
  */
 function cariIndexKolomHeader(sheet, namaHeader, defaultColIndex) {
   try {
     var maxCol = Math.min(sheet.getLastColumn(), 26);
-    // Header resmi DATAMASTER terletak di Baris 10
-    var headerRows = [10, 9, 8];
+    // Header resmi tabel DATAMASTER terletak di Baris 13!
+    var headerRows = [13, 10, 12, 14];
     for (var r = 0; r < headerRows.length; r++) {
       var rH = headerRows[r];
       var headers = sheet.getRange(rH, 1, 1, maxCol).getValues()[0];
