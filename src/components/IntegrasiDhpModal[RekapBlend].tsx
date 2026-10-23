@@ -92,6 +92,18 @@ export const IntegrasiDhpModalRekapBlend: React.FC<IntegrasiDhpModalProps> = ({
     return isNaN(n) ? 0 : n;
   };
 
+  // Helper format tanggal: "Jumat, 23 Oktober 2026" -> "23 Oktober 2026"
+  const formatTanggalShort = (tgl: string) => {
+    if (!tgl) return '';
+    return tgl.replace(/^[A-Za-z]+,\s*/, '').trim();
+  };
+
+  // Helper nama molen: "MOLEN AA 1" -> "AA 1", "MOLEN AA 01" -> "AA 01", "Molen AB 03" -> "AB 03"
+  const cleanMolenName = (val: string) => {
+    if (!val) return '';
+    return val.replace(/^molen\s*/i, '').trim();
+  };
+
   // Fungsi penarik data live langsung dari sheet DHP Blend
   const fetchLiveDhpData = useCallback(async () => {
     setIsLoading(true);
@@ -139,7 +151,7 @@ export const IntegrasiDhpModalRekapBlend: React.FC<IntegrasiDhpModalProps> = ({
         // Col H (7): Bobot Baku
         // Col I (8): Hasil Proses / Timbangan
         // Col W (22): DATA SUHU ("31,0 °C", "30,0 °C")
-        const molenColB = c[1] ? c[1].trim() : '';
+        const molenColB = cleanMolenName(c[1] ? c[1].trim() : '');
         const tgl1 = c[2] || 'Jumat, 23 Oktober 2026';
         const batchCode1 = c[3] || '';
         const merk1 = c[4] || '';
@@ -761,7 +773,7 @@ function doGet(e) {
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-2xl max-w-5xl w-full max-h-[94vh] flex flex-col shadow-2xl border border-slate-200/90 relative overflow-hidden"
+        className="bg-white rounded-2xl max-w-7xl xl:max-w-[1360px] w-full max-h-[94vh] flex flex-col shadow-2xl border border-slate-200/90 relative overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* 1. Header Modal */}
@@ -965,62 +977,66 @@ function doGet(e) {
                 <div className="overflow-x-auto scrollbar-thin">
                   <table className="w-full text-left text-xs border-collapse whitespace-nowrap">
                     <thead>
-                      <tr className="bg-slate-100/80 border-b border-slate-200 text-slate-600 font-bold">
-                        <th className="py-2.5 px-3 text-center w-14">ROW</th>
-                        <th className="py-2.5 px-3">TANGGAL</th>
-                        <th className="py-2.5 px-3">JENIS TEMBAKAU BLEND</th>
-                        <th className="py-2.5 px-3 text-center">NO. MOLEN</th>
-                        <th className="py-2.5 px-3 text-right">NETTO BAKU (KG)</th>
-                        <th className="py-2.5 px-3 text-right">HASIL (KG)</th>
-                        <th className="py-2.5 px-3 text-right text-amber-900">SUSUT (KG)</th>
-                        <th className="py-2.5 px-3 text-right">% SUSUT</th>
-                        <th className="py-2.5 px-3">MOLEN</th>
-                        <th className="py-2.5 px-3 text-center">SUHU (°C)</th>
-                        <th className="py-2.5 px-3 text-center">STATUS INTEGRASI REKAP</th>
+                      <tr className="bg-slate-100/80 border-b border-slate-200 text-slate-600 font-bold text-[11px] sm:text-xs">
+                        <th className="py-2.5 px-2 text-center w-11">ROW</th>
+                        <th className="py-2.5 px-2.5">TANGGAL</th>
+                        <th className="py-2.5 px-2.5">JENIS TBK BLEND</th>
+                        <th className="py-2.5 px-2 text-center">BATCH</th>
+                        <th className="py-2.5 px-2.5 text-right">NETTO BAKU (KG)</th>
+                        <th className="py-2.5 px-2.5 text-right">HASIL (KG)</th>
+                        <th className="py-2.5 px-2.5 text-right text-amber-900">SUSUT (KG)</th>
+                        <th className="py-2.5 px-2 text-right">% SUSUT</th>
+                        <th className="py-2.5 px-2.5 text-center">MOLEN</th>
+                        <th className="py-2.5 px-2.5 text-center">SUHU (°C)</th>
+                        <th className="py-2.5 px-2.5 text-center">STATUS REKAP</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {dhpItems.map((item) => (
                         <tr key={item.row} className="hover:bg-slate-50 transition">
-                          <td className="py-2 px-3 text-center font-mono text-slate-400 font-semibold">
+                          <td className="py-2 px-2 text-center font-mono text-slate-400 font-semibold text-[11px]">
                             {item.row}
                           </td>
-                          <td className="py-2 px-3 font-medium text-slate-800">{item.tanggal}</td>
-                          <td className="py-2 px-3 font-bold text-slate-900">{item.merk}</td>
-                          <td className="py-2 px-3 text-center font-mono font-bold text-slate-700 bg-slate-50/70">
+                          <td className="py-2 px-2.5 font-medium text-slate-800 whitespace-nowrap">
+                            {formatTanggalShort(item.tanggal)}
+                          </td>
+                          <td className="py-2 px-2.5 font-bold text-slate-900 whitespace-nowrap">
+                            {item.merk}
+                          </td>
+                          <td className="py-2 px-2 text-center font-mono font-bold text-slate-700 bg-slate-50/70">
                             {item.noMolen}
                           </td>
-                          <td className="py-2 px-3 text-right font-bold text-blue-900">
+                          <td className="py-2 px-2.5 text-right font-bold text-blue-900 tabular-nums">
                             {fmtKg(item.baku)}
                           </td>
-                          <td className="py-2 px-3 text-right font-medium text-emerald-900">
+                          <td className="py-2 px-2.5 text-right font-medium text-emerald-900 tabular-nums">
                             {fmtKg(item.hasil)}
                           </td>
-                          <td className="py-2 px-3 text-right font-semibold text-amber-900">
+                          <td className="py-2 px-2.5 text-right font-semibold text-amber-900 tabular-nums">
                             {fmtKg(item.susutKg)}
                           </td>
-                          <td className="py-2 px-3 text-right font-bold text-slate-800">
+                          <td className="py-2 px-2 text-right font-bold text-slate-800 tabular-nums">
                             {item.susutPct}
                           </td>
-                          <td className="py-2 px-3 font-bold text-slate-700 bg-slate-50/50">
-                            {item.molenCode}
+                          <td className="py-2 px-2.5 text-center font-bold text-slate-700 bg-slate-50/50">
+                            {cleanMolenName(item.molenCode)}
                           </td>
-                          <td className="py-2 px-3 text-center">
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 text-amber-900 border border-amber-200 text-[11px] font-bold">
-                              <Thermometer className="w-3.5 h-3.5 text-amber-600" />
+                          <td className="py-2 px-2.5 text-center">
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-50 text-amber-900 border border-amber-200 text-[11px] font-bold">
+                              <Thermometer className="w-3 h-3 text-amber-600 shrink-0" />
                               <span>{item.suhuStr || (item.suhu != null ? `${item.suhu.toFixed(1).replace('.', ',')} °C` : '-')}</span>
                             </span>
                           </td>
-                          <td className="py-2 px-3 text-center">
+                          <td className="py-2 px-2.5 text-center">
                             {item.isMatchedInRekap ? (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-bold">
-                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                                <span>Cocok di Rekap (Baris {item.rekapMatchedRow})</span>
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-bold">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                <span>Cocok (Baris {item.rekapMatchedRow})</span>
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-[11px] font-bold">
-                                <Zap className="w-3.5 h-3.5 text-blue-600" />
-                                <span>Batch Baru Siap Sinkron</span>
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-[11px] font-bold">
+                                <Zap className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                                <span>Batch Baru</span>
                               </span>
                             )}
                           </td>
@@ -1029,22 +1045,22 @@ function doGet(e) {
                     </tbody>
                     <tfoot>
                       <tr className="bg-slate-100 font-bold border-t border-slate-300 text-slate-900">
-                        <td colSpan={4} className="py-2.5 px-3 text-right uppercase text-[11px]">
+                        <td colSpan={4} className="py-2.5 px-2.5 text-right uppercase text-[11px]">
                           TOTAL NERACA ({dhpItems.length} BATCH):
                         </td>
-                        <td className="py-2.5 px-3 text-right text-blue-900 font-extrabold">
+                        <td className="py-2.5 px-2.5 text-right text-blue-900 font-extrabold tabular-nums">
                           {fmtKg(totalBaku)}
                         </td>
-                        <td className="py-2.5 px-3 text-right text-emerald-900 font-extrabold">
+                        <td className="py-2.5 px-2.5 text-right text-emerald-900 font-extrabold tabular-nums">
                           {fmtKg(totalHasil)}
                         </td>
-                        <td className="py-2.5 px-3 text-right text-amber-900 font-extrabold">
+                        <td className="py-2.5 px-2.5 text-right text-amber-900 font-extrabold tabular-nums">
                           {fmtKg(totalSusutKg)}
                         </td>
-                        <td className="py-2.5 px-3 text-right">{fmtPct(avgSusutPct)}%</td>
+                        <td className="py-2 px-2 text-right tabular-nums">{fmtPct(avgSusutPct)}%</td>
                         <td></td>
                         <td></td>
-                        <td className="py-2.5 px-3 text-center text-emerald-700 text-[11px]">
+                        <td className="py-2.5 px-2.5 text-center text-emerald-700 text-[11px]">
                           {matchedCount}/{totalBatch} Terverifikasi
                         </td>
                       </tr>
