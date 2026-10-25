@@ -159,7 +159,10 @@ export interface DeviasiVarianItem {
 export interface QuickBatchTag {
   batchId: string;
   tag: string;
+  label?: string;
   kategori: 'kadar_air' | 'suhu' | 'molen' | 'cleaning' | 'cuaca' | 'lainnya';
   catatan?: string;
+  updatedBy?: string;
   timestamp: string;
 }
+

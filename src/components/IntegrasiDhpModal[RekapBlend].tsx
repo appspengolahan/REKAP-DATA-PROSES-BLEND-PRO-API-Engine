@@ -28,6 +28,10 @@ import {
   CloudRain,
   Scale,
   Sparkles,
+  Printer,
+  TrendingUp,
+  AlertTriangle,
+  Calendar,
 } from 'lucide-react';
 import { RawBlendRow, UserRole, QuickBatchTag } from '../types[RekapBlend]';
 import {
@@ -79,7 +83,7 @@ export const IntegrasiDhpModalRekapBlend: React.FC<IntegrasiDhpModalProps> = ({
   currentRole,
   onRefreshRekap,
 }) => {
-  const [activeTab, setActiveTab] = useState<'transaksi' | 'pemetaan' | 'gas'>('transaksi');
+  const [activeTab, setActiveTab] = useState<'transaksi' | 'analisis' | 'pemetaan' | 'gas'>('transaksi');
   const [isLoading, setIsLoading] = useState(false);
   const [dhpItems, setDhpItems] = useState<DhpBatchItem[]>([]);
   const [lastFetchedTime, setLastFetchedTime] = useState<string>('');
@@ -116,8 +120,10 @@ export const IntegrasiDhpModalRekapBlend: React.FC<IntegrasiDhpModalProps> = ({
     const tagObj: QuickBatchTag = {
       batchId: batchCode,
       tag: tagLabel,
+      label: tagLabel,
       kategori,
       catatan,
+      updatedBy: 'Mandor Lapangan',
       timestamp: new Date().toISOString(),
     };
     saveBatchTag(batchCode, tagObj);
@@ -415,6 +421,147 @@ export const IntegrasiDhpModalRekapBlend: React.FC<IntegrasiDhpModalProps> = ({
     [dhpItems]
   );
   const newBatchCount = totalBatch - matchedCount;
+
+  // List tanggal unik yang tersedia di data DHP
+  const availableDates = useMemo(() => {
+    const dates = Array.from(new Set(dhpItems.map((it) => it.tanggal).filter(Boolean)));
+    return dates;
+  }, [dhpItems]);
+
+  const [selectedTanggalAnalisis, setSelectedTanggalAnalisis] = useState<string>('');
+
+  useEffect(() => {
+    if (availableDates.length > 0 && (!selectedTanggalAnalisis || !availableDates.includes(selectedTanggalAnalisis))) {
+      setSelectedTanggalAnalisis(availableDates[0]);
+    }
+  }, [availableDates, selectedTanggalAnalisis]);
+
+  // Data batch yang disaring berdasarkan tanggal terpilih
+  const dailyFilteredItems = useMemo(() => {
+    if (!selectedTanggalAnalisis) return dhpItems;
+    return dhpItems.filter((it) => it.tanggal === selectedTanggalAnalisis);
+  }, [dhpItems, selectedTanggalAnalisis]);
+
+  const dailyTotalBatch = dailyFilteredItems.length;
+  const dailyTotalBaku = useMemo(() => dailyFilteredItems.reduce((acc, it) => acc + it.baku, 0), [dailyFilteredItems]);
+  const dailyTotalHasil = useMemo(() => dailyFilteredItems.reduce((acc, it) => acc + it.hasil, 0), [dailyFilteredItems]);
+  const dailyTotalSusutKg = useMemo(() => dailyFilteredItems.reduce((acc, it) => acc + it.susutKg, 0), [dailyFilteredItems]);
+  const dailyAvgSusutPct = dailyTotalBaku > 0 ? (dailyTotalSusutKg / dailyTotalBaku) * 100 : 0;
+
+  // Rata-rata Acuan Tertimbang varian hari ini
+  const dailyAvgAcuanPct = useMemo(() => {
+    if (dailyTotalBaku <= 0) return 0;
+    let weightedAcuanSum = 0;
+    dailyFilteredItems.forEach((it) => {
+      const std = activeStandards[it.merk] || 0;
+      weightedAcuanSum += it.baku * std;
+    });
+    return weightedAcuanSum / dailyTotalBaku;
+  }, [dailyFilteredItems, dailyTotalBaku, activeStandards]);
+
+  const dailyDeltaAgregat = dailyAvgSusutPct - dailyAvgAcuanPct;
+  const dailyStatusAlarm = useMemo<'NORMAL' | 'WASPADA' | 'OOS'>(() => {
+    const absDelta = Math.abs(dailyDeltaAgregat);
+    if (absDelta <= 0.3) return 'NORMAL';
+    if (absDelta <= 0.8) return 'WASPADA';
+    return 'OOS';
+  }, [dailyDeltaAgregat]);
+
+  // Breakdown per Varian / Merk pada tanggal tersebut
+  const dailyMerkSummary = useMemo(() => {
+    const groups: Record<
+      string,
+      {
+        merk: string;
+        baku: number;
+        hasil: number;
+        susutKg: number;
+        suhuSum: number;
+        suhuCount: number;
+        batches: DhpBatchItem[];
+      }
+    > = {};
+
+    dailyFilteredItems.forEach((it) => {
+      if (!groups[it.merk]) {
+        groups[it.merk] = {
+          merk: it.merk,
+          baku: 0,
+          hasil: 0,
+          susutKg: 0,
+          suhuSum: 0,
+          suhuCount: 0,
+          batches: [],
+        };
+      }
+      groups[it.merk].baku += it.baku;
+      groups[it.merk].hasil += it.hasil;
+      groups[it.merk].susutKg += it.susutKg;
+      groups[it.merk].batches.push(it);
+      if (typeof it.suhu === 'number' && !isNaN(it.suhu)) {
+        groups[it.merk].suhuSum += it.suhu;
+        groups[it.merk].suhuCount += 1;
+      }
+    });
+
+    return Object.values(groups).map((g) => {
+      const susutPct = g.baku > 0 ? (g.susutKg / g.baku) * 100 : 0;
+      const acuanPct = activeStandards[g.merk] || 0;
+      const deviasiPct = susutPct - acuanPct;
+      const avgSuhu = g.suhuCount > 0 ? g.suhuSum / g.suhuCount : null;
+      let status: 'NORMAL' | 'WASPADA' | 'OOS' = 'NORMAL';
+      if (Math.abs(deviasiPct) > 0.8) status = 'OOS';
+      else if (Math.abs(deviasiPct) > 0.3) status = 'WASPADA';
+
+      return {
+        ...g,
+        susutPct,
+        acuanPct,
+        deviasiPct,
+        avgSuhu,
+        status,
+      };
+    });
+  }, [dailyFilteredItems, activeStandards]);
+
+  // Analisis Otomatis & Early Warning
+  const dailyAutoDiagnosa = useMemo(() => {
+    if (dailyFilteredItems.length === 0) return 'Belum ada data transaksi untuk tanggal ini.';
+    const issues: string[] = [];
+
+    // Cek suhu tinggi
+    const hotBatches = dailyFilteredItems.filter((it) => typeof it.suhu === 'number' && it.suhu > 32);
+    if (hotBatches.length > 0) {
+      issues.push(
+        `${hotBatches.length} batch terdeteksi suhu silinder molen tinggi (> 32°C, rata-rata ${hotBatches[0].suhuStr || 'tinggi'}), memicu penguapan kadar air lebih intensif.`
+      );
+    }
+
+    // Cek deviasi terbesar per varian
+    const sortedDeviasi = [...dailyMerkSummary].sort((a, b) => Math.abs(b.deviasiPct) - Math.abs(a.deviasiPct));
+    if (sortedDeviasi.length > 0 && Math.abs(sortedDeviasi[0].deviasiPct) > 0.3) {
+      const top = sortedDeviasi[0];
+      const sign = top.deviasiPct > 0 ? '+' : '';
+      issues.push(
+        `Varian penyumbang deviasi tertinggi: ${top.merk} dengan deviasi ${sign}${top.deviasiPct.toFixed(2)}% terhadap acuan (${top.susutPct.toFixed(2)}% vs acuan ${top.acuanPct.toFixed(2)}%).`
+      );
+    }
+
+    // Cek tag mandor lapangan
+    const tagsApplied = dailyFilteredItems
+      .map((it) => batchTags[it.batchCode])
+      .filter(Boolean);
+    if (tagsApplied.length > 0) {
+      const tagLabels = Array.from(new Set(tagsApplied.map((t) => t.label || t.tag))).join(', ');
+      issues.push(`Catatan Quick Tag Mandor hari ini: ${tagLabels}.`);
+    }
+
+    if (issues.length === 0) {
+      return `Seluruh parameter pengolahan hari ini (${selectedTanggalAnalisis}) berjalan stabil dan berada dalam batas toleransi normal deviasi (±0,30%). Neraca massa dan kondisi silinder molen sesuai SOP standar.`;
+    }
+
+    return issues.join(' ');
+  }, [dailyFilteredItems, dailyMerkSummary, batchTags, selectedTanggalAnalisis]);
 
   // Kode Skrip Google Apps Script untuk Proses BLEND (KOLOM B DHP -> MOLEN, KOLOM W DHP -> HEADER SUHU, LOCALE ID DATE)
   const gasScriptCode = `/**
@@ -1037,6 +1184,21 @@ function doGet(e) {
           </button>
 
           <button
+            onClick={() => setActiveTab('analisis')}
+            className={`pb-2 px-3 text-xs font-bold border-b-2 transition flex items-center gap-1.5 cursor-pointer ${
+              activeTab === 'analisis'
+                ? 'border-amber-500 text-amber-700 bg-amber-50/70 rounded-t-lg'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <TrendingUp className="w-4 h-4 text-amber-600" />
+            <span>Laporan Analisis Harian</span>
+            <span className="px-1.5 py-0.5 text-[10px] bg-amber-100 text-amber-800 border border-amber-300 rounded-full font-bold">
+              Deviasi
+            </span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('pemetaan')}
             className={`pb-2 px-3 text-xs font-bold border-b-2 transition flex items-center gap-1.5 cursor-pointer ${
               activeTab === 'pemetaan'
@@ -1445,7 +1607,341 @@ function doGet(e) {
             </>
           )}
 
-          {/* TAB 2: PEMETAAN KOLOM & PROTEKSI RUMUS */}
+          {/* TAB 2: LAPORAN ANALISIS HARIAN [DEVIASI] */}
+          {activeTab === 'analisis' && (
+            <div className="space-y-4">
+              {/* BANNER PILIH TANGGAL PENGOLAHAN */}
+              <div className="bg-slate-800 text-white rounded-xl p-4 shadow-sm border border-slate-700">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-amber-500/20 border border-amber-500/40 flex items-center justify-center shrink-0 text-amber-400">
+                      <Calendar className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-sm font-bold tracking-wide uppercase text-slate-100">
+                          PILIH TANGGAL PENGOLAHAN:
+                        </h3>
+                        <span className="px-2 py-0.5 text-[10px] font-bold bg-amber-950/80 text-amber-300 border border-amber-700/60 rounded">
+                          {availableDates.length} TANGGAL TERSEDIA
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        Menganalisis resume seluruh jenis bahan yang masuk dan diproses pada tanggal ini
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 self-start sm:self-auto">
+                    <div className="relative">
+                      <select
+                        value={selectedTanggalAnalisis}
+                        onChange={(e) => setSelectedTanggalAnalisis(e.target.value)}
+                        className="appearance-none bg-slate-900 border border-slate-700 text-white font-medium text-xs rounded-lg px-3 py-2 pr-8 focus:outline-none focus:border-amber-500 cursor-pointer"
+                      >
+                        {availableDates.length === 0 ? (
+                          <option value="">Tidak ada tanggal</option>
+                        ) : (
+                          availableDates.map((d) => (
+                            <option key={d} value={d}>
+                              {d}
+                            </option>
+                          ))
+                        )}
+                      </select>
+                      <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    </div>
+
+                    <button
+                      onClick={() => window.print()}
+                      className="px-3.5 py-2 bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-200 hover:text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
+                    >
+                      <Printer className="w-3.5 h-3.5 text-slate-300" />
+                      <span>Cetak Resume</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* 4 KARTU INDIKATOR ALARM DINI */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                {/* Card 1: TOTAL BAKU MASUK */}
+                <div className="bg-slate-800/90 border border-slate-700 rounded-xl p-3.5 text-white">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                    TOTAL BAKU MASUK
+                  </span>
+                  <div className="mt-1 flex items-baseline gap-1.5">
+                    <span className="text-2xl font-black text-slate-100">
+                      {fmtKg(dailyTotalBaku)}
+                    </span>
+                    <span className="text-xs text-slate-400 font-semibold">Kg</span>
+                  </div>
+                  <span className="text-[11px] text-slate-400 mt-1 block">
+                    Hasil Jadi: <strong className="text-slate-200">{fmtKg(dailyTotalHasil)} Kg</strong>
+                  </span>
+                </div>
+
+                {/* Card 2: SUSUT RIIL HARI INI */}
+                <div className="bg-slate-800/90 border border-slate-700 rounded-xl p-3.5 text-white">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                    SUSUT RIIL HARI INI
+                  </span>
+                  <div className="mt-1 flex items-baseline gap-1.5">
+                    <span className="text-2xl font-black text-blue-400">
+                      {fmtPct(dailyAvgSusutPct)}
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-slate-400 mt-1 block">
+                    Total Susut: <strong className="text-slate-200">{fmtKg(dailyTotalSusutKg)} Kg</strong>
+                  </span>
+                </div>
+
+                {/* Card 3: RATA-RATA ACUAN */}
+                <div className="bg-slate-800/90 border border-slate-700 rounded-xl p-3.5 text-white">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                    RATA-RATA ACUAN
+                  </span>
+                  <div className="mt-1 flex items-baseline gap-1.5">
+                    <span className="text-2xl font-black text-amber-400">
+                      {fmtPct(dailyAvgAcuanPct)}
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-slate-400 mt-1 block">
+                    Standar Tertimbang Variasi
+                  </span>
+                </div>
+
+                {/* Card 4: DEVIASI AGREGAT HARI INI */}
+                <div
+                  className={`border rounded-xl p-3.5 ${
+                    dailyStatusAlarm === 'OOS'
+                      ? 'bg-rose-950/50 border-rose-800 text-rose-300'
+                      : dailyStatusAlarm === 'WASPADA'
+                      ? 'bg-amber-950/50 border-amber-800 text-amber-300'
+                      : 'bg-emerald-950/50 border-emerald-800 text-emerald-300'
+                  }`}
+                >
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                    DEVIASI AGREGAT HARI INI
+                  </span>
+                  <div className="mt-1 flex items-baseline gap-1.5">
+                    <span
+                      className={`text-2xl font-black ${
+                        dailyStatusAlarm === 'OOS'
+                          ? 'text-rose-400'
+                          : dailyStatusAlarm === 'WASPADA'
+                          ? 'text-amber-400'
+                          : 'text-emerald-400'
+                      }`}
+                    >
+                      {dailyDeltaAgregat > 0 ? `+${dailyDeltaAgregat.toFixed(2)}%` : `${dailyDeltaAgregat.toFixed(2)}%`}
+                    </span>
+                  </div>
+                  <div className="mt-1 flex items-center gap-1.5">
+                    <span
+                      className={`w-2 h-2 rounded-full ${
+                        dailyStatusAlarm === 'OOS'
+                          ? 'bg-rose-500 animate-pulse'
+                          : dailyStatusAlarm === 'WASPADA'
+                          ? 'bg-amber-500'
+                          : 'bg-emerald-500'
+                      }`}
+                    />
+                    <span className="text-[10px] font-bold tracking-wider uppercase">
+                      {dailyStatusAlarm === 'OOS'
+                        ? 'PERHATIAN OOS'
+                        : dailyStatusAlarm === 'WASPADA'
+                        ? 'PERHATIAN WASPADA'
+                        : 'NORMAL TERKENDALI'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* CARD: AKUMULASI LIMBAH & EARLY WARNING SYSTEM */}
+              <div className="bg-slate-800/90 text-white rounded-xl border border-slate-700 p-4 shadow-xs space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-700 pb-2.5">
+                  <div className="flex items-center gap-2">
+                    <Layers className="w-4 h-4 text-blue-400" />
+                    <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider">
+                      AKUMULASI LIMBAH TERBUANG HARI INI ({selectedTanggalAnalisis || 'TANGGAL AKTIF'})
+                    </h4>
+                  </div>
+                  <span className="text-xs text-slate-300 font-medium">
+                    Total Limbah:{' '}
+                    <strong className="text-white font-bold">{fmtKg(dailyTotalSusutKg)} Kg</strong>
+                  </span>
+                </div>
+
+                <div
+                  className={`p-3 rounded-lg border text-xs leading-relaxed ${
+                    dailyStatusAlarm === 'OOS'
+                      ? 'bg-rose-950/40 border-rose-800/80 text-rose-200'
+                      : dailyStatusAlarm === 'WASPADA'
+                      ? 'bg-amber-950/40 border-amber-800/80 text-amber-200'
+                      : 'bg-emerald-950/40 border-emerald-800/80 text-emerald-200'
+                  }`}
+                >
+                  <div className="flex items-start gap-2.5">
+                    {dailyStatusAlarm === 'OOS' ? (
+                      <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                    ) : dailyStatusAlarm === 'WASPADA' ? (
+                      <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                    ) : (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                    )}
+                    <div>
+                      <strong className="font-bold text-white uppercase tracking-wide">
+                        Auto-Diagnosa Singkat (Early Warning):{' '}
+                      </strong>
+                      <span>{dailyAutoDiagnosa}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* TABEL KOMPARASI PER VARIAN HARI INI */}
+              <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
+                <div className="p-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                    Komparasi Mutu Susut per Varian Tembakau Blend Hari Ini
+                  </h4>
+                  <span className="text-xs text-slate-500 font-medium">
+                    {dailyMerkSummary.length} Varian Diproses
+                  </span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-100 text-slate-600 font-bold border-b border-slate-200">
+                      <tr>
+                        <th className="p-2.5">MERK / VARIAN</th>
+                        <th className="p-2.5 text-right">BAKU (KG)</th>
+                        <th className="p-2.5 text-right">HASIL (KG)</th>
+                        <th className="p-2.5 text-right">SUSUT RIIL (%)</th>
+                        <th className="p-2.5 text-right">ACUAN REF (%)</th>
+                        <th className="p-2.5 text-right">DEVIASI (%)</th>
+                        <th className="p-2.5 text-center">STATUS MUTU</th>
+                        <th className="p-2.5 text-center">RATA SUHU MOLEN</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {dailyMerkSummary.length === 0 ? (
+                        <tr>
+                          <td colSpan={8} className="p-6 text-center text-slate-400 italic">
+                            Tidak ada varian tembakau blend yang tercatat pada tanggal ini.
+                          </td>
+                        </tr>
+                      ) : (
+                        dailyMerkSummary.map((item) => (
+                          <tr key={item.merk} className="hover:bg-slate-50 transition">
+                            <td className="p-2.5 font-bold text-slate-800">{item.merk}</td>
+                            <td className="p-2.5 text-right font-medium text-slate-700">{fmtKg(item.baku)}</td>
+                            <td className="p-2.5 text-right font-medium text-slate-700">{fmtKg(item.hasil)}</td>
+                            <td className="p-2.5 text-right font-bold text-slate-900">{item.susutPct.toFixed(2)}%</td>
+                            <td className="p-2.5 text-right text-slate-600">{item.acuanPct.toFixed(2)}%</td>
+                            <td
+                              className={`p-2.5 text-right font-bold ${
+                                item.deviasiPct > 0.3
+                                  ? 'text-rose-600'
+                                  : item.deviasiPct < -0.3
+                                  ? 'text-amber-600'
+                                  : 'text-emerald-600'
+                              }`}
+                            >
+                              {item.deviasiPct > 0 ? `+${item.deviasiPct.toFixed(2)}%` : `${item.deviasiPct.toFixed(2)}%`}
+                            </td>
+                            <td className="p-2.5 text-center">
+                              <span
+                                className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                  item.status === 'OOS'
+                                    ? 'bg-rose-100 text-rose-800 border border-rose-300'
+                                    : item.status === 'WASPADA'
+                                    ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                                    : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                }`}
+                              >
+                                {item.status === 'OOS' ? 'OOS' : item.status === 'WASPADA' ? 'Waspada' : 'Normal'}
+                              </span>
+                            </td>
+                            <td className="p-2.5 text-center text-slate-600 font-medium">
+                              {item.avgSuhu !== null ? (
+                                <span
+                                  className={`inline-flex items-center gap-1 ${
+                                    item.avgSuhu > 32 ? 'text-rose-600 font-bold' : 'text-slate-700'
+                                  }`}
+                                >
+                                  <Thermometer className="w-3 h-3" />
+                                  {item.avgSuhu.toFixed(1)} °C
+                                </span>
+                              ) : (
+                                <span className="text-slate-400">-</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* DAFTAR BATCH DETAIL PADA HARI INI BESERTA QUICK TAG MANDOR */}
+              <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-4 space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                  <div className="flex items-center gap-2">
+                    <Tag className="w-4 h-4 text-purple-600" />
+                    <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                      Batch Transaksi & Quick Tag Mandor Hari Ini ({dailyFilteredItems.length} Batch)
+                    </h4>
+                  </div>
+                  <span className="text-[11px] text-slate-500">
+                    Gunakan tab "Pratinjau & Transaksi" untuk menyematkan tag langsung
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                  {dailyFilteredItems.map((b) => {
+                    const tag = batchTags[b.batchCode];
+                    const refStd = activeStandards[b.merk] || 0;
+                    const bSusut = parseFloat(b.susutPct) || 0;
+                    const bDev = bSusut - refStd;
+                    return (
+                      <div
+                        key={b.batchCode}
+                        className="p-2.5 rounded-lg border border-slate-200 bg-slate-50/70 text-xs flex flex-col justify-between gap-1.5"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-slate-900">{b.batchCode}</span>
+                          <span className="font-medium text-slate-600">{b.merk}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-[11px] text-slate-500">
+                          <span>Susut: <strong className="text-slate-800">{b.susutPct}%</strong></span>
+                          <span>
+                            Dev: <strong className={bDev > 0.3 ? 'text-rose-600' : 'text-emerald-600'}>
+                              {bDev > 0 ? `+${bDev.toFixed(2)}%` : `${bDev.toFixed(2)}%`}
+                            </strong>
+                          </span>
+                          <span>Suhu: {b.suhuStr || '-'}</span>
+                        </div>
+                        {tag ? (
+                          <div className="mt-1 px-2 py-1 rounded bg-purple-100 border border-purple-200 text-purple-900 text-[10px] font-semibold flex items-center justify-between">
+                            <span>🏷️ {tag.label || tag.tag}</span>
+                            <span className="text-purple-600 font-normal">{tag.updatedBy || 'Mandor Lapangan'}</span>
+                          </div>
+                        ) : (
+                          <div className="mt-1 px-2 py-0.5 rounded bg-slate-100 text-slate-400 text-[10px] italic">
+                            Belum ada catatan mandor
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 3: PEMETAAN KOLOM & PROTEKSI RUMUS */}
           {activeTab === 'pemetaan' && (
             <div className="space-y-4">
               <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-xs space-y-3">
