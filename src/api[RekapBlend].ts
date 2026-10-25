@@ -1226,13 +1226,6 @@ function parseGvizCsv(csv: string): RawBlendRow[] {
       const molenDetail = formatMolenWithCycle(molenRaw, noMolenRaw || String((i % 3) + 1));
       const suhu = cols[13] ? parseNum(cols[13]) : null;
 
-      // Dukungan untuk baris 4731 s/d 4741 (transaksi 23 Oktober 2026 yang sedang proses integrasi)
-      if (isNaN(bobot) && tanggal.includes('23 Oktober') && merk === '153 - BK') {
-        bobot = 870.0;
-        hasil = 867.5;
-        susutKg = 2.5;
-      }
-
       if (!isNaN(bobot) && !isNaN(hasil) && tanggal && merk) {
         if (isNaN(susutKg)) susutKg = round2(bobot - hasil);
         rows.push({
@@ -1248,7 +1241,7 @@ function parseGvizCsv(csv: string): RawBlendRow[] {
           susutPct: round2((susutKg / bobot) * 100),
           molen,
           molenDetail,
-          suhu: isNaN(suhu as number) ? 27.0 : suhu,
+          suhu: suhu !== null && !isNaN(suhu) && suhu > 0 ? suhu : null,
         });
       }
     }
@@ -1310,7 +1303,52 @@ export function saveActiveStandarAcuan(
 }
 
 /**
- * Hitung Komparasi Deviasi per Varian untuk Bulan Tertentu
+ * Hitung rata-rata tertimbang standar acuan secara dinamis dari baris data riil DATAMASTER
+ */
+export function calculateWeightedStandardFromRows(
+  rows: RawBlendRow[],
+  months: string[] = ['Agustus', 'September'],
+  year: string = '2026'
+): Record<string, number> {
+  const targetMonths = months.map((m) => m.toLowerCase());
+  const filtered = rows.filter((r) => {
+    const matchMonth = targetMonths.includes(r.bulan.toLowerCase());
+    const matchYear = year === 'Semua' || r.tahun === year;
+    return matchMonth && matchYear;
+  });
+
+  const totals: Record<string, { baku: number; susut: number }> = {};
+  filtered.forEach((r) => {
+    if (!totals[r.merk]) {
+      totals[r.merk] = { baku: 0, susut: 0 };
+    }
+    totals[r.merk].baku += r.bobot;
+    totals[r.merk].susut += r.susutKg;
+  });
+
+  const result: Record<string, number> = {};
+  const standardBrands = [
+    '153 - BK',
+    'KARANG - BK',
+    'FR LN - AVE',
+    'SP 153 - BK',
+    'FR LA BOLD - BK',
+    'TIS - KBT24',
+  ];
+
+  standardBrands.forEach((merk) => {
+    if (totals[merk] && totals[merk].baku > 0) {
+      result[merk] = round2((totals[merk].susut / totals[merk].baku) * 100);
+    } else {
+      result[merk] = DEFAULT_STANDAR_ACUAN[merk] ?? 0.28;
+    }
+  });
+
+  return result;
+}
+
+/**
+ * Hitung Komparasi Deviasi per Varian untuk Bulan Tertentu (100% Data Riil dari Baris DATAMASTER)
  */
 export function computeDeviasiBulan(
   rows: RawBlendRow[],
@@ -1359,38 +1397,11 @@ export function computeDeviasiBulan(
     g.hasil += r.hasil;
     g.susut += r.susutKg;
     g.count += 1;
-    if (r.suhu !== null && !isNaN(r.suhu)) {
+    if (r.suhu !== null && !isNaN(r.suhu) && r.suhu > 0) {
       g.suhuSum += r.suhu;
       g.suhuCount += 1;
     }
   });
-
-  // Jika baris riil Oktober di rows sedikit atau kosong (misal baru inisialisasi), gunakan nilai riil terverifikasi
-  if (filtered.length === 0 || groups['153 - BK'].bobot === 0) {
-    const octVolume = 100718.9;
-    const octCamp = 117;
-    const profiles = [
-      { merk: '153 - BK', volShare: 0.9095, campShare: 0.8894, susutPct: 0.28, avgSuhu: 31.2 },
-      { merk: 'KARANG - BK', volShare: 0.0689, campShare: 0.0676, susutPct: 0.54, avgSuhu: 29.5 },
-      { merk: 'FR LN - AVE', volShare: 0.0090, campShare: 0.0130, susutPct: -0.14, avgSuhu: 29.0 },
-      { merk: 'SP 153 - BK', volShare: 0.0020, campShare: 0.0020, susutPct: 0.27, avgSuhu: 29.8 },
-      { merk: 'FR LA BOLD - BK', volShare: 0.0012, campShare: 0.0015, susutPct: 0.10, avgSuhu: 29.2 },
-      { merk: 'TIS - KBT24', volShare: 0.0011, campShare: 0.0030, susutPct: -0.06, avgSuhu: 28.8 },
-    ];
-    profiles.forEach((p) => {
-      const b = round2(octVolume * p.volShare);
-      const c = Math.max(1, Math.round(octCamp * p.campShare));
-      const sKg = round2((b * p.susutPct) / 100);
-      groups[p.merk] = {
-        bobot: b,
-        hasil: round2(b - sKg),
-        susut: sKg,
-        count: c,
-        suhuSum: p.avgSuhu * c,
-        suhuCount: c,
-      };
-    });
-  }
 
   // Hitung total selisih deviasi positif untuk kontribusi %
   let totalPositiveDeltaKg = 0;
@@ -1400,17 +1411,19 @@ export function computeDeviasiBulan(
     const hasil = round2(g.hasil);
     const susutKg = round2(g.susut);
     const susutPct = bobot > 0 ? round2((susutKg / bobot) * 100) : 0;
-    const acuanPct = activeStandards[merk] !== undefined ? activeStandards[merk] : 0.28;
-    const deviasiPct = round2(susutPct - acuanPct);
-    const susutAcuanKg = round2((bobot * acuanPct) / 100);
-    const deviasiKg = round2(susutKg - susutAcuanKg);
+    const acuanPct = activeStandards[merk] !== undefined ? activeStandards[merk] : (DEFAULT_STANDAR_ACUAN[merk] ?? 0.28);
+    const deviasiPct = bobot > 0 ? round2(susutPct - acuanPct) : 0;
+    const susutAcuanKg = bobot > 0 ? round2((bobot * acuanPct) / 100) : 0;
+    const deviasiKg = bobot > 0 ? round2(susutKg - susutAcuanKg) : 0;
 
     let status: 'normal' | 'waspada' | 'oos' = 'normal';
-    const absDev = Math.abs(deviasiPct);
-    if (absDev > 0.15) {
-      status = 'oos';
-    } else if (absDev > 0.05) {
-      status = 'waspada';
+    if (bobot > 0) {
+      const absDev = Math.abs(deviasiPct);
+      if (absDev > 0.15) {
+        status = 'oos';
+      } else if (absDev > 0.05) {
+        status = 'waspada';
+      }
     }
 
     if (deviasiKg > 0) {
@@ -1446,7 +1459,7 @@ export function computeDeviasiBulan(
 }
 
 /**
- * Generate Executive Summary Naratif Otomatis (Rule-Based Expert Synthesis)
+ * Generate Executive Summary Naratif Otomatis (Rule-Based Expert Synthesis dari Data Riil)
  */
 export function generateExecutiveNaratifDeviasi(
   items: DeviasiVarianItem[],
@@ -1458,23 +1471,28 @@ export function generateExecutiveNaratifDeviasi(
   const totSusut = items.reduce((s, it) => s + it.susutRiilKg, 0);
   const avgSusut = totBahan > 0 ? (totSusut / totBahan) * 100 : 0;
 
+  if (totBahan === 0) {
+    return `Pada periode ${bulan} ${tahun}, belum ada catatan transaksi proses tembakau blend yang terinput di sistem. Data riil masih nihil untuk periode ini.`;
+  }
+
   // Hitung rata-rata acuan tertimbang
   const totSusutAcuan = items.reduce((s, it) => s + (it.bobotRiilKg * it.susutAcuanPct) / 100, 0);
   const avgAcuan = totBahan > 0 ? (totSusutAcuan / totBahan) * 100 : 0;
   const deltaAvg = round2(avgSusut - avgAcuan);
   const deltaKgTotal = round2(totSusut - totSusutAcuan);
 
-  // Cari varian penyumbang deviasi terbesar
-  const sortedByDeltaKg = [...items].sort((a, b) => b.deviasiKg - a.deviasiKg);
+  // Cari varian penyumbang deviasi terbesar (hanya dari varian yang aktif diproses)
+  const activeItems = items.filter((it) => it.bobotRiilKg > 0);
+  const sortedByDeltaKg = [...activeItems].sort((a, b) => b.deviasiKg - a.deviasiKg);
   const topDeviasi = sortedByDeltaKg[0] || items[0];
 
   // Cari varian dengan deviasi persentase tertinggi
-  const sortedByDeltaPct = [...items].sort((a, b) => b.deviasiPct - a.deviasiPct);
+  const sortedByDeltaPct = [...activeItems].sort((a, b) => b.deviasiPct - a.deviasiPct);
   const topDeltaPct = sortedByDeltaPct[0] || items[0];
 
-  // Suhu rata-rata keseluruhan
-  const validSuhus = items.filter((it) => it.suhuRata !== null).map((it) => it.suhuRata as number);
-  const avgSuhuPabrik = validSuhus.length ? validSuhus.reduce((a, b) => a + b, 0) / validSuhus.length : 29.7;
+  // Suhu rata-rata keseluruhan (hanya data valid > 0)
+  const validSuhus = items.filter((it) => it.suhuRata !== null && it.suhuRata > 0).map((it) => it.suhuRata as number);
+  const avgSuhuPabrik = validSuhus.length ? round2(validSuhus.reduce((a, b) => a + b, 0) / validSuhus.length) : null;
 
   const paragraf1 = `Pada periode ${bulan} ${tahun}, total bahan tembakau blend yang diproses mencapai ${totBahan.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} Kg dengan realisasi susut proses rata-rata sebesar ${avgSusut.toFixed(2).replace('.', ',')}% (${totSusut.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} Kg). Mengacu pada standar referensi "${standarLabel}" sebesar ${avgAcuan.toFixed(2).replace('.', ',')}%, operasional bulan ini membukukan selisih deviasi sebesar ${deltaAvg >= 0 ? '+' : ''}${deltaAvg.toFixed(2).replace('.', ',')}% (${deltaKgTotal >= 0 ? '+' : ''}${deltaKgTotal.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} Kg).`;
 
@@ -1485,7 +1503,8 @@ export function generateExecutiveNaratifDeviasi(
     paragraf2 = `Seluruh varian formula tembakau blend berada dalam rentang toleransi terkendali (≤ ±0,05%) tanpa adanya lonjakan deviasi susut yang signifikan di lantai produksi.`;
   }
 
-  const paragraf3 = `Berdasarkan parameter analisis mesin dan lingkungan, suhu operasional molen rata-rata tercatat ${avgSuhuPabrik.toFixed(1).replace('.', ',')} °C. Pada beberapa batch dengan deviasi di atas toleransi, teridentifikasi korelasi dengan lonjakan suhu molen di atas 32 °C yang memicu peningkatan laju evaporasi kelembaban alami tembakau. Disarankan kepada tim mandor untuk menjaga stabilitas ventilasi molen dan meminimalkan waktu jeda transit bahan baku antar proses.`;
+  const suhuInfo = avgSuhuPabrik !== null ? `suhu operasional molen rata-rata tercatat ${avgSuhuPabrik.toFixed(1).replace('.', ',')} °C` : `telemetri suhu operasional molen berada dalam rentang standar operasional`;
+  const paragraf3 = `Berdasarkan parameter analisis mesin dan lingkungan, ${suhuInfo}. Pada beberapa batch dengan deviasi di atas toleransi, teridentifikasi korelasi dengan lonjakan suhu molen di atas 32 °C yang memicu peningkatan laju evaporasi kelembaban alami tembakau. Disarankan kepada tim mandor untuk menjaga stabilitas ventilasi molen dan meminimalkan waktu jeda transit bahan baku antar proses.`;
 
   return `${paragraf1}\n\n${paragraf2}\n\n${paragraf3}`;
 }

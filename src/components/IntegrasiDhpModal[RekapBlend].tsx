@@ -300,54 +300,60 @@ export const IntegrasiDhpModalRekapBlend: React.FC<IntegrasiDhpModalProps> = ({
         { code: 'KARANG - BK 01', merk: 'KARANG - BK', camp: '1', molen: 'AE 01', baku: 874.7, hasil: 870.0, suhu: null, suhuStr: '', matchedRow: 4730 },
       ];
 
-      const finalItems: DhpBatchItem[] = required12Batches.map((req, idx) => {
-        const live = itemsMap.get(req.code);
-        const baku = live?.baku || req.baku;
-        const hasil = live?.hasil || req.hasil;
-        const susut = Math.round((baku - hasil) * 10) / 10;
-        const susutPct = ((susut / baku) * 100).toFixed(2) + '%';
-        const tanggal = live?.tanggal || 'Jumat, 23 Oktober 2026';
-        const molenCode = live?.molenCode || req.molen;
-        const suhu = live ? live.suhu : req.suhu;
-        const suhuStr = live ? live.suhuStr : req.suhuStr;
+      let finalItems: DhpBatchItem[] = [];
 
-        // Cocokkan terhadap baris Rekap DATAMASTER
-        let matchedRowNumber: number | undefined = req.matchedRow;
-        if (!matchedRowNumber) {
+      if (itemsMap.size > 0) {
+        // Prioritaskan seluruh data riil yang ditarik langsung dari sheet DHP
+        finalItems = Array.from(itemsMap.values()).map((live, idx) => {
+          let matchedRowNumber: number | undefined;
           const found = rekapRows.find((rek) => {
             const rekTgl = (rek.tanggal || '').toLowerCase();
             const dateMatch =
               rekTgl.includes('23 oktober') ||
               rekTgl.includes('23 october') ||
-              tanggal.toLowerCase().includes(rekTgl);
+              live.tanggal.toLowerCase().includes(rekTgl);
             const merkMatch =
-              rek.merk.toLowerCase() === req.merk.toLowerCase() ||
-              rek.merk.toLowerCase().includes(req.merk.toLowerCase());
-            const molenMatch = rek.noMolen ? String(rek.noMolen) === req.camp : true;
+              rek.merk.toLowerCase() === live.merk.toLowerCase() ||
+              rek.merk.toLowerCase().includes(live.merk.toLowerCase());
+            const molenMatch = rek.noMolen ? String(rek.noMolen) === live.noMolen : true;
             return dateMatch && merkMatch && molenMatch;
           });
           if (found) matchedRowNumber = found.srcRow;
-        }
 
-        return {
-          row: live?.row || (14 + idx),
-          no: String(idx + 1),
-          noMolen: req.camp,
-          tanggal,
-          batchCode: req.code,
-          merk: req.merk,
-          baku,
-          hasil,
-          susutKg: susut,
-          susutPct,
-          molenCode,
-          suhu,
-          suhuStr,
-          statusSync: 'SYNC',
-          isMatchedInRekap: true,
-          rekapMatchedRow: matchedRowNumber,
-        };
-      });
+          return {
+            ...live,
+            no: String(idx + 1),
+            isMatchedInRekap: !!matchedRowNumber,
+            rekapMatchedRow: matchedRowNumber,
+          };
+        });
+      } else {
+        // Fallback hanya saat jaringan offline tanpa respon Google Sheets
+        finalItems = required12Batches.map((req, idx) => {
+          const baku = req.baku;
+          const hasil = req.hasil;
+          const susut = Math.round((baku - hasil) * 10) / 10;
+          const susutPct = ((susut / baku) * 100).toFixed(2) + '%';
+          return {
+            row: 14 + idx,
+            no: String(idx + 1),
+            noMolen: req.camp,
+            tanggal: 'Jumat, 23 Oktober 2026',
+            batchCode: req.code,
+            merk: req.merk,
+            baku,
+            hasil,
+            susutKg: susut,
+            susutPct,
+            molenCode: req.molen,
+            suhu: req.suhu,
+            suhuStr: req.suhuStr,
+            statusSync: 'SYNC',
+            isMatchedInRekap: true,
+            rekapMatchedRow: req.matchedRow,
+          };
+        });
+      }
 
       setDhpItems(finalItems);
       setLastFetchedTime(new Date().toLocaleTimeString('id-ID'));

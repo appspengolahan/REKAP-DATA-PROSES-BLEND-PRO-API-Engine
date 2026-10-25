@@ -15,6 +15,7 @@ import {
   getActiveStandarAcuanLabel,
   computeDeviasiBulan,
   generateExecutiveNaratifDeviasi,
+  calculateWeightedStandardFromRows,
   DEFAULT_STANDAR_ACUAN,
   DEFAULT_STANDAR_LABEL,
 } from '../api[RekapBlend]';
@@ -86,53 +87,40 @@ export const TabDeviasiRekapBlend: React.FC<TabDeviasiProps> = ({
     setActiveLabel(getActiveStandarAcuanLabel());
   }, []);
 
-  // Preset Standar Acuan Berbasis Periode Historis
-  const presets = useMemo(
-    () => [
+  // Preset Standar Acuan Berbasis Periode Historis Riil dari DATAMASTER
+  const presets = useMemo(() => {
+    const aguSepStandards = calculateWeightedStandardFromRows(allRows, ['Agustus', 'September'], '2026');
+    const janSepStandards = calculateWeightedStandardFromRows(
+      allRows,
+      ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September'],
+      '2026'
+    );
+    const agustusStandards = calculateWeightedStandardFromRows(allRows, ['Agustus'], '2026');
+    const septemberStandards = calculateWeightedStandardFromRows(allRows, ['September'], '2026');
+
+    return [
       {
         id: 'agu_sep',
         label: 'Rata-rata Tertimbang Agustus – September 2026 (Rekomendasi)',
-        standards: DEFAULT_STANDAR_ACUAN,
+        standards: aguSepStandards,
       },
       {
         id: 'jan_sep',
         label: 'Rata-rata Kumulatif Januari – September 2026',
-        standards: {
-          '153 - BK': 0.31,
-          'KARANG - BK': 0.14,
-          'FR LN - AVE': -0.07,
-          'SP 153 - BK': 0.28,
-          'FR LA BOLD - BK': 0.10,
-          'TIS - KBT24': -0.07,
-        },
+        standards: janSepStandards,
       },
       {
         id: 'agustus_only',
         label: 'Khusus Bulan Agustus 2026 Saja',
-        standards: {
-          '153 - BK': 0.25,
-          'KARANG - BK': 0.14,
-          'FR LN - AVE': -0.09,
-          'SP 153 - BK': 0.26,
-          'FR LA BOLD - BK': 0.10,
-          'TIS - KBT24': -0.06,
-        },
+        standards: agustusStandards,
       },
       {
         id: 'september_only',
         label: 'Khusus Bulan September 2026 Saja',
-        standards: {
-          '153 - BK': 0.28,
-          'KARANG - BK': 0.11,
-          'FR LN - AVE': -0.07,
-          'SP 153 - BK': 0.28,
-          'FR LA BOLD - BK': 0.10,
-          'TIS - KBT24': -0.07,
-        },
+        standards: septemberStandards,
       },
-    ],
-    []
-  );
+    ];
+  }, [allRows]);
 
   const handlePresetChange = (presetId: string) => {
     setSelectedPreset(presetId);
