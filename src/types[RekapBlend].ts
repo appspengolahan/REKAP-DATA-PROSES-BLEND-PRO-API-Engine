@@ -117,4 +117,36 @@ export interface DashboardDataset {
   };
 }
 
-export type ActiveTab = 'dashboard' | 'bulan' | 'merk' | 'molen' | 'explorer';
+export type ActiveTab = 'dashboard' | 'bulan' | 'merk' | 'molen' | 'deviasi' | 'explorer';
+
+export interface StandarAcuanItem {
+  merk: string;
+  susutTargetPct: number;
+  toleransiMinPct: number;
+  toleransiMaxPct: number;
+  sumberPeriode: string;
+  catatan?: string;
+}
+
+export interface DeviasiVarianItem {
+  merk: string;
+  bobotRiilKg: number;
+  hasilRiilKg: number;
+  susutRiilKg: number;
+  susutRiilPct: number;
+  susutAcuanPct: number;
+  deviasiPct: number;
+  deviasiKg: number;
+  status: 'normal' | 'waspada' | 'oos';
+  kontribusiDeviasiPct: number;
+  jumlahBatch: number;
+  suhuRata: number | null;
+}
+
+export interface QuickBatchTag {
+  batchId: string;
+  tag: string;
+  kategori: 'kadar_air' | 'suhu' | 'molen' | 'cleaning' | 'cuaca' | 'lainnya';
+  catatan?: string;
+  timestamp: string;
+}

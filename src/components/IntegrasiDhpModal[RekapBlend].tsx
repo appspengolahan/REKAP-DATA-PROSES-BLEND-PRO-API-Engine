@@ -20,14 +20,25 @@ import {
   Cpu,
   Lock,
   Thermometer,
+  Tag,
+  ChevronDown,
+  Droplets,
+  Flame,
+  Wrench,
+  CloudRain,
+  Scale,
+  Sparkles,
 } from 'lucide-react';
-import { RawBlendRow, UserRole } from '../types[RekapBlend]';
+import { RawBlendRow, UserRole, QuickBatchTag } from '../types[RekapBlend]';
 import {
   fmtKg,
   fmtPct,
   formatMolenWithCycle,
   SPREADSHEET_ID,
   getSavedGasUrl,
+  getActiveStandarAcuan,
+  getSavedBatchTags,
+  saveBatchTag,
 } from '../api[RekapBlend]';
 
 export const DHP_SPREADSHEET_ID = '1Fg3aNLsdkwXthNGxIsFJ9gbHy6Va6DokNV8IVpTnXDA';
@@ -79,6 +90,50 @@ export const IntegrasiDhpModalRekapBlend: React.FC<IntegrasiDhpModalProps> = ({
     text: string;
   } | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [batchTags, setBatchTags] = useState<Record<string, QuickBatchTag>>({});
+  const [openTagDropdown, setOpenTagDropdown] = useState<string | null>(null);
+  const [hoveredDiagBatch, setHoveredDiagBatch] = useState<string | null>(null);
+  const [activeStandards, setActiveStandards] = useState<Record<string, number>>({});
+
+  // Muat standar acuan aktif & quick tag mandor saat modal dibuka
+  useEffect(() => {
+    if (isOpen) {
+      setBatchTags(getSavedBatchTags());
+      setActiveStandards(getActiveStandarAcuan());
+    }
+  }, [isOpen]);
+
+  const QUICK_TAG_OPTIONS = [
+    { label: '💧 Kadar Air Bahan', kategori: 'kadar_air' as const, desc: 'Kadar air input tembakau tinggi/rendah' },
+    { label: '🔥 Suhu Molen (>32°C)', kategori: 'suhu' as const, desc: 'Evaporasi uap tinggi di silinder molen' },
+    { label: '⚙️ Setting Putaran Molen', kategori: 'molen' as const, desc: 'RPM atau siklus durasi disesuaikan' },
+    { label: '🧹 Residu Mesin (Cleaning)', kategori: 'cleaning' as const, desc: 'Pembersihan debu & kerak tabung' },
+    { label: '☁️ Cuaca / Kelembaban', kategori: 'cuaca' as const, desc: 'Kelembaban udara pabrik tinggi' },
+    { label: '✅ Sesuai SOP Standar', kategori: 'lainnya' as const, desc: 'Operasi normal tanpa kendala proses' },
+  ];
+
+  const handleSelectQuickTag = (batchCode: string, tagLabel: string, kategori: any, catatan?: string) => {
+    const tagObj: QuickBatchTag = {
+      batchId: batchCode,
+      tag: tagLabel,
+      kategori,
+      catatan,
+      timestamp: new Date().toISOString(),
+    };
+    saveBatchTag(batchCode, tagObj);
+    setBatchTags((prev) => ({ ...prev, [batchCode]: tagObj }));
+    setOpenTagDropdown(null);
+  };
+
+  const handleRemoveQuickTag = (batchCode: string) => {
+    const next = { ...batchTags };
+    delete next[batchCode];
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('rekap_blend_batch_tags_v1', JSON.stringify(next));
+    }
+    setBatchTags(next);
+    setOpenTagDropdown(null);
+  };
 
   // Parse angka Indonesia (1.450,2 -> 1450.2)
   const parseNumId = (s: any): number => {
@@ -1102,64 +1157,238 @@ function doGet(e) {
                         <th className="py-2.5 px-2 text-right">% SUSUT</th>
                         <th className="py-2.5 px-2.5 text-center">MOLEN</th>
                         <th className="py-2.5 px-2.5 text-center">SUHU (°C)</th>
+                        <th className="py-2.5 px-2.5 text-center">DEVIASI ACUAN</th>
+                        <th className="py-2.5 px-2.5 text-center">TAG MANDOR</th>
                         <th className="py-2.5 px-2.5 text-center">STATUS REKAP</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {dhpItems.map((item) => (
-                        <tr key={item.row} className="hover:bg-slate-50 transition">
-                          <td className="py-2 px-2 text-center font-mono text-slate-400 font-semibold text-[11px]">
-                            {item.row}
-                          </td>
-                          <td className="py-2 px-2.5 font-medium text-slate-800 whitespace-nowrap">
-                            {formatTanggalShort(item.tanggal)}
-                          </td>
-                          <td className="py-2 px-2.5 font-bold text-slate-900 whitespace-nowrap">
-                            {item.merk}
-                          </td>
-                          <td className="py-2 px-2 text-center font-mono font-bold text-slate-700 bg-slate-50/70">
-                            {item.noMolen}
-                          </td>
-                          <td className="py-2 px-2.5 text-right font-bold text-blue-900 tabular-nums">
-                            {fmtKg(item.baku)}
-                          </td>
-                          <td className="py-2 px-2.5 text-right font-medium text-emerald-900 tabular-nums">
-                            {fmtKg(item.hasil)}
-                          </td>
-                          <td className="py-2 px-2.5 text-right font-semibold text-amber-900 tabular-nums">
-                            {fmtKg(item.susutKg)}
-                          </td>
-                          <td className="py-2 px-2 text-right font-bold text-slate-800 tabular-nums">
-                            {item.susutPct}
-                          </td>
-                          <td className="py-2 px-2.5 text-center font-bold text-slate-700 bg-slate-50/50">
-                            {cleanMolenName(item.molenCode)}
-                          </td>
-                          <td className="py-2 px-2.5 text-center">
-                            {item.suhuStr || (item.suhu != null && item.suhu > 0) ? (
-                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-50 text-amber-900 border border-amber-200 text-[11px] font-bold">
-                                <Thermometer className="w-3 h-3 text-amber-600 shrink-0" />
-                                <span>{item.suhuStr || `${item.suhu!.toFixed(1).replace('.', ',')} °C`}</span>
-                              </span>
-                            ) : (
-                              <span className="text-slate-400 font-mono text-[11px] font-semibold">-</span>
-                            )}
-                          </td>
-                          <td className="py-2 px-2.5 text-center">
-                            {item.isMatchedInRekap ? (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-bold">
-                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                                <span>Cocok (Baris {item.rekapMatchedRow})</span>
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-[11px] font-bold">
-                                <Zap className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                                <span>Batch Baru</span>
-                              </span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
+                      {dhpItems.map((item) => {
+                        const targetPct = activeStandards[item.merk] ?? 0.28;
+                        const susutPctNum = item.baku > 0 ? (item.susutKg / item.baku) * 100 : 0;
+                        const deltaPct = susutPctNum - targetPct;
+                        const absDelta = Math.abs(deltaPct);
+
+                        let devStatus: 'normal' | 'waspada' | 'oos' = 'normal';
+                        if (absDelta > 0.15) {
+                          devStatus = 'oos';
+                        } else if (absDelta > 0.05) {
+                          devStatus = 'waspada';
+                        }
+
+                        const currentTag = batchTags[item.batchCode];
+
+                        return (
+                          <tr key={item.row} className="hover:bg-slate-50 transition">
+                            <td className="py-2 px-2 text-center font-mono text-slate-400 font-semibold text-[11px]">
+                              {item.row}
+                            </td>
+                            <td className="py-2 px-2.5 font-medium text-slate-800 whitespace-nowrap">
+                              {formatTanggalShort(item.tanggal)}
+                            </td>
+                            <td className="py-2 px-2.5 font-bold text-slate-900 whitespace-nowrap">
+                              {item.merk}
+                            </td>
+                            <td className="py-2 px-2 text-center font-mono font-bold text-slate-700 bg-slate-50/70">
+                              {item.noMolen}
+                            </td>
+                            <td className="py-2 px-2.5 text-right font-bold text-blue-900 tabular-nums">
+                              {fmtKg(item.baku)}
+                            </td>
+                            <td className="py-2 px-2.5 text-right font-medium text-emerald-900 tabular-nums">
+                              {fmtKg(item.hasil)}
+                            </td>
+                            <td className="py-2 px-2.5 text-right font-semibold text-amber-900 tabular-nums">
+                              {fmtKg(item.susutKg)}
+                            </td>
+                            <td className="py-2 px-2 text-right font-bold text-slate-800 tabular-nums">
+                              {item.susutPct}
+                            </td>
+                            <td className="py-2 px-2.5 text-center font-bold text-slate-700 bg-slate-50/50">
+                              {cleanMolenName(item.molenCode)}
+                            </td>
+                            <td className="py-2 px-2.5 text-center">
+                              {item.suhuStr || (item.suhu != null && item.suhu > 0) ? (
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-50 text-amber-900 border border-amber-200 text-[11px] font-bold">
+                                  <Thermometer className="w-3 h-3 text-amber-600 shrink-0" />
+                                  <span>{item.suhuStr || `${item.suhu!.toFixed(1).replace('.', ',')} °C`}</span>
+                                </span>
+                              ) : (
+                                <span className="text-slate-400 font-mono text-[11px] font-semibold">-</span>
+                              )}
+                            </td>
+
+                            {/* Kolom 1: Status Deviasi & Tooltip Diagnosa Kilat */}
+                            <td className="py-2 px-2.5 text-center relative">
+                              <div
+                                className="inline-block relative"
+                                onMouseEnter={() => setHoveredDiagBatch(item.batchCode)}
+                                onMouseLeave={() => setHoveredDiagBatch(null)}
+                              >
+                                {devStatus === 'normal' && (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-bold cursor-help">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                    <span>Normal ({deltaPct >= 0 ? '+' : ''}{deltaPct.toFixed(2)}%)</span>
+                                  </span>
+                                )}
+                                {devStatus === 'waspada' && (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-[11px] font-bold cursor-help">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                                    <span>Waspada ({deltaPct >= 0 ? '+' : ''}{deltaPct.toFixed(2)}%)</span>
+                                  </span>
+                                )}
+                                {devStatus === 'oos' && (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 text-[11px] font-bold cursor-help animate-pulse">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                                    <span>OOS ({deltaPct >= 0 ? '+' : ''}{deltaPct.toFixed(2)}%)</span>
+                                  </span>
+                                )}
+
+                                {/* Tooltip Diagnosa Kilat */}
+                                {hoveredDiagBatch === item.batchCode && (
+                                  <div className="absolute z-50 left-1/2 -translate-x-1/2 bottom-full mb-1.5 w-64 bg-slate-900 text-white rounded-xl p-3 shadow-xl border border-slate-700 text-left pointer-events-none">
+                                    <div className="flex items-center justify-between border-b border-slate-800 pb-1.5 mb-1.5">
+                                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                        Diagnosa Kilat Deviasi
+                                      </span>
+                                      <span
+                                        className={`text-[9px] font-bold px-1.5 py-0.2 rounded ${
+                                          devStatus === 'normal'
+                                            ? 'bg-emerald-500/20 text-emerald-300'
+                                            : devStatus === 'waspada'
+                                            ? 'bg-amber-500/20 text-amber-300'
+                                            : 'bg-rose-500/20 text-rose-300'
+                                        }`}
+                                      >
+                                        {devStatus.toUpperCase()}
+                                      </span>
+                                    </div>
+                                    <div className="space-y-1 text-[11px]">
+                                      <div className="flex justify-between">
+                                        <span className="text-slate-400">Susut Riil:</span>
+                                        <span className="font-bold text-white">{susutPctNum.toFixed(2)}% ({fmtKg(item.susutKg)} Kg)</span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span className="text-slate-400">Standar Acuan:</span>
+                                        <span className="font-mono text-emerald-400">{targetPct.toFixed(2)}%</span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span className="text-slate-400">Selisih Deviasi:</span>
+                                        <span className={`font-bold ${deltaPct > 0.05 ? 'text-rose-400' : 'text-slate-200'}`}>
+                                          {deltaPct >= 0 ? '+' : ''}{deltaPct.toFixed(2)}%
+                                        </span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span className="text-slate-400">Suhu Molen:</span>
+                                        <span className="font-mono text-amber-300">
+                                          {item.suhuStr || (item.suhu ? `${item.suhu} °C` : 'Suhu Standar')}
+                                        </span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span className="text-slate-400">Bahan Input:</span>
+                                        <span className="font-mono text-blue-300">{fmtKg(item.baku)} Kg</span>
+                                      </div>
+                                    </div>
+                                    <div className="mt-2 pt-1.5 border-t border-slate-800 text-[10px] text-slate-300 italic">
+                                      {devStatus === 'normal' && '✓ Proses stabil dalam batas toleransi acuan.'}
+                                      {devStatus === 'waspada' && '⚠️ Evaporasi ringan. Pantau ventilasi & suhu putaran molen.'}
+                                      {devStatus === 'oos' && '❗ Deviasi tinggi. Cek kadar air awal tembakau & residu kerak molen.'}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+
+                            {/* Kolom 2: Quick Tag Lapangan (Mandor) */}
+                            <td className="py-2 px-2.5 text-center relative">
+                              {currentTag ? (
+                                <div className="inline-flex items-center gap-1">
+                                  <button
+                                    onClick={() => setOpenTagDropdown(openTagDropdown === item.batchCode ? null : item.batchCode)}
+                                    className="px-2 py-0.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-[11px] font-semibold transition cursor-pointer flex items-center gap-1 shadow-2xs"
+                                    title="Klik untuk ubah tag lapangan"
+                                  >
+                                    <span>{currentTag.tag}</span>
+                                    <ChevronDown className="w-3 h-3 text-indigo-500" />
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => setOpenTagDropdown(openTagDropdown === item.batchCode ? null : item.batchCode)}
+                                  className="px-2 py-0.5 rounded-lg bg-slate-100 hover:bg-blue-50 text-slate-600 hover:text-blue-700 border border-slate-200 hover:border-blue-300 text-[11px] font-medium transition cursor-pointer flex items-center gap-1 mx-auto"
+                                  title="Tandai kondisi lapangan oleh Mandor"
+                                >
+                                  <Tag className="w-3 h-3 text-slate-400" />
+                                  <span>+ Tag</span>
+                                </button>
+                              )}
+
+                              {/* Dropdown Menu Quick Tag Lapangan */}
+                              {openTagDropdown === item.batchCode && (
+                                <div
+                                  className="absolute z-50 left-1/2 -translate-x-1/2 top-full mt-1 w-64 bg-white rounded-xl shadow-xl border border-slate-200 p-2 text-left animate-in fade-in zoom-in-95 duration-150"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <div className="flex items-center justify-between pb-1.5 mb-1.5 border-b border-slate-100 text-[11px] font-bold text-slate-700">
+                                    <span className="flex items-center gap-1">
+                                      <Tag className="w-3.5 h-3.5 text-blue-600" />
+                                      Quick Tag Mandor ({item.batchCode})
+                                    </span>
+                                    <button
+                                      onClick={() => setOpenTagDropdown(null)}
+                                      className="text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
+                                    >
+                                      <X className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+
+                                  <div className="space-y-1">
+                                    {QUICK_TAG_OPTIONS.map((opt) => (
+                                      <button
+                                        key={opt.label}
+                                        onClick={() => handleSelectQuickTag(item.batchCode, opt.label, opt.kategori)}
+                                        className={`w-full text-left p-1.5 rounded-lg text-xs transition cursor-pointer flex flex-col ${
+                                          currentTag?.tag === opt.label
+                                            ? 'bg-blue-50 text-blue-900 font-bold border border-blue-200'
+                                            : 'hover:bg-slate-50 text-slate-700'
+                                        }`}
+                                      >
+                                        <span className="font-semibold">{opt.label}</span>
+                                        <span className="text-[10px] text-slate-400">{opt.desc}</span>
+                                      </button>
+                                    ))}
+                                  </div>
+
+                                  {currentTag && (
+                                    <div className="mt-2 pt-1.5 border-t border-slate-100 text-right">
+                                      <button
+                                        onClick={() => handleRemoveQuickTag(item.batchCode)}
+                                        className="text-[10px] text-rose-600 hover:text-rose-800 font-semibold cursor-pointer"
+                                      >
+                                        Hapus Tag
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </td>
+
+                            <td className="py-2 px-2.5 text-center">
+                              {item.isMatchedInRekap ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-bold">
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                  <span>Cocok (Baris {item.rekapMatchedRow})</span>
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-[11px] font-bold">
+                                  <Zap className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                                  <span>Batch Baru</span>
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                     <tfoot>
                       <tr className="bg-slate-100 font-bold border-t border-slate-300 text-slate-900">
@@ -1176,6 +1405,8 @@ function doGet(e) {
                           {fmtKg(totalSusutKg)}
                         </td>
                         <td className="py-2 px-2 text-right tabular-nums">{fmtPct(avgSusutPct)}%</td>
+                        <td></td>
+                        <td></td>
                         <td></td>
                         <td></td>
                         <td className="py-2.5 px-2.5 text-center text-emerald-700 text-[11px]">

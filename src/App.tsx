@@ -24,6 +24,7 @@ import { TabDashboardRekapBlend } from './components/TabDashboard[RekapBlend]';
 import { TabBulanRekapBlend } from './components/TabBulan[RekapBlend]';
 import { TabMerkRekapBlend } from './components/TabMerk[RekapBlend]';
 import { TabMolenRekapBlend } from './components/TabMolen[RekapBlend]';
+import { TabDeviasiRekapBlend } from './components/TabDeviasiRekapBlend';
 import { DataExplorerRekapBlend } from './components/DataExplorer[RekapBlend]';
 import { HelpModalRekapBlend } from './components/HelpModal[RekapBlend]';
 import { SwitchBoardModalRekapBlend } from './components/SwitchBoardModal[RekapBlend]';
@@ -448,6 +449,19 @@ export default function App() {
               Per Molen
             </button>
             <button
+              onClick={() => setActiveTab('deviasi')}
+              className={`py-1.5 px-3 rounded-lg text-xs font-bold whitespace-nowrap transition flex items-center gap-1 ${
+                activeTab === 'deviasi' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <span>Analisis Deviasi</span>
+              <span className={`text-[9px] px-1.5 py-0.2 rounded-full font-bold ${
+                activeTab === 'deviasi' ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-800'
+              }`}>
+                Acuan Ref
+              </span>
+            </button>
+            <button
               onClick={() => setActiveTab('explorer')}
               className={`py-1.5 px-3 rounded-lg text-xs font-bold whitespace-nowrap transition ${
                 activeTab === 'explorer' ? 'bg-blue-600 text-white' : 'text-slate-600'
@@ -509,6 +523,15 @@ export default function App() {
                 onZoomChart={(title, chartType, data) =>
                   setChartModal({ isOpen: true, title, chartType, data })
                 }
+              />
+            )}
+
+            {activeTab === 'deviasi' && (
+              <TabDeviasiRekapBlend
+                allRows={dataset.allRows}
+                currentRole={currentRole}
+                currentYear={tahunGlobal !== 'Semua' ? tahunGlobal : '2026'}
+                currentMonth={bulanRingkasan !== 'Semua' ? bulanRingkasan : 'Oktober'}
               />
             )}
 

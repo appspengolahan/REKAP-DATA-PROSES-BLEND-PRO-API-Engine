@@ -13,6 +13,7 @@ import {
   Settings,
   ShieldCheck,
   ArrowLeftRight,
+  Gauge,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -70,6 +71,13 @@ export const SidebarRekapBlend: React.FC<SidebarProps> = ({
       sublabel: 'Telemetri Mesin Campur',
       icon: Cpu,
       badge: '6 Unit',
+    },
+    {
+      id: 'deviasi' as ActiveTab,
+      label: 'Analisis Deviasi',
+      sublabel: 'Komparasi Acuan & Audit Mutu',
+      icon: Gauge,
+      badge: 'Acuan Ref',
     },
     {
       id: 'explorer' as ActiveTab,

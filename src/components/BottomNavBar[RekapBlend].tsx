@@ -1,6 +1,6 @@
 import React from 'react';
 import { ActiveTab } from '../types[RekapBlend]';
-import { LayoutDashboard, CalendarDays, Layers, Cpu, Database, RefreshCw, HelpCircle } from 'lucide-react';
+import { LayoutDashboard, CalendarDays, Layers, Cpu, Database, RefreshCw, HelpCircle, Gauge } from 'lucide-react';
 
 interface BottomNavBarProps {
   activeTab: ActiveTab;
@@ -22,6 +22,7 @@ export const BottomNavBarRekapBlend: React.FC<BottomNavBarProps> = ({
     { id: 'bulan' as ActiveTab, label: 'Bulan', icon: CalendarDays },
     { id: 'merk' as ActiveTab, label: 'Jenis', icon: Layers },
     { id: 'molen' as ActiveTab, label: 'Molen', icon: Cpu },
+    { id: 'deviasi' as ActiveTab, label: 'Deviasi', icon: Gauge },
     { id: 'explorer' as ActiveTab, label: 'Audit', icon: Database },
   ];
 
