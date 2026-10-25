@@ -178,7 +178,7 @@ export function getPctBadgeClass(pct: number): {
 }
 
 /** Helper rounding 2 decimals */
-function round2(n: number): number {
+export function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 

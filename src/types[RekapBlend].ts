@@ -128,6 +128,19 @@ export interface StandarAcuanItem {
   catatan?: string;
 }
 
+export interface StandarAcuanDetailItem {
+  no: number;
+  merk: string;
+  jalur: 'SKT' | 'SKM';
+  standarSusutPct: number;
+  toleransiPct: number;
+  totalBakuKg: number;
+  jumlahBatch: number;
+  periodeAcuan: string;
+  keterangan: string;
+  isCustom?: boolean;
+}
+
 export interface DeviasiVarianItem {
   merk: string;
   bobotRiilKg: number;
