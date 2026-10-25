@@ -392,7 +392,7 @@ export default function App() {
         />
 
         {/* 3. Main Workspace Canvas (Scrolls independently) */}
-        <main className="flex-1 h-full overflow-y-auto p-3 sm:p-6 lg:p-8 pb-28 sm:pb-12 max-w-7xl mx-auto w-full">
+        <main className="flex-1 h-full overflow-y-auto p-3 sm:p-6 lg:p-8 pb-28 lg:pb-12 max-w-7xl mx-auto w-full">
           {/* Print Watermark / Header */}
           <div className="hidden print:block pb-4 mb-4 border-b border-slate-300">
             <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">
@@ -415,7 +415,7 @@ export default function App() {
           <PWAInstallButtonRekapBlend variant="banner" />
 
           {/* Quick Tab Selector for Mobile / Compact Devices */}
-          <div className="flex sm:hidden overflow-x-auto gap-1.5 p-1 bg-white border border-slate-200 rounded-xl mb-4 no-print scrollbar-none">
+          <div className="flex lg:hidden overflow-x-auto gap-1.5 p-1 bg-white border border-slate-200 rounded-xl mb-4 no-print scrollbar-none">
             <button
               onClick={() => setActiveTab('dashboard')}
               className={`py-1.5 px-3 rounded-lg text-xs font-bold whitespace-nowrap transition ${
@@ -585,12 +585,11 @@ export default function App() {
         data={chartModal.data}
       />
 
-      {/* 9. Bottom Navigation Bar untuk Layar Smartphone */}
+      {/* 9. Bottom Navigation Bar untuk Layar Smartphone & Tablet */}
       <BottomNavBarRekapBlend
         activeTab={activeTab}
         onTabChange={setActiveTab}
-        onRefresh={() => handleRefresh(false)}
-        isRefreshing={isRefreshing}
+        onOpenIntegrasiDhp={() => setIsIntegrasiDhpOpen(true)}
         onOpenHelp={() => setIsHelpOpen(true)}
       />
     </div>

@@ -110,7 +110,7 @@ export const HeaderRekapBlend: React.FC<HeaderProps> = ({
           {onToggleCollapse && (
             <button
               onClick={onToggleCollapse}
-              className="hidden sm:flex items-center justify-center p-1.5 -ml-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer shrink-0"
+              className="hidden lg:flex items-center justify-center p-1.5 -ml-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer shrink-0"
               title={isCollapsed ? 'Perlebar Sidebar' : 'Ciutkan Sidebar'}
             >
               {isCollapsed ? (
@@ -183,6 +183,18 @@ export const HeaderRekapBlend: React.FC<HeaderProps> = ({
               {dataSourceMode === 'direct_sheet' ? 'DIRECT' : 'OFF'}
             </span>
           </button>
+
+          {/* Tombol Integrasi DHP Blend (Akses Cepat Header) */}
+          {onOpenIntegrasiDhp && (
+            <button
+              onClick={onOpenIntegrasiDhp}
+              className="flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-bold border transition cursor-pointer shadow-xs bg-blue-600/20 text-blue-300 border-blue-500/40 hover:bg-blue-600/30"
+              title="Integrasi & Sinkronisasi Data DHP Blend"
+            >
+              <ArrowLeftRight className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+              <span className="hidden md:inline">DHP Blend</span>
+            </button>
+          )}
 
           {/* Tombol Refresh / Auto Sync (Icon Berputar Terus Saat Auto Sync Aktif) */}
           <button
