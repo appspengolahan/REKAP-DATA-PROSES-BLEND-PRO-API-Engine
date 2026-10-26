@@ -898,6 +898,14 @@ function parseSuhuValue(val) {
 }
 
 /**
+ * Helper: Normalisasi teks nama merk (menghapus spasi, strip, dan underscore secara aman)
+ */
+function bersihkanNamaMerk(m) {
+  if (!m) return '';
+  return String(m).toLowerCase().split(' ').join('').split('-').join('').split('_').join('');
+}
+
+/**
  * FUNGSI 1 (UTAMA): Sinkronisasi Pintar (Update Nilai, Molen, & Suhu + Append)
  */
 function sinkronkanDhpBlendKeRekap() {
@@ -939,7 +947,7 @@ function sinkronkanDhpBlendKeRekap() {
       var actualRow = scanStart + i;
       var tglVal = rekapValues[i][0];
       var rawMerkVal = String(rekapValues[i][4] || '').trim();
-      var cleanMerkVal = rawMerkVal.toLowerCase().replace(/[\s\-_]/g, '');
+      var cleanMerkVal = bersihkanNamaMerk(rawMerkVal);
       var noMolenVal = String(rekapValues[i][5] || '').trim();
       var bakuVal = Number(String(rekapValues[i][7]).replace(/,/g, '.')) || 0;
       var hasilVal = Number(String(rekapValues[i][8]).replace(/,/g, '.')) || 0;
@@ -1000,12 +1008,12 @@ function sinkronkanDhpBlendKeRekap() {
 
     // DINAMIS: Izinkan SEMUA merk tembakau blend (153 - BK, KARANG - BK, FR LN - AVE, SP 153 - BK, TIS - KBT24, dst.)
     if (rawMerk && rawMerk !== '-' && rawMerk !== '--' && !rawMerk.toLowerCase().includes('total') && rawBatch && rawBatch !== '-' && (rawBaku > 0 || rawHasil > 0)) {
-      var m = rawBatch.match(/(\d+)$/);
-      var camp = m ? String(parseInt(m[1], 10)) : (molenDhp.match(/(\d+)$/)?.[1] || '1');
+      var m = rawBatch.match(/(\d+)$/) || rawBatch.match(/([0-9]+)$/);
+      var camp = m ? String(parseInt(m[1], 10)) : ((molenDhp.match(/([0-9]+)$/))?.[1] || '1');
       var tglDate = parseTglToDateObject(rawTgl);
       var tglKey = Utilities.formatDate(tglDate, 'Asia/Jakarta', 'd MMMM yyyy').toLowerCase();
 
-      var cleanMerkKey = rawMerk.toLowerCase().replace(/[\s\-_]/g, '');
+      var cleanMerkKey = bersihkanNamaMerk(rawMerk);
       var checkKey = tglKey + '|' + cleanMerkKey + '|' + camp;
 
       var matchedEntry = rekapRowMap[checkKey];
@@ -1020,7 +1028,7 @@ function sinkronkanDhpBlendKeRekap() {
 
         // Jika merk di DATAMASTER berbeda (misal template lama tertulis 'KARANG - BK' padahal transaksi aktual 'FR LN - AVE'):
         // Otomatis perbarui Kolom F (6: Merk) menjadi merk riil DHP
-        if (existing.merk.toLowerCase().replace(/[\s\-_]/g, '') !== cleanMerkKey) {
+        if (bersihkanNamaMerk(existing.merk) !== cleanMerkKey) {
           shRekap.getRange(existing.row, 6).setValue(rawMerk);
         }
 
