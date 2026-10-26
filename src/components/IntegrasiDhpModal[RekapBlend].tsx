@@ -994,6 +994,8 @@ function sinkronkanDhpBlendKeRekap() {
   var dhpValues = shDhp.getRange(10, 1, numRowsToScan, dhpColCount).getValues();
   var updatedCount = 0;
   var rowsToAppend = [];
+  var activeRowsUpdated = {};
+  var syncedDates = {};
 
   for (var j = 0; j < dhpValues.length; j++) {
     var row = dhpValues[j];
@@ -1018,6 +1020,7 @@ function sinkronkanDhpBlendKeRekap() {
       var camp = m ? String(parseInt(m[1], 10)) : ((molenDhp.match(/([0-9]+)$/))?.[1] || '1');
       var tglDate = parseTglToDateObject(rawTgl);
       var tglKey = Utilities.formatDate(tglDate, 'Asia/Jakarta', 'd MMMM yyyy').toLowerCase();
+      syncedDates[tglKey] = true;
 
       var cleanMerkKey = bersihkanNamaMerk(rawMerk);
       var checkKey = tglKey + '|' + cleanMerkKey + '|' + camp;
@@ -1031,6 +1034,7 @@ function sinkronkanDhpBlendKeRekap() {
       // KASUS A: Baris SUDAH ADA di DATAMASTER (atau berupa baris template placeholder)
       if (matchedEntry) {
         var existing = matchedEntry;
+        activeRowsUpdated[existing.row] = true;
 
         // INSTRUKSI RESMI: Kirim Nomor Laporan dari Kolom A DHP ke Header NOMER (Kolom E / 5 DATAMASTER)
         // Menyelaraskan perbedaan nomor laporan (contoh: "17/BLD/10/26")
@@ -1128,8 +1132,71 @@ function sinkronkanDhpBlendKeRekap() {
     }
   }
 
-  Logger.log('HASIL: ' + updatedCount + ' baris di-UPDATE, ' + addedCount + ' baris di-APPEND.');
-  return { success: true, updatedCount: updatedCount, addedCount: addedCount };
+  // 3. PEMBERSIHAN OTOMATIS BATCH BATAL / CANCELLED (ANTISIPASI PEMBATALAN PRODUKSI):
+  // Menghapus baris template di DATAMASTER pada tanggal yang sama yang tidak pernah diproduksi (Baku = 0)
+  var deletedBatalCount = 0;
+  if (rekapValues && rekapValues.length > 0) {
+    for (var k = rekapValues.length - 1; k >= 0; k--) {
+      var checkRow = scanStart + k;
+      var tglItem = rekapValues[k][0];
+      var tglItemKey = '';
+      if (tglItem instanceof Date) {
+        tglItemKey = Utilities.formatDate(tglItem, 'Asia/Jakarta', 'd MMMM yyyy').toLowerCase();
+      } else {
+        tglItemKey = String(tglItem).trim().toLowerCase();
+      }
+
+      // Hanya periksa baris yang berada di tanggal transaksi aktif DHP
+      if (syncedDates[tglItemKey]) {
+        // Jika baris ini bukan salah satu yang terupdate dengan transaksi sah DHP
+        if (!activeRowsUpdated[checkRow]) {
+          var bakuCheck = Number(String(rekapValues[k][7]).replace(/,/g, '.')) || 0;
+          // Jika bobot baku 0 (batch batal diproduksi / template usang)
+          if (bakuCheck === 0) {
+            shRekap.deleteRow(checkRow);
+            deletedBatalCount++;
+            Logger.log('HAPUS BATCH BATAL: Baris ' + checkRow + ' (' + tglItemKey + ', Baku: 0 Kg) berhasil dibatalkan & dibersihkan dari Rekap.');
+          }
+        }
+      }
+    }
+  }
+
+  Logger.log('HASIL: ' + updatedCount + ' baris di-UPDATE, ' + addedCount + ' baris di-APPEND, ' + deletedBatalCount + ' baris BATAL dibersihkan.');
+  return { success: true, updatedCount: updatedCount, addedCount: addedCount, deletedBatalCount: deletedBatalCount };
+}
+
+/**
+ * FUNGSI 4 (SOLUSI INSTAN BATCH BATAL): Bersihkan 8 Batch Batal 26 Oktober 2026 di DATAMASTER
+ * Menghapus baris template tanggal 26 Oktober yang tidak pernah diproduksi (Baku = 0,0 Kg)
+ * Menghilangkan angka susut anomali -870 Kg per baris (total phantom susut -6.960 Kg)
+ * Menyisakan hanya 5 batch riil sesuai DHP (4 batch 153 - BK dan 1 batch FR LN - AVE)
+ */
+function bersihkanBatchBatal26Okt() {
+  var ssRekap = SpreadsheetApp.openById(CONFIG_INTEGRASI_BLEND.REKAP_SS_ID);
+  var shRekap = ssRekap.getSheetByName(CONFIG_INTEGRASI_BLEND.REKAP_SHEET_NAME);
+
+  var deletedRows = [];
+  // Loop dari bawah ke atas pada rentang baris 26 Oktober (4760 mundur ke 4742)
+  for (var r = 4760; r >= 4742; r--) {
+    var tglVal = shRekap.getRange(r, 2).getValue();
+    var tglStr = tglVal instanceof Date ? Utilities.formatDate(tglVal, 'Asia/Jakarta', 'd MMMM yyyy') : String(tglVal);
+    
+    if (tglStr.indexOf('26') >= 0 && (tglStr.toLowerCase().indexOf('okt') >= 0 || tglStr.toLowerCase().indexOf('oct') >= 0)) {
+      var bakuVal = Number(String(shRekap.getRange(r, 9).getValue()).replace(/,/g, '.')) || 0;
+      var merkVal = String(shRekap.getRange(r, 6).getValue() || '').trim();
+      
+      // Jika Bobot Baku 0,0 Kg -> ini adalah batch yang dibatalkan produksinya!
+      if (bakuVal === 0) {
+        shRekap.deleteRow(r);
+        deletedRows.push({ row: r, merk: merkVal });
+        Logger.log('HAPUS BATCH BATAL: Baris ' + r + ' (' + merkVal + ', Baku: 0 Kg) berhasil dihapus dari DATAMASTER.');
+      }
+    }
+  }
+
+  Logger.log('SUKSES: Total ' + deletedRows.length + ' baris batch batal berhasil dibersihkan dari 26 Oktober 2026.');
+  return { success: true, count: deletedRows.length, deleted: deletedRows };
 }
 
 /**
@@ -1376,6 +1443,10 @@ function doGet(e) {
   var result = {};
   if (action === 'sinkronkanDhpBlendKeRekap') {
     result = sinkronkanDhpBlendKeRekap();
+  } else if (action === 'bersihkanBatchBatal26Okt') {
+    result = bersihkanBatchBatal26Okt();
+  } else if (action === 'perbaikiNomerLaporan26Okt') {
+    result = perbaikiNomerLaporan26Okt();
   } else if (action === 'kirimSuhuKeDatamaster') {
     result = kirimSuhuDhpKeDatamaster();
   } else if (action === 'perbaikiDuplikasi') {
@@ -3072,7 +3143,31 @@ function doGet(e) {
                     <li>Buka spreadsheet Rekap Susut Proses Blend 2026 &gt; menu <strong>Ekstensi &gt; Apps Script</strong>.</li>
                     <li>Buka file <code>IntegrasiDhpBlend.gs</code>, ganti dengan seluruh kode terbaru di atas (klik tombol <em>"Salin Kode GAS"</em>), lalu simpan (<strong>Ctrl + S</strong>).</li>
                     <li>
-                      <strong>LANGKAH 1 (BERSIHKAN DUPLIKAT &amp; KIRIM DATA SUHU):</strong>
+                      <strong>LANGKAH KHUSUS 26 OKTOBER (BERSIHKAN BATCH BATAL &amp; ANOMALI SUSUT):</strong>
+                      <div className="mt-0.5 text-slate-800">
+                        Pilih fungsi <code className="bg-amber-100 font-bold px-1.5 py-0.5 rounded text-amber-900">bersihkanBatchBatal26Okt</code> di dropdown atas, lalu klik <strong>Jalankan (Run)</strong>.
+                        <div className="text-[10px] text-emerald-800 font-medium mt-0.5">
+                          🛡️ Fungsi ini otomatis menghapus 8 baris template yang dibatalkan produksinya (baris 4746–4752 dan 4754 dengan Baku 0 Kg), melenyapkan angka susut anomali -870 Kg per baris (phantom susut -6.960 Kg), dan menyisakan hanya 5 batch riil sesuai Web App (4 batch 153 - BK &amp; 1 batch FR LN - AVE) dengan susut normal 4,1 Kg (+0,11%)!
+                        </div>
+                      </div>
+                    </li>
+                    <li>
+                      <strong>SELARASKAN NOMOR LAPORAN (KOLOM E) 26 OKTOBER:</strong>
+                      <div className="mt-0.5 text-slate-800">
+                        Pilih fungsi <code className="bg-amber-100 font-bold px-1.5 py-0.5 rounded text-amber-900">perbaikiNomerLaporan26Okt</code> di dropdown atas, lalu klik <strong>Jalankan (Run)</strong>.
+                        <div className="text-[10px] text-slate-600 mt-0.5">
+                          Menyelaraskan Kolom E (NOMER) dari template lama (23/BLD/10/26) menjadi nomor laporan resmi Kolom A DHP: <strong>17/BLD/10/26</strong>.
+                        </div>
+                      </div>
+                    </li>
+                    <li>
+                      <strong>ANTISIPASI PEMBATALAN PRODUKSI OTOMATIS (Masa Depan):</strong>
+                      <div className="mt-0.5 text-slate-800">
+                        Fungsi utama <code className="bg-amber-100 font-bold px-1.5 py-0.5 rounded text-amber-900">sinkronkanDhpBlendKeRekap</code> kini sudah dilengkapi <em>Automated Cancellation Purge</em>. Di masa depan, jika ada rencana 13 batch tetapi hanya 4 atau 5 batch yang diproduksi, baris template unproduced (Baku = 0) pada tanggal tersebut otomatis dihapus dan hanya batch riil yang tertinggal di DATAMASTER!
+                      </div>
+                    </li>
+                    <li>
+                      <strong>LANGKAH 1 (BERSIHKAN DUPLIKAT &amp; KIRIM DATA SUHU 23 OKTOBER):</strong>
                       <div className="mt-0.5 text-slate-800">
                         Pilih fungsi <code className="bg-amber-100 font-bold px-1.5 py-0.5 rounded text-amber-900">bersihkanDuplikasiDanPerbaikiTanggal23Okt</code> di dropdown atas, lalu klik <strong>Jalankan (Run)</strong>.
                         <div className="text-[10px] text-slate-600 mt-0.5">
