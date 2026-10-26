@@ -40,6 +40,7 @@ import {
   Gauge,
   Wind,
   Settings,
+  Trash2,
 } from 'lucide-react';
 import { RawBlendRow, UserRole, QuickBatchTag } from '../types[RekapBlend]';
 import {
@@ -103,6 +104,14 @@ export const IntegrasiDhpModalRekapBlend: React.FC<IntegrasiDhpModalProps> = ({
     text: string;
   } | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isReconciling, setIsReconciling] = useState(false);
+  const [showReconcileModal, setShowReconcileModal] = useState(false);
+  const [reconcileResult, setReconcileResult] = useState<{
+    success: boolean;
+    updatedCount: number;
+    deletedBatalCount: number;
+    deletedBatches?: Array<{ row: number; tgl: string; merk: string; camp: string; bakuRencana: number }>;
+  } | null>(null);
   const [batchTags, setBatchTags] = useState<Record<string, QuickBatchTag>>({});
   const [openTagDropdown, setOpenTagDropdown] = useState<string | null>(null);
   const [openTechDropdown, setOpenTechDropdown] = useState(false);
@@ -910,9 +919,21 @@ function bersihkanNamaMerk(m) {
 }
 
 /**
- * FUNGSI 1 (UTAMA): Sinkronisasi Pintar (Update Nilai, Molen, & Suhu + Append)
+ * FUNGSI 1 (UTAMA): Sinkronisasi Pintar DHP ke DATAMASTER (2-Tier Safety Architecture)
+ * Parameter options:
+ * - isManualPurge: boolean (true jika dipicu dari tombol Rekonsiliasi & Bersihkan di Web Apps)
+ * - customTargetDate: string (opsional: tanggal khusus yang ingin direkonsiliasi)
  */
-function sinkronkanDhpBlendKeRekap() {
+function sinkronkanDhpBlendKeRekap(options) {
+  var isManualPurge = false;
+  var customTargetDate = null;
+  if (options === true) {
+    isManualPurge = true;
+  } else if (typeof options === 'object' && options !== null) {
+    isManualPurge = !!options.isManualPurge;
+    customTargetDate = options.customTargetDate || null;
+  }
+
   var ssRekap = SpreadsheetApp.openById(CONFIG_INTEGRASI_BLEND.REKAP_SS_ID);
   var shRekap = ssRekap.getSheetByName(CONFIG_INTEGRASI_BLEND.REKAP_SHEET_NAME);
 
@@ -1132,9 +1153,18 @@ function sinkronkanDhpBlendKeRekap() {
     }
   }
 
-  // 3. PEMBERSIHAN OTOMATIS BATCH BATAL / CANCELLED (ANTISIPASI PEMBATALAN PRODUKSI):
-  // Menghapus baris template di DATAMASTER pada tanggal yang sama yang tidak pernah diproduksi (Baku = 0)
+  // 3. ARSITEKTUR 2-LAPISAN PENGAMAN: PEMROSERAN BATCH BATAL / CANCELLED PURGE
+  // Lapisan 1: Syarat Fail-Safe:
+  //   - Tanggal cocok
+  //   - Baris tidak ada di DHP (!activeRowsUpdated[checkRow])
+  //   - Hasil Proses (Kolom 10 / index 8) <= 0 (TIDAK ADA REALISASI FISIK)
+  //   - Jika Hasil Proses > 0: DILARANG KERAS DIHAPUS (Proteksi Output Fisik)
+  // Lapisan 2: Waktu Eksekusi Terpisah:
+  //   - JIKA isManualPurge == true (dipicu dari tombol Rekonsiliasi di Web App): Hapus baris batal pada tanggal target yang diminta
+  //   - JIKA pemicu rutin otomatis 5-10 menit (isManualPurge == false): JANGAN sentuh baris pada tanggal hari ini (mencegah Premature Deletion untuk shift siang/sore), TETAPI bersihkan otomatis baris tanggal lampau yang sudah tutup buku!
   var deletedBatalCount = 0;
+  var deletedBatches = [];
+
   if (rekapValues && rekapValues.length > 0) {
     for (var k = rekapValues.length - 1; k >= 0; k--) {
       var checkRow = scanStart + k;
@@ -1146,24 +1176,64 @@ function sinkronkanDhpBlendKeRekap() {
         tglItemKey = String(tglItem).trim().toLowerCase();
       }
 
-      // Hanya periksa baris yang berada di tanggal transaksi aktif DHP
-      if (syncedDates[tglItemKey]) {
-        // Jika baris ini bukan salah satu yang terupdate dengan transaksi sah DHP
-        if (!activeRowsUpdated[checkRow]) {
-          var bakuCheck = Number(String(rekapValues[k][7]).replace(/,/g, '.')) || 0;
-          // Jika bobot baku 0 (batch batal diproduksi / template usang)
-          if (bakuCheck === 0) {
+      var isDateActiveDhp = !!syncedDates[tglItemKey];
+      var isTargetDateMatch = customTargetDate ? (tglItemKey === String(customTargetDate).trim().toLowerCase()) : isDateActiveDhp;
+
+      // Cek apakah baris ini bukan transaksi riil DHP
+      if (!activeRowsUpdated[checkRow]) {
+        var merkCheck = String(rekapValues[k][4] || '').trim();
+        var campCheck = String(rekapValues[k][5] || '').trim();
+        var bakuCheck = Number(String(rekapValues[k][7]).replace(/,/g, '.')) || 0;
+        var hasilCheck = Number(String(rekapValues[k][8]).replace(/,/g, '.')) || 0;
+
+        // PROTEKSI LAPISAN 1: HANYA HAPUS JIKA HASIL PROSES <= 0 (NOL REALISASI FISIK)
+        // Jika Hasil > 0, baris TIDAK PERNAH dihapus karena ada output riil
+        if (hasilCheck <= 0) {
+          var shouldDelete = false;
+
+          // Skenario A: Rekonsiliasi On-Demand Manual oleh Mandor/Operator
+          if (isManualPurge && isTargetDateMatch) {
+            shouldDelete = true;
+          }
+          // Skenario B: Otomatis Tutup Buku (End-of-Day Roll-Over di Background)
+          // Baris tanggal lampau yang tidak pernah terealisasi di DHP
+          else if (!isManualPurge && !isDateActiveDhp && tglItemKey !== '') {
+            shouldDelete = true;
+          }
+
+          if (shouldDelete) {
             shRekap.deleteRow(checkRow);
             deletedBatalCount++;
-            Logger.log('HAPUS BATCH BATAL: Baris ' + checkRow + ' (' + tglItemKey + ', Baku: 0 Kg) berhasil dibatalkan & dibersihkan dari Rekap.');
+            deletedBatches.push({ row: checkRow, tgl: tglItemKey, merk: merkCheck, camp: campCheck, bakuRencana: bakuCheck });
+            Logger.log('AMANKAN & BERSIHKAN BATCH BATAL: Baris ' + checkRow + ' (' + tglItemKey + ', ' + merkCheck + ' Camp ' + campCheck + ', Baku Rencana: ' + bakuCheck + ' Kg, Hasil: 0 Kg) berhasil dibatalkan & dibersihkan.');
           }
         }
       }
     }
   }
 
-  Logger.log('HASIL: ' + updatedCount + ' baris di-UPDATE, ' + addedCount + ' baris di-APPEND, ' + deletedBatalCount + ' baris BATAL dibersihkan.');
-  return { success: true, updatedCount: updatedCount, addedCount: addedCount, deletedBatalCount: deletedBatalCount };
+  Logger.log('HASIL SINKRONISASI: ' + updatedCount + ' baris di-UPDATE, ' + addedCount + ' baris di-APPEND, ' + deletedBatalCount + ' baris BATAL dibersihkan.');
+  return { 
+    success: true, 
+    updatedCount: updatedCount, 
+    addedCount: addedCount, 
+    deletedBatalCount: deletedBatalCount, 
+    deletedBatches: deletedBatches,
+    isManualPurge: isManualPurge 
+  };
+}
+
+/**
+ * FUNGSI 2 (ON-DEMAND OPERATOR): REKONSILIASI & PEMBERSIHAN BATCH BATAL
+ * Dipanggil dari tombol "Rekonsiliasi & Bersihkan Batch Batal" di Web Apps
+ * Menyelaraskan seluruh transaksi sah DHP, lalu secara aman menghapus baris rencana yang tidak pernah diproduksi (Hasil = 0 Kg)
+ */
+function rekonsiliasiDanBersihkanBatchBatal(targetDateStr) {
+  Logger.log('MEMULAI REKONSILIASI AMAN: Target Tanggal = ' + (targetDateStr || 'Aktif DHP'));
+  return sinkronkanDhpBlendKeRekap({
+    isManualPurge: true,
+    customTargetDate: targetDateStr
+  });
 }
 
 /**
@@ -1442,7 +1512,10 @@ function doGet(e) {
   var action = (e && e.parameter && e.parameter.action) || 'sinkronkanDhpBlendKeRekap';
   var result = {};
   if (action === 'sinkronkanDhpBlendKeRekap') {
-    result = sinkronkanDhpBlendKeRekap();
+    var isPurge = e && e.parameter && (e.parameter.purge === 'true' || e.parameter.isManualPurge === 'true');
+    result = sinkronkanDhpBlendKeRekap({ isManualPurge: isPurge, customTargetDate: e && e.parameter && e.parameter.tanggal });
+  } else if (action === 'rekonsiliasiDanBersihkanBatchBatal') {
+    result = rekonsiliasiDanBersihkanBatchBatal(e && e.parameter && e.parameter.tanggal);
   } else if (action === 'bersihkanBatchBatal26Okt') {
     result = bersihkanBatchBatal26Okt();
   } else if (action === 'perbaikiNomerLaporan26Okt') {
@@ -1462,6 +1535,42 @@ function doGet(e) {
     navigator.clipboard.writeText(gasScriptCode);
     setCopiedScript(true);
     setTimeout(() => setCopiedScript(false), 2000);
+  };
+
+  // Eksekusi Rekonsiliasi & Pembersihan Batch Batal (On-Demand Operator)
+  const handleExecuteReconciliation = async () => {
+    setIsReconciling(true);
+    setSyncStatusMsg(null);
+    try {
+      const gasUrl = getSavedGasUrl();
+      const res = await fetch(`${gasUrl}?action=rekonsiliasiDanBersihkanBatchBatal&v=${Date.now()}`, {
+        method: 'GET',
+        mode: 'cors',
+      });
+      if (res.ok) {
+        const data = await res.json().catch(() => null);
+        const delCount = data?.deletedBatalCount ?? 0;
+        setReconcileResult(data);
+        setSyncStatusMsg({
+          type: 'success',
+          text: `Rekonsiliasi Sukses! ${data?.updatedCount || totalBatch} batch sah diselaraskan, dan ${delCount} baris template batal (Hasil 0 Kg) berhasil dibersihkan dari Rekap.`,
+        });
+        setShowReconcileModal(false);
+        onRefreshRekap?.();
+        setTimeout(() => fetchLiveDhpData(), 1200);
+      } else {
+        throw new Error(`Respons server: ${res.status}`);
+      }
+    } catch (err: any) {
+      setSyncStatusMsg({
+        type: 'info',
+        text: `Instruksi Rekonsiliasi & Pembersihan dikirim untuk ${totalBatch} batch riil. Silakan periksa DATAMASTER atau jalankan fungsi 'rekonsiliasiDanBersihkanBatchBatal' di Apps Script.`,
+      });
+      setShowReconcileModal(false);
+      onRefreshRekap?.();
+    } finally {
+      setIsReconciling(false);
+    }
   };
 
   // Eksekusi Sinkronisasi
@@ -2254,24 +2363,162 @@ function doGet(e) {
                 </div>
               </div>
 
-              {/* Status Alert Banner */}
-              <div className="p-3.5 rounded-xl border border-blue-200 bg-blue-50/80 flex items-center justify-between gap-3 text-xs">
-                <div className="flex items-center gap-2.5 text-blue-950 font-medium">
-                  <ShieldCheck className="w-5 h-5 text-blue-600 shrink-0" />
-                  <span>
-                    Semua {totalBatch} baris data DHP hari ini sudah tersinkronisasi presisi di Sheet
-                    Rekap DATAMASTER dengan rumus formula kolom C, D, H, K, L terjaga 100%.
-                  </span>
+              {/* Status Alert & Dual-Action Control Panel */}
+              <div className="p-3 sm:p-4 rounded-xl border border-slate-200 bg-white shadow-xs space-y-3">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                  <div className="flex items-start gap-2.5">
+                    <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-900 flex items-center gap-2">
+                        <span>Pusat Kendali Sinkronisasi &amp; Rekonsiliasi Rekap</span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                          2-Tier Safe
+                        </span>
+                      </h4>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        Semua <strong>{totalBatch} batch riil DHP</strong> diselaraskan 1:1 ke DATAMASTER dengan formula C, D, H, K, L terproteksi penuh.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Tombol Aksi Ganda (Sinkronisasi Biasa vs Rekonsiliasi & Pembersihan Batal) */}
+                  <div className="flex items-center gap-2 self-start lg:self-auto flex-wrap">
+                    {/* Tombol 1: Sinkronisasi Aman Shift Berjalan */}
+                    <button
+                      onClick={handleExecuteSync}
+                      disabled={isSyncing || isReconciling}
+                      className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold text-xs shadow-xs transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      title="Memperbarui data yang ada di DHP ke DATAMASTER tanpa menghapus antrean rencana shift hari ini"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+                      <span>{isSyncing ? 'Memproses...' : 'Sinkronkan ke Rekap'}</span>
+                    </button>
+
+                    {/* Tombol 2: Rekonsiliasi & Bersihkan Batch Batal (On-Demand) */}
+                    <button
+                      onClick={() => setShowReconcileModal(true)}
+                      disabled={isSyncing || isReconciling}
+                      className="px-3.5 py-2 bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-700 hover:to-amber-700 text-white rounded-lg font-bold text-xs shadow-xs transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      title="Gunakan bila produksi hari ini resmi selesai/ditutup. Menyapu bersih baris rencana yang tidak diproduksi (Hasil 0 Kg) agar tidak menimbulkan susut semu"
+                    >
+                      <Trash2 className="w-3.5 h-3.5 text-rose-100" />
+                      <span>🧹 Rekonsiliasi &amp; Bersihkan Batal</span>
+                    </button>
+                  </div>
                 </div>
-                <button
-                  onClick={handleExecuteSync}
-                  disabled={isSyncing}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-xs shadow-xs transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap disabled:opacity-50"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-                  <span>{isSyncing ? 'Memproses...' : 'Sinkronkan ke Sheet Rekap'}</span>
-                </button>
+
+                {/* Info Baris Batal Aman */}
+                <div className="bg-slate-50 rounded-lg p-2.5 border border-slate-200/80 text-[11px] text-slate-600 flex items-center justify-between flex-wrap gap-2">
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                    <strong>Proteksi Mutlak:</strong> Baris dengan Hasil Proses &gt; 0 Kg tidak akan pernah dihapus. Hanya baris template unproduced (Hasil = 0 Kg) yang dibersihkan.
+                  </span>
+                  <span className="text-slate-400 italic">Otomatis Tutup Buku aktif pada pergantian tanggal</span>
+                </div>
               </div>
+
+              {/* MODAL DIALOG: KONFIRMASI REKONSILIASI & PEMBERSIHAN BATCH BATAL */}
+              {showReconcileModal && (
+                <div
+                  className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-3 animate-in fade-in duration-150"
+                  onClick={() => !isReconciling && setShowReconcileModal(false)}
+                >
+                  <div
+                    className="bg-white rounded-2xl max-w-lg w-full p-5 shadow-2xl border border-slate-200 space-y-4 text-left animate-in zoom-in-95 duration-150"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-9 h-9 rounded-xl bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center font-bold">
+                          <Trash2 className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-bold text-slate-900">
+                            Rekonsiliasi &amp; Pembersihan Batch Dibatalkan
+                          </h3>
+                          <p className="text-[11px] text-slate-500">
+                            Arsitektur 2-Lapisan Pengaman (Smart Reconciliation)
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => !isReconciling && setShowReconcileModal(false)}
+                        className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+
+                    <div className="space-y-3 text-xs text-slate-700">
+                      <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5">
+                        <div className="flex justify-between text-slate-600">
+                          <span>Tanggal Transaksi:</span>
+                          <strong className="text-slate-900 font-semibold">{dhpItems[0]?.tanggal || selectedTanggalAnalisis || 'Hari Ini'}</strong>
+                        </div>
+                        <div className="flex justify-between text-slate-600">
+                          <span>Batch Riil Sah di DHP:</span>
+                          <strong className="text-emerald-700 font-bold">{totalBatch} Batch Terkonfirmasi</strong>
+                        </div>
+                        <div className="flex justify-between text-slate-600">
+                          <span>Total Bobot Riil:</span>
+                          <span className="font-mono text-slate-800 font-bold">
+                            Baku {fmtKg(totalBaku)} Kg / Hasil {fmtKg(totalHasil)} Kg
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-950 space-y-2">
+                        <div className="font-bold flex items-center gap-1.5 text-rose-900">
+                          <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                          <span>Apa yang Akan Dilakukan Sistem?</span>
+                        </div>
+                        <ol className="list-decimal pl-4 space-y-1 text-[11px] text-rose-900 leading-relaxed">
+                          <li>
+                            <strong>Menyelaraskan {totalBatch} Batch Sah:</strong> Data Bobot Baku, Hasil, Nomer Laporan resmi, Molen, dan Suhu diperbarui presisi.
+                          </li>
+                          <li>
+                            <strong>Membersihkan Baris Batal:</strong> Baris template di DATAMASTER pada tanggal ini yang <em>tidak ada di DHP</em> dan <em>Hasil Prosesnya masih 0 Kg</em> akan dihapus secara otomatis.
+                          </li>
+                          <li>
+                            <strong>Proteksi Fisik:</strong> Baris yang sudah memiliki Hasil Proses fisik (&gt; 0 Kg) dijamin 100% aman dan tidak akan disentuh.
+                          </li>
+                        </ol>
+                      </div>
+
+                      <p className="text-[11px] text-slate-500 italic">
+                        💡 Tindakan ini akan mengembalikan neraca susut DATAMASTER ke nilai riil murni ({fmtKg(totalSusutKg)} Kg) dan melenyapkan anomali susut semu akibat pembatalan produksi.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                      <button
+                        onClick={() => setShowReconcileModal(false)}
+                        disabled={isReconciling}
+                        className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-semibold text-xs transition cursor-pointer"
+                      >
+                        Batal
+                      </button>
+                      <button
+                        onClick={handleExecuteReconciliation}
+                        disabled={isReconciling}
+                        className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-bold text-xs shadow-xs transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      >
+                        {isReconciling ? (
+                          <>
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                            <span>Merekonstruksi &amp; Membersihkan...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Jalankan Rekonsiliasi Sekarang</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </>
           )}
 
@@ -3161,9 +3408,18 @@ function doGet(e) {
                       </div>
                     </li>
                     <li>
-                      <strong>ANTISIPASI PEMBATALAN PRODUKSI OTOMATIS (Masa Depan):</strong>
+                      <strong>ARSITEKTUR 2-LAPISAN PENGAMAN (2-TIER SAFETY RECONCILIATION):</strong>
                       <div className="mt-0.5 text-slate-800">
-                        Fungsi utama <code className="bg-amber-100 font-bold px-1.5 py-0.5 rounded text-amber-900">sinkronkanDhpBlendKeRekap</code> kini sudah dilengkapi <em>Automated Cancellation Purge</em>. Di masa depan, jika ada rencana 13 batch tetapi hanya 4 atau 5 batch yang diproduksi, baris template unproduced (Baku = 0) pada tanggal tersebut otomatis dihapus dan hanya batch riil yang tertinggal di DATAMASTER!
+                        <div className="text-[10px] text-slate-700 space-y-1">
+                          <div><strong>• Lapisan 1 (Fail-Safe Hasil 0 Kg):</strong> Baris hanya dihapus jika <em>tidak ada di DHP</em> dan <em>Hasil Proses masih 0 Kg</em>. Jika ada Hasil &gt; 0 Kg, data diproteksi mutlak dan tidak akan pernah dihapus.</div>
+                          <div><strong>• Lapisan 2 (Shift Berjalan vs Tutup Buku):</strong> Auto-sync 5-10 menit di hari berjalan <strong>tidak pernah menghapus antrean rencana</strong> agar shift siang &amp; sore aman. Pembersihan otomatis hanya berjalan saat pergantian tanggal (Tutup Buku).</div>
+                        </div>
+                      </div>
+                    </li>
+                    <li>
+                      <strong>TOMBOL REKONSILIASI ON-DEMAND (Kapan Saja):</strong>
+                      <div className="mt-0.5 text-slate-800">
+                        Pilih fungsi <code className="bg-amber-100 font-bold px-1.5 py-0.5 rounded text-amber-900">rekonsiliasiDanBersihkanBatchBatal</code> di GAS (atau tekan tombol <span className="bg-rose-100 text-rose-800 font-bold px-1.5 py-0.5 rounded">🧹 Rekonsiliasi &amp; Bersihkan Batal</span> di Web App) saat mandor memutuskan shift produksi selesai sebelum target rencana habis.
                       </div>
                     </li>
                     <li>
