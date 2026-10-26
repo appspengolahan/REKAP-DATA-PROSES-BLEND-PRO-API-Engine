@@ -60,6 +60,7 @@ export const REKAP_SHEET_NAME = 'DATAMASTER';
 export interface DhpBatchItem {
   row: number; // baris di sheet DHP
   no: string;
+  nomerLaporan?: string; // Kolom A DHP ("17/BLD/10/26")
   noMolen: string; // camp / nomor molen
   tanggal: string; // teks tanggal asli dari DHP
   batchCode: string; // misal 153 - BK 01
@@ -281,15 +282,17 @@ export const IntegrasiDhpModalRekapBlend: React.FC<IntegrasiDhpModalProps> = ({
         const c = parseCsvLine(line);
 
         // Kolom sesuai layout resmi DHP (INTEGRASI DATA DHP BLEND):
+        // Col A (0): NOMER LAPORAN RESMI ("17/BLD/10/26")
         // Col B (1): Nama Molen ("AA 01", "AA 02", "AB 03", ..., "AE 11", "AE 01")
-        // Col C (2): Tanggal Proses ("Jumat, 23 Oktober 2026")
-        // Col D (3): Molen / Batch Code ("153 - BK 01" .. "153 - BK 11", "KARANG - BK 01")
-        // Col E (4): Merk ("153 - BK", "KARANG - BK")
+        // Col C (2): Tanggal Proses ("Senin, 26 Oktober 2026")
+        // Col D (3): Molen / Batch Code ("153 - BK 01" .. "153 - BK 11", "FR LN - AVE 01")
+        // Col E (4): Merk ("153 - BK", "FR LN - AVE", "KARANG - BK")
         // Col H (7): Bobot Baku
         // Col I (8): Hasil Proses / Timbangan
         // Col W (22): DATA SUHU ("31,0 °C", "30,0 °C")
+        const nomerA = (c[0] ? c[0].trim() : '') || '17/BLD/10/26';
         const molenColB = cleanMolenName(c[1] ? c[1].trim() : '');
-        const tgl1 = c[2] || 'Jumat, 23 Oktober 2026';
+        const tgl1 = c[2] || 'Senin, 26 Oktober 2026';
         const batchCode1 = c[3] || '';
         const merk1 = c[4] || '';
         const baku1 = parseNumId(c[7]) || parseNumId(c[8]) || parseNumId(c[5]);
@@ -321,6 +324,7 @@ export const IntegrasiDhpModalRekapBlend: React.FC<IntegrasiDhpModalProps> = ({
           itemsMap.set(key, {
             row: r + 1,
             no: String(itemsMap.size + 1),
+            nomerLaporan: nomerA,
             noMolen: String(numCamp),
             tanggal: tgl1,
             batchCode: key,
@@ -993,6 +997,8 @@ function sinkronkanDhpBlendKeRekap() {
 
   for (var j = 0; j < dhpValues.length; j++) {
     var row = dhpValues[j];
+    // Kolom A (index 0): NOMER LAPORAN RESMI DHP ("17/BLD/10/26")
+    var rawNomer = String(row[0] || '').trim();
     // Kolom B (index 1): Nama Molen ("AA 01", "AB 03", dst.)
     var molenDhp = String(row[1] || '').trim();
     var rawTgl = row[2] || 'Senin, 26 Oktober 2026';
@@ -1025,6 +1031,12 @@ function sinkronkanDhpBlendKeRekap() {
       // KASUS A: Baris SUDAH ADA di DATAMASTER (atau berupa baris template placeholder)
       if (matchedEntry) {
         var existing = matchedEntry;
+
+        // INSTRUKSI RESMI: Kirim Nomor Laporan dari Kolom A DHP ke Header NOMER (Kolom E / 5 DATAMASTER)
+        // Menyelaraskan perbedaan nomor laporan (contoh: "17/BLD/10/26")
+        if (rawNomer) {
+          shRekap.getRange(existing.row, 5).setValue(rawNomer);
+        }
 
         // Jika merk di DATAMASTER berbeda (misal template lama tertulis 'KARANG - BK' padahal transaksi aktual 'FR LN - AVE'):
         // Otomatis perbarui Kolom F (6: Merk) menjadi merk riil DHP
@@ -1059,7 +1071,7 @@ function sinkronkanDhpBlendKeRekap() {
         } catch(e) {}
 
         updatedCount++;
-        Logger.log('UPDATE: Baris ' + existing.row + ' (' + rawMerk + ' Camp ' + camp + ') -> Baku: ' + rawBaku + ', Hasil: ' + rawHasil + ', Molen: ' + molenDhp + ', Suhu: ' + (rawSuhu !== null ? rawSuhu : '-'));
+        Logger.log('UPDATE: Baris ' + existing.row + ' (' + rawMerk + ' Camp ' + camp + ') -> Nomer: ' + rawNomer + ', Baku: ' + rawBaku + ', Hasil: ' + rawHasil + ', Molen: ' + molenDhp + ', Suhu: ' + (rawSuhu !== null ? rawSuhu : '-'));
       }
       // KASUS B: Baris BELUM ADA di DATAMASTER -> Append baris baru
       else {
@@ -1068,7 +1080,7 @@ function sinkronkanDhpBlendKeRekap() {
         var dNum = ('0' + tglDate.getDate()).slice(-2);
         var mNum = ('0' + (tglDate.getMonth() + 1)).slice(-2);
         var yShort = String(tglDate.getFullYear()).slice(-2);
-        var nomerLaporanPrefix = dNum + '/BLD/' + mNum + '/' + yShort;
+        var nomerLaporanPrefix = rawNomer || (dNum + '/BLD/' + mNum + '/' + yShort);
 
         rowsToAppend.push({
           rowId: nextRowId,
@@ -1131,7 +1143,8 @@ function perbaikiBaris4753FrLnAve() {
 
   var tglDate = new Date(2026, 9, 26, 12, 0, 0);
   shRekap.getRange(targetRow, 2).setValue(tglDate).setNumberFormat("dd mmmm yyyy");
-  shRekap.getRange(targetRow, 5, 1, 3).setValues([['26/BLD/10/26', 'FR LN - AVE', 1]]);
+  // Set Kolom E (NOMER = 17/BLD/10/26), Kolom F (MERK = FR LN - AVE), Kolom G (BATCH = 1)
+  shRekap.getRange(targetRow, 5, 1, 3).setValues([['17/BLD/10/26', 'FR LN - AVE', 1]]);
   shRekap.getRange(targetRow, 9, 1, 2).setValues([[196.6, 199.1]]);
 
   var colMolen = cariIndexKolomHeader(shRekap, 'MOLEN', 13);
@@ -1146,8 +1159,51 @@ function perbaikiBaris4753FrLnAve() {
     shRekap.getRange(4752, 11, 1, 2).copyTo(shRekap.getRange(targetRow, 11, 1, 2), SpreadsheetApp.CopyPasteType.PASTE_FORMULA, false);
   } catch(e) {}
 
-  Logger.log('BERHASIL: Baris 4753 DATAMASTER telah diselaraskan ke FR LN - AVE.');
-  return { success: true, message: 'Baris 4753 berhasil diselaraskan ke FR LN - AVE' };
+  Logger.log('BERHASIL: Baris 4753 DATAMASTER telah diselaraskan ke FR LN - AVE dengan NOMER 17/BLD/10/26.');
+  return { success: true, message: 'Baris 4753 berhasil diselaraskan ke FR LN - AVE (17/BLD/10/26)' };
+}
+
+/**
+ * FUNGSI 3 (SOLUSI INSTAN NOMER LAPORAN): Selaraskan Seluruh NOMER (Kolom E) 26 Oktober 2026 di DATAMASTER
+ * Mengganti nomor laporan template salah ('23/BLD/10/26') menjadi nomor resmi DHP ('17/BLD/10/26') untuk seluruh baris 4742 s/d 4754
+ */
+function perbaikiNomerLaporan26Okt() {
+  var ssRekap = SpreadsheetApp.openById(CONFIG_INTEGRASI_BLEND.REKAP_SS_ID);
+  var shRekap = ssRekap.getSheetByName(CONFIG_INTEGRASI_BLEND.REKAP_SHEET_NAME);
+  var ssDhp = SpreadsheetApp.openById(CONFIG_INTEGRASI_BLEND.DHP_SS_ID);
+  var shDhp = ssDhp.getSheetByName(CONFIG_INTEGRASI_BLEND.DHP_SHEET_NAME);
+
+  // Ambil nomor laporan riil dari Kolom A baris 14 Sheet DHP ("17/BLD/10/26")
+  var nomerDhp = String(shDhp.getRange(14, 1).getValue() || '').trim() || '17/BLD/10/26';
+  Logger.log('Nomor Laporan DHP Kolom A: ' + nomerDhp);
+
+  var updatedCount = 0;
+  for (var r = 4742; r <= 4754; r++) {
+    var tglVal = shRekap.getRange(r, 2).getValue();
+    var tglStr = tglVal instanceof Date ? Utilities.formatDate(tglVal, 'Asia/Jakarta', 'd MMMM yyyy') : String(tglVal);
+    if (tglStr.indexOf('26') >= 0 && (tglStr.toLowerCase().indexOf('okt') >= 0 || tglStr.toLowerCase().indexOf('oct') >= 0)) {
+      // Perbarui Kolom E (5: Header NOMER) ke nomor laporan resmi DHP
+      shRekap.getRange(r, 5).setValue(nomerDhp);
+      updatedCount++;
+    }
+  }
+
+  // Pastikan baris 4753 juga terisi FR LN - AVE 01 dengan nomor laporan resmi 17/BLD/10/26
+  shRekap.getRange(4753, 5, 1, 3).setValues([[nomerDhp, 'FR LN - AVE', 1]]);
+  shRekap.getRange(4753, 9, 1, 2).setValues([[196.6, 199.1]]);
+  var colMolen = cariIndexKolomHeader(shRekap, 'MOLEN', 13);
+  var colSuhu = cariIndexKolomHeader(shRekap, 'SUHU', 14);
+  if (colMolen <= 0 || colMolen === 7) colMolen = 13;
+  if (colSuhu <= 0 || colSuhu === 7) colSuhu = 14;
+  shRekap.getRange(4753, colMolen).setValue('AA 1');
+  shRekap.getRange(4753, colSuhu).setValue(27.0).setNumberFormat('0.0 "°C"');
+
+  try {
+    shRekap.getRange(4752, 11, 1, 2).copyTo(shRekap.getRange(4753, 11, 1, 2), SpreadsheetApp.CopyPasteType.PASTE_FORMULA, false);
+  } catch(e) {}
+
+  Logger.log('SUKSES: ' + updatedCount + ' baris di DATAMASTER telah diselaraskan ke NOMER: ' + nomerDhp);
+  return { success: true, updatedCount: updatedCount, nomer: nomerDhp };
 }
 
 /**
@@ -1718,6 +1774,9 @@ function doGet(e) {
                               </span>
                               <span className="font-black text-xs text-slate-900">{item.batchCode}</span>
                               <span className="text-[11px] font-semibold text-slate-600">({item.merk})</span>
+                              <span className="font-mono text-[10px] font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                                {item.nomerLaporan || '17/BLD/10/26'}
+                              </span>
                             </div>
                             <span
                               className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
@@ -1848,6 +1907,7 @@ function doGet(e) {
                     <thead>
                       <tr className="bg-slate-100/80 border-b border-slate-200 text-slate-600 font-bold text-[11px] sm:text-xs">
                         <th className="py-2.5 px-2 text-center w-11">ROW</th>
+                        <th className="py-2.5 px-2.5 text-center">NO. LAPORAN (KOLOM A)</th>
                         <th className="py-2.5 px-2.5">TANGGAL</th>
                         <th className="py-2.5 px-2.5">JENIS TBK BLEND</th>
                         <th className="py-2.5 px-2 text-center">BATCH</th>
@@ -1882,6 +1942,11 @@ function doGet(e) {
                           <tr key={item.row} className="hover:bg-slate-50 transition">
                             <td className="py-2 px-2 text-center font-mono text-slate-400 font-semibold text-[11px]">
                               {item.row}
+                            </td>
+                            <td className="py-2 px-2.5 text-center font-mono font-bold text-blue-900 bg-blue-50/40 whitespace-nowrap">
+                              <span className="px-1.5 py-0.5 rounded bg-blue-100 text-blue-900 border border-blue-200 text-[11px]">
+                                {item.nomerLaporan || '17/BLD/10/26'}
+                              </span>
                             </td>
                             <td className="py-2 px-2.5 font-medium text-slate-800 whitespace-nowrap">
                               {formatTanggalShort(item.tanggal)}
@@ -2092,7 +2157,7 @@ function doGet(e) {
                     </tbody>
                     <tfoot>
                       <tr className="bg-slate-100 font-bold border-t border-slate-300 text-slate-900">
-                        <td colSpan={4} className="py-2.5 px-2.5 text-right uppercase text-[11px]">
+                        <td colSpan={5} className="py-2.5 px-2.5 text-right uppercase text-[11px]">
                           TOTAL NERACA ({dhpItems.length} BATCH):
                         </td>
                         <td className="py-2.5 px-2.5 text-right text-blue-900 font-extrabold tabular-nums">
@@ -2793,14 +2858,16 @@ function doGet(e) {
                           </span>
                         </td>
                       </tr>
-                      <tr>
-                        <td className="p-2.5 font-mono font-bold text-slate-800">Kolom E</td>
-                        <td className="p-2.5 font-medium">NOMER</td>
-                        <td className="p-2.5">Auto Generate Tanggal Laporan</td>
-                        <td className="p-2.5 text-slate-600">Kode Laporan harian: dd/BLD/MM/yy</td>
+                      <tr className="bg-blue-50/40">
+                        <td className="p-2.5 font-mono font-bold text-blue-900">Kolom E</td>
+                        <td className="p-2.5 font-bold text-blue-950">NOMER</td>
+                        <td className="p-2.5 font-semibold text-blue-800">Kolom A (NOMER / No. Laporan DHP)</td>
+                        <td className="p-2.5 text-slate-700">
+                          Dikirim langsung dari Kolom A Sheet DHP (contoh: <code>17/BLD/10/26</code>). Menjadi acuan pembentuk formula di Kolom H.
+                        </td>
                         <td className="p-2.5 text-center">
-                          <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-[10px] font-semibold">
-                            Data Bersih
+                          <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 text-[10px] font-bold border border-blue-300">
+                            🔗 SOURCE DHP (KOLOM A)
                           </span>
                         </td>
                       </tr>
