@@ -32,6 +32,8 @@ import {
   TrendingUp,
   AlertTriangle,
   Calendar,
+  LayoutGrid,
+  List,
 } from 'lucide-react';
 import { RawBlendRow, UserRole, QuickBatchTag } from '../types[RekapBlend]';
 import {
@@ -98,6 +100,7 @@ export const IntegrasiDhpModalRekapBlend: React.FC<IntegrasiDhpModalProps> = ({
   const [openTagDropdown, setOpenTagDropdown] = useState<string | null>(null);
   const [hoveredDiagBatch, setHoveredDiagBatch] = useState<string | null>(null);
   const [activeStandards, setActiveStandards] = useState<Record<string, number>>({});
+  const [mobileViewMode, setMobileViewMode] = useState<'cards' | 'table'>('cards');
 
   // Muat standar acuan aktif & quick tag mandor saat modal dibuka
   useEffect(() => {
@@ -1091,68 +1094,65 @@ function doGet(e) {
 
   return (
     <div
-      className="fixed inset-0 bg-slate-950/75 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 z-50 animate-in fade-in duration-200"
+      className="fixed inset-0 bg-slate-950/75 backdrop-blur-xs flex items-center justify-center p-1.5 sm:p-4 z-50 animate-in fade-in duration-200"
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-2xl max-w-7xl xl:max-w-[1360px] w-full max-h-[94vh] flex flex-col shadow-2xl border border-slate-200/90 relative overflow-hidden"
+        className="bg-white rounded-2xl max-w-7xl xl:max-w-[1360px] w-full max-h-[96vh] sm:max-h-[94vh] flex flex-col shadow-2xl border border-slate-200/90 relative overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* 1. Header Modal */}
-        <div className="p-4 sm:p-5 border-b border-slate-200 bg-slate-900 text-white flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-500/20 border border-blue-400/40 flex items-center justify-center text-blue-400 font-bold shadow-xs">
-              <ArrowLeftRight className="w-5 h-5" />
+        <div className="p-3 sm:p-4 md:p-5 border-b border-slate-200 bg-slate-900 text-white flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-blue-500/20 border border-blue-400/40 flex items-center justify-center text-blue-400 font-bold shadow-xs shrink-0">
+              <ArrowLeftRight className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
             <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
-                  Integrasi & Sinkronisasi DHP BLEND
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                <h2 className="text-sm sm:text-base md:text-lg font-bold text-white flex items-center gap-1.5">
+                  Integrasi &amp; Sinkronisasi DHP BLEND
                 </h2>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 flex items-center gap-1">
+                <span className="text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 flex items-center gap-1">
                   <ShieldCheck className="w-3 h-3" />
                   Presisi 100%
                 </span>
               </div>
-              <p className="text-xs text-slate-300 mt-0.5">
-                Pencocokan dan transfer otomatis data aktif DHP Blend ke Datasheet Rekap Susut Blend (DATAMASTER)
+              <p className="text-[11px] sm:text-xs text-slate-300 mt-0.5 line-clamp-1 sm:line-clamp-none">
+                Pencocokan &amp; transfer data DHP Blend ke Datasheet Rekap Susut Blend (DATAMASTER)
               </p>
             </div>
           </div>
 
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+            className="p-1 sm:p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer shrink-0"
             title="Tutup"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* 2. Top Bar Status Koneksi & Auto-Tarik Timer */}
-        <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2.5 text-xs shrink-0">
-          <div className="flex items-center gap-2 text-slate-600 flex-wrap">
-            <span className="flex items-center gap-1 font-semibold text-slate-700">
-              <span className="w-2 h-2 rounded-full bg-amber-500"></span>
-              Sumber DHP:
+        {/* 2. Top Bar Status Koneksi & Auto-Tarik Timer (Ramping & Bebas Patah Teks) */}
+        <div className="px-3 sm:px-4 py-2 sm:py-2.5 bg-slate-100/80 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs shrink-0">
+          <div className="flex items-center gap-1.5 text-slate-600 text-[11px] sm:text-xs flex-wrap">
+            <span className="inline-flex items-center gap-1 font-semibold text-slate-700 bg-white px-1.5 sm:px-2 py-0.5 rounded border border-slate-200">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+              Sumber DHP
             </span>
-            <span className="font-mono bg-white px-2 py-0.5 rounded border border-slate-200 text-slate-800 text-[11px]">
-              Tab <strong className="text-blue-700">INTEGRASI DATA DHP BLEND</strong> (1Fg3aNL...)
+            <ArrowRight className="w-3 h-3 text-slate-400 shrink-0" />
+            <span className="inline-flex items-center gap-1 font-semibold text-slate-700 bg-white px-1.5 sm:px-2 py-0.5 rounded border border-slate-200">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+              Target DATAMASTER
             </span>
-            <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
-            <span className="flex items-center gap-1 font-semibold text-slate-700">
-              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-              Target Rekap:
-            </span>
-            <span className="font-mono bg-white px-2 py-0.5 rounded border border-slate-200 text-slate-800 text-[11px]">
-              Tab <strong className="text-emerald-700">DATAMASTER</strong> (15qjJfU...)
+            <span className="hidden xl:inline text-slate-400 font-mono text-[10px]">
+              (Tab INTEGRASI DATA DHP BLEND ➔ Tab DATAMASTER)
             </span>
           </div>
 
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 text-emerald-800 px-2.5 py-1 rounded-lg text-[11px] font-semibold">
-              <Clock className="w-3.5 h-3.5 text-emerald-600 animate-spin [animation-duration:8s]" />
-              <span>Auto-Tarik Aktif ({countdown}s)</span>
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <div className="flex items-center gap-1 bg-emerald-50 border border-emerald-200 text-emerald-800 px-2 py-1 rounded-lg text-[10px] sm:text-[11px] font-semibold whitespace-nowrap">
+              <Clock className="w-3 h-3 text-emerald-600 animate-spin [animation-duration:8s]" />
+              <span>Auto-Tarik ({countdown}s)</span>
             </div>
 
             <button
@@ -1161,37 +1161,37 @@ function doGet(e) {
                 setCountdown(15);
               }}
               disabled={isLoading}
-              className="flex items-center gap-1.5 px-3 py-1 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-lg text-xs font-semibold transition cursor-pointer shadow-xs disabled:opacity-50"
+              className="flex items-center gap-1 px-2.5 sm:px-3 py-1 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-lg text-[11px] sm:text-xs font-semibold transition cursor-pointer shadow-xs disabled:opacity-50 whitespace-nowrap"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
-              <span>{isLoading ? 'Menarik...' : 'Tarik Ulang DHP'}</span>
+              <RefreshCw className={`w-3 h-3 ${isLoading ? 'animate-spin' : ''}`} />
+              <span>{isLoading ? 'Menarik...' : 'Tarik Ulang'}</span>
             </button>
           </div>
         </div>
 
-        {/* 3. Sub Tabs Navigasi */}
-        <div className="px-4 pt-2 bg-white border-b border-slate-200 flex items-center gap-2 shrink-0">
+        {/* 3. Sub Tabs Navigasi (Horizontal Scroll Tanpa Patah Baris) */}
+        <div className="px-2.5 sm:px-4 pt-1.5 sm:pt-2 bg-white border-b border-slate-200 flex items-center gap-1.5 sm:gap-2 shrink-0 overflow-x-auto scrollbar-none">
           <button
             onClick={() => setActiveTab('transaksi')}
-            className={`pb-2 px-3 text-xs font-bold border-b-2 transition flex items-center gap-1.5 cursor-pointer ${
+            className={`pb-2 px-2.5 sm:px-3 text-xs font-bold border-b-2 transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${
               activeTab === 'transaksi'
                 ? 'border-blue-600 text-blue-600'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
-            <Layers className="w-4 h-4" />
-            <span>Pratinjau & Transaksi ({totalBatch} Batch)</span>
+            <Layers className="w-4 h-4 shrink-0" />
+            <span>Pratinjau &amp; Transaksi ({totalBatch} Batch)</span>
           </button>
 
           <button
             onClick={() => setActiveTab('analisis')}
-            className={`pb-2 px-3 text-xs font-bold border-b-2 transition flex items-center gap-1.5 cursor-pointer ${
+            className={`pb-2 px-2.5 sm:px-3 text-xs font-bold border-b-2 transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${
               activeTab === 'analisis'
                 ? 'border-amber-500 text-amber-700 bg-amber-50/70 rounded-t-lg'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
-            <TrendingUp className="w-4 h-4 text-amber-600" />
+            <TrendingUp className="w-4 h-4 text-amber-600 shrink-0" />
             <span>Laporan Analisis Harian</span>
             <span className="px-1.5 py-0.5 text-[10px] bg-amber-100 text-amber-800 border border-amber-300 rounded-full font-bold">
               Deviasi
@@ -1200,118 +1200,298 @@ function doGet(e) {
 
           <button
             onClick={() => setActiveTab('pemetaan')}
-            className={`pb-2 px-3 text-xs font-bold border-b-2 transition flex items-center gap-1.5 cursor-pointer ${
+            className={`pb-2 px-2.5 sm:px-3 text-xs font-bold border-b-2 transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${
               activeTab === 'pemetaan'
                 ? 'border-blue-600 text-blue-600'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
-            <FileSpreadsheet className="w-4 h-4" />
-            <span>Pemetaan Kolom & Proteksi Rumus</span>
+            <FileSpreadsheet className="w-4 h-4 shrink-0" />
+            <span>Pemetaan Kolom &amp; Proteksi</span>
           </button>
 
           <button
             onClick={() => setActiveTab('gas')}
-            className={`pb-2 px-3 text-xs font-bold border-b-2 transition flex items-center gap-1.5 cursor-pointer ${
+            className={`pb-2 px-2.5 sm:px-3 text-xs font-bold border-b-2 transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${
               activeTab === 'gas'
                 ? 'border-blue-600 text-blue-600'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
-            <Code className="w-4 h-4" />
+            <Code className="w-4 h-4 shrink-0" />
             <span>Skrip Otomasi GAS</span>
           </button>
         </div>
 
         {/* 4. Konten Tab */}
-        <div className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1 bg-slate-50/50">
+        <div className="p-3 sm:p-5 overflow-y-auto space-y-3 sm:space-y-4 flex-1 bg-slate-50/50">
           {/* TAB 1: PRATINJAU & TRANSAKSI */}
           {activeTab === 'transaksi' && (
             <>
-              {/* 3 KPI Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {/* 3 KPI Cards Ramping & Responsif (1 Baris di HP & Tablet) */}
+              <div className="grid grid-cols-3 gap-1.5 sm:gap-3">
                 {/* Card 1: Total Batch Aktif */}
-                <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-xs">
-                  <div className="flex items-center justify-between text-slate-500 mb-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wider">
-                      TOTAL BATCH AKTIF DHP
+                <div className="p-2 sm:p-3.5 bg-white rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between">
+                  <div className="flex items-center justify-between text-slate-500">
+                    <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider truncate">
+                      TOTAL BATCH
                     </span>
-                    <Layers className="w-4 h-4 text-slate-400" />
+                    <Layers className="w-3.5 h-3.5 text-slate-400 hidden sm:block shrink-0" />
                   </div>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-xl font-black text-slate-900">{totalBatch} Batch</span>
-                    <span className="text-xs font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">
-                      {fmtKg(totalBaku)} Kg Baku
-                    </span>
+                  <div className="mt-0.5 sm:mt-1">
+                    <div className="text-base sm:text-2xl font-black text-slate-900 leading-tight">
+                      {totalBatch} <span className="text-xs font-semibold text-slate-500 hidden sm:inline">Batch</span>
+                    </div>
+                    <div className="text-[10px] sm:text-xs font-bold text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded-md mt-1 truncate inline-block">
+                      {fmtKg(totalBaku)} Kg
+                    </div>
                   </div>
-                  <div className="text-[11px] text-slate-500 mt-1">
-                    Bahan baku terinput di DHP aktif hari ini
+                  <div className="text-[10px] text-slate-400 mt-1 hidden md:block truncate">
+                    Bahan baku di DHP
                   </div>
                 </div>
 
                 {/* Card 2: Terverifikasi di Rekap */}
-                <div className="p-3.5 bg-white rounded-xl border border-emerald-200 shadow-xs">
-                  <div className="flex items-center justify-between text-emerald-700 mb-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
-                      TERVERIFIKASI DI REKAP
-                      <span className="bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded text-[9px]">
-                        100% COCOK
-                      </span>
+                <div className="p-2 sm:p-3.5 bg-white rounded-xl border border-emerald-200 shadow-xs flex flex-col justify-between">
+                  <div className="flex items-center justify-between text-emerald-700">
+                    <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider truncate">
+                      TERVERIFIKASI
                     </span>
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 hidden sm:block shrink-0" />
                   </div>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-xl font-black text-emerald-900">{matchedCount} Batch</span>
-                    <span className="text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
-                      {fmtKg(totalHasil)} Kg Hasil
-                    </span>
+                  <div className="mt-0.5 sm:mt-1">
+                    <div className="text-base sm:text-2xl font-black text-emerald-900 leading-tight">
+                      {matchedCount} <span className="text-xs font-semibold text-emerald-700 hidden sm:inline">Batch</span>
+                    </div>
+                    <div className="text-[10px] sm:text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-md mt-1 truncate inline-block">
+                      {matchedCount === totalBatch ? '100% Cocok' : `${fmtKg(totalHasil)} Kg`}
+                    </div>
                   </div>
-                  <div className="text-[11px] text-emerald-700 mt-1 font-medium">
-                    Susut Total: <strong>{fmtKg(totalSusutKg)} Kg</strong> ({fmtPct(avgSusutPct)}%)
+                  <div className="text-[10px] text-emerald-700 mt-1 hidden md:block truncate font-medium">
+                    Susut: {fmtKg(totalSusutKg)} Kg ({fmtPct(avgSusutPct)}%)
                   </div>
                 </div>
 
                 {/* Card 3: Batch Baru Siap Masuk */}
-                <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-xs">
-                  <div className="flex items-center justify-between text-slate-500 mb-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wider">
-                      BATCH BARU SIAP MASUK
+                <div className="p-2 sm:p-3.5 bg-white rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between">
+                  <div className="flex items-center justify-between text-slate-500">
+                    <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider truncate">
+                      BATCH BARU
                     </span>
-                    <ShieldCheck className="w-4 h-4 text-slate-400" />
+                    <ShieldCheck className="w-3.5 h-3.5 text-slate-400 hidden sm:block shrink-0" />
                   </div>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-xl font-black text-slate-900">{newBatchCount} Batch</span>
-                    <span className="text-[11px] font-semibold text-slate-500">
-                      {newBatchCount === 0 ? 'Semua tersinkron' : 'Perlu dibukukan'}
-                    </span>
+                  <div className="mt-0.5 sm:mt-1">
+                    <div className="text-base sm:text-2xl font-black text-slate-900 leading-tight">
+                      {newBatchCount} <span className="text-xs font-semibold text-slate-500 hidden sm:inline">Batch</span>
+                    </div>
+                    <div className="text-[10px] sm:text-xs font-semibold text-slate-600 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded-md mt-1 truncate inline-block">
+                      {newBatchCount === 0 ? 'Tersinkron' : 'Siap Masuk'}
+                    </div>
                   </div>
-                  <div className="text-[11px] text-slate-500 mt-1">
-                    {newBatchCount === 0
-                      ? 'Data DHP sudah sinkron presisi dengan Rekap'
-                      : 'Siap dibukukan ke DATAMASTER'}
+                  <div className="text-[10px] text-slate-400 mt-1 hidden md:block truncate">
+                    {newBatchCount === 0 ? 'Sinkron presisi' : 'Perlu dibukukan'}
                   </div>
                 </div>
               </div>
 
               {/* Tabel Transaksi DHP Terdeteksi */}
               <div className="bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden">
-                <div className="p-3 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs">
-                  <div className="flex items-center gap-2 font-bold text-slate-800">
-                    <FileSpreadsheet className="w-4 h-4 text-blue-600" />
-                    <span>Daftar Transaksi DHP Terdeteksi (Tab INTEGRASI DATA DHP BLEND)</span>
-                    <span className="text-[11px] font-normal text-slate-500 bg-white border border-slate-200 px-2 py-0.5 rounded">
-                      {dhpItems.length} baris aktif
+                <div className="p-2.5 sm:p-3 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs">
+                  <div className="flex items-center gap-1.5 sm:gap-2 font-bold text-slate-800">
+                    <FileSpreadsheet className="w-4 h-4 text-blue-600 shrink-0" />
+                    <span className="text-xs sm:text-sm">Transaksi DHP Terdeteksi</span>
+                    <span className="text-[10px] sm:text-[11px] font-normal text-slate-500 bg-white border border-slate-200 px-1.5 py-0.5 rounded">
+                      {dhpItems.length} baris
                     </span>
                   </div>
-                  <div className="text-[11px] font-medium text-slate-600">
-                    Baku: <strong>{fmtKg(totalBaku)} Kg</strong> · Hasil:{' '}
-                    <strong>{fmtKg(totalHasil)} Kg</strong> · Susut:{' '}
-                    <strong className="text-amber-800">{fmtKg(totalSusutKg)} Kg</strong> (
-                    {fmtPct(avgSusutPct)}%)
+
+                  {/* Switcher Tampilan Khusus Mobile / Tablet */}
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center bg-slate-200/90 p-0.5 rounded-lg md:hidden">
+                      <button
+                        type="button"
+                        onClick={() => setMobileViewMode('cards')}
+                        className={`px-2 py-0.5 rounded text-[10px] font-bold transition flex items-center gap-1 cursor-pointer ${
+                          mobileViewMode === 'cards'
+                            ? 'bg-white text-blue-700 shadow-xs'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        <LayoutGrid className="w-3 h-3" />
+                        <span>Kartu</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setMobileViewMode('table')}
+                        className={`px-2 py-0.5 rounded text-[10px] font-bold transition flex items-center gap-1 cursor-pointer ${
+                          mobileViewMode === 'table'
+                            ? 'bg-white text-blue-700 shadow-xs'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        <List className="w-3 h-3" />
+                        <span>Tabel</span>
+                      </button>
+                    </div>
+
+                    <div className="text-[10px] sm:text-[11px] font-medium text-slate-600 hidden sm:block">
+                      Baku: <strong>{fmtKg(totalBaku)} Kg</strong> · Hasil: <strong>{fmtKg(totalHasil)} Kg</strong> · Susut: <strong>{fmtKg(totalSusutKg)} Kg</strong>
+                    </div>
                   </div>
                 </div>
 
-                <div className="overflow-x-auto scrollbar-thin">
+                {/* 1. Tampilan Kartu Ringkas di Layar Ponsel (Jika mode cards dipilih) */}
+                {mobileViewMode === 'cards' && (
+                  <div className="p-2 sm:p-3 space-y-2.5 md:hidden bg-slate-50/50">
+                    {dhpItems.map((item) => {
+                      const targetPct = activeStandards[item.merk] ?? 0.28;
+                      const susutPctNum = item.baku > 0 ? (item.susutKg / item.baku) * 100 : 0;
+                      const deltaPct = susutPctNum - targetPct;
+                      const absDelta = Math.abs(deltaPct);
+                      let devStatus: 'normal' | 'waspada' | 'oos' = 'normal';
+                      if (absDelta > 0.15) devStatus = 'oos';
+                      else if (absDelta > 0.05) devStatus = 'waspada';
+                      const currentTag = batchTags[item.batchCode];
+
+                      return (
+                        <div
+                          key={`card-${item.row}`}
+                          className="p-3 bg-white rounded-xl border border-slate-200 shadow-xs space-y-2.5"
+                        >
+                          {/* Baris Atas Kartu: Identitas Batch & Status Cocok */}
+                          <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-mono text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                                Row {item.row}
+                              </span>
+                              <span className="font-black text-xs text-slate-900">{item.batchCode}</span>
+                              <span className="text-[11px] font-semibold text-slate-600">({item.merk})</span>
+                            </div>
+                            <span
+                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                item.isMatchedInRekap
+                                  ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                  : 'bg-amber-100 text-amber-800 border border-amber-300'
+                              }`}
+                            >
+                              {item.isMatchedInRekap ? '100% Cocok' : 'Belum Sinkron'}
+                            </span>
+                          </div>
+
+                          {/* 3 Matriks Volume: Baku, Hasil, Susut */}
+                          <div className="grid grid-cols-3 gap-1.5 bg-slate-50 p-2 rounded-lg text-center border border-slate-100">
+                            <div>
+                              <span className="text-[9px] font-bold text-slate-400 uppercase block">Baku</span>
+                              <span className="text-xs font-black text-blue-900">{fmtKg(item.baku)}</span>
+                              <span className="text-[9px] text-slate-400 font-medium"> Kg</span>
+                            </div>
+                            <div>
+                              <span className="text-[9px] font-bold text-slate-400 uppercase block">Hasil</span>
+                              <span className="text-xs font-black text-emerald-900">{fmtKg(item.hasil)}</span>
+                              <span className="text-[9px] text-slate-400 font-medium"> Kg</span>
+                            </div>
+                            <div>
+                              <span className="text-[9px] font-bold text-slate-400 uppercase block">Susut</span>
+                              <span className="text-xs font-black text-amber-900">{fmtKg(item.susutKg)}</span>
+                              <span className="text-[9px] font-bold text-slate-600 block">({item.susutPct})</span>
+                            </div>
+                          </div>
+
+                          {/* Info Mesin: Molen & Suhu & Deviasi */}
+                          <div className="flex items-center justify-between text-xs pt-0.5">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] text-slate-700 font-bold bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                                {cleanMolenName(item.molenCode)}
+                              </span>
+                              {item.suhuStr || (item.suhu != null && item.suhu > 0) ? (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
+                                  <Thermometer className="w-3 h-3 text-amber-600" />
+                                  {item.suhuStr || `${item.suhu!.toFixed(1).replace('.', ',')} °C`}
+                                </span>
+                              ) : (
+                                <span className="text-slate-400 font-mono text-[10px]">-</span>
+                              )}
+                            </div>
+
+                            <div>
+                              {devStatus === 'normal' && (
+                                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                                  Normal ({deltaPct >= 0 ? '+' : ''}{deltaPct.toFixed(2)}%)
+                                </span>
+                              )}
+                              {devStatus === 'waspada' && (
+                                <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                                  Waspada ({deltaPct >= 0 ? '+' : ''}{deltaPct.toFixed(2)}%)
+                                </span>
+                              )}
+                              {devStatus === 'oos' && (
+                                <span className="text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-full animate-pulse">
+                                  OOS ({deltaPct >= 0 ? '+' : ''}{deltaPct.toFixed(2)}%)
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Quick Tag Mandor Lapangan Langsung di Kartu */}
+                          <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+                            <span className="text-[10px] text-slate-400 font-medium">Tag Mandor:</span>
+                            <div className="relative">
+                              <button
+                                type="button"
+                                onClick={() => setOpenTagDropdown(openTagDropdown === `card-${item.batchCode}` ? null : `card-${item.batchCode}`)}
+                                className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition flex items-center gap-1 cursor-pointer ${
+                                  currentTag
+                                    ? 'bg-purple-100 text-purple-900 border-purple-300'
+                                    : 'bg-slate-100 text-slate-600 border-slate-300 hover:bg-slate-200'
+                                }`}
+                              >
+                                <Tag className="w-3 h-3 text-purple-600" />
+                                <span>{currentTag ? currentTag.label || currentTag.tag : '+ Beri Catatan'}</span>
+                                <ChevronDown className="w-3 h-3 text-slate-400" />
+                              </button>
+
+                              {openTagDropdown === `card-${item.batchCode}` && (
+                                <div className="absolute right-0 bottom-full mb-1 w-56 bg-white rounded-xl shadow-xl border border-slate-200 p-1.5 z-50 animate-in fade-in">
+                                  <div className="px-2 py-1 text-[10px] font-bold text-slate-400 uppercase border-b border-slate-100 mb-1">
+                                    Pilih Quick Tag Mandor:
+                                  </div>
+                                  {QUICK_TAG_OPTIONS.map((opt) => (
+                                    <button
+                                      key={opt.label}
+                                      type="button"
+                                      onClick={() => handleSelectQuickTag(item.batchCode, opt.label, opt.kategori)}
+                                      className="w-full text-left px-2 py-1 rounded text-xs font-semibold hover:bg-purple-50 hover:text-purple-900 transition flex items-center justify-between"
+                                    >
+                                      <span>{opt.label}</span>
+                                    </button>
+                                  ))}
+                                  {currentTag && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemoveQuickTag(item.batchCode)}
+                                      className="w-full text-left px-2 py-1 mt-1 rounded text-[10px] font-bold text-rose-600 hover:bg-rose-50 transition border-t border-slate-100"
+                                    >
+                                      ✕ Hapus Catatan
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* 2. Tampilan Tabel Lengkap (Tampil di Desktop/Tablet atau saat mode tabel dipilih di HP) */}
+                <div className={`${mobileViewMode === 'cards' ? 'hidden md:block' : 'block'} overflow-x-auto scrollbar-thin`}>
+                  {mobileViewMode === 'table' && (
+                    <div className="px-3 py-1 bg-amber-50/80 border-b border-amber-200/80 text-[10px] text-amber-800 flex items-center justify-between md:hidden">
+                      <span>👈 Geser tabel ke kanan untuk melihat seluruh 11 kolom 👉</span>
+                      <span className="font-bold">11 Kolom</span>
+                    </div>
+                  )}
                   <table className="w-full text-left text-xs border-collapse whitespace-nowrap">
                     <thead>
                       <tr className="bg-slate-100/80 border-b border-slate-200 text-slate-600 font-bold text-[11px] sm:text-xs">
@@ -1663,8 +1843,8 @@ function doGet(e) {
                 </div>
               </div>
 
-              {/* 4 KARTU INDIKATOR ALARM DINI */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {/* 4 KARTU INDIKATOR ALARM DINI (2x2 di Mobile, 4 Kolom di Desktop) */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
                 {/* Card 1: TOTAL BAKU MASUK */}
                 <div className="bg-slate-800/90 border border-slate-700 rounded-xl p-3.5 text-white">
                   <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
