@@ -300,73 +300,45 @@ export const IntegrasiDhpModalRekapBlend: React.FC<IntegrasiDhpModalProps> = ({
         const suhuVal = (parsedSuhu !== null && !isNaN(parsedSuhu) && parsedSuhu > 0) ? parsedSuhu : null;
         const suhuStrVal = suhuVal !== null ? (rawSuhu || `${suhuVal.toFixed(1).replace('.', ',')} °C`) : '';
 
-        // Deteksi 153 - BK (11 data)
-        if (batchCode1.includes('153 - BK') || merk1 === '153 - BK') {
-          const m = batchCode1.match(/(\d+)$/);
-          const camp = m ? String(parseInt(m[1], 10)) : (molenColB.match(/(\d+)$/)?.[1] || '1');
-          const numCamp = parseInt(camp, 10) || 1;
-          if (numCamp <= 11) {
-            const key = `153 - BK ${camp.padStart(2, '0')}`;
-            if (!itemsMap.has(key)) {
-              const baku = baku1 > 0 ? baku1 : 876.1;
-              const hasil = hasil1 > 0 ? hasil1 : 870.0;
-              const susut = Math.round((baku - hasil) * 10) / 10;
-              const susutPct = ((susut / baku) * 100).toFixed(2) + '%';
-              itemsMap.set(key, {
-                row: r + 1,
-                no: String(itemsMap.size + 1),
-                noMolen: String(numCamp),
-                tanggal: tgl1,
-                batchCode: key,
-                merk: '153 - BK',
-                baku,
-                hasil,
-                susutKg: susut,
-                susutPct,
-                molenCode: molenColB || `AA ${camp.padStart(2, '0')}`,
-                suhu: suhuVal,
-                suhuStr: suhuStrVal,
-                statusSync: 'SYNC',
-                isMatchedInRekap: false,
-              });
-            }
-          }
-        }
+        // Abaikan baris kosong, header, total summary, atau baris tanpa bobot valid
+        if (!batchCode1 || batchCode1 === '-' || batchCode1 === '--') continue;
+        if (!merk1 || merk1 === '-' || merk1 === '--' || merk1.toLowerCase().includes('total')) continue;
+        if (baku1 <= 0 && hasil1 <= 0) continue;
 
-        // Deteksi KARANG - BK (1 data pada 23 Oktober 2026)
-        if (batchCode1.includes('KARANG - BK') || merk1 === 'KARANG - BK') {
-          const m = batchCode1.match(/(\d+)$/);
-          const camp = m ? String(parseInt(m[1], 10)) : '1';
-          const key = `KARANG - BK 01`;
-          if (!itemsMap.has(key)) {
-            const baku = baku1 > 0 ? baku1 : 874.7;
-            const hasil = hasil1 > 0 ? hasil1 : 870.0;
-            const susut = Math.round((baku - hasil) * 10) / 10;
-            const susutPct = ((susut / baku) * 100).toFixed(2) + '%';
-            itemsMap.set(key, {
-              row: r + 1,
-              no: String(itemsMap.size + 1),
-              noMolen: camp,
-              tanggal: tgl1,
-              batchCode: key,
-              merk: 'KARANG - BK',
-              baku,
-              hasil,
-              susutKg: susut,
-              susutPct,
-              molenCode: molenColB || 'AE 01',
-              suhu: suhuVal,
-              suhuStr: suhuStrVal,
-              statusSync: 'SYNC',
-              isMatchedInRekap: false,
-            });
-          }
+        // Ekstraksi nomor urut camp / molen dari akhiran batch code atau kolom molen
+        const m = batchCode1.match(/(\d+)$/);
+        const camp = m ? String(parseInt(m[1], 10)) : (molenColB.match(/(\d+)$/)?.[1] || '1');
+        const numCamp = parseInt(camp, 10) || 1;
+
+        // Key unik berdasarkan kode batch nyata dari DHP
+        const key = batchCode1;
+
+        if (!itemsMap.has(key)) {
+          const baku = baku1;
+          const hasil = hasil1;
+          const susut = Math.round((baku - hasil) * 10) / 10;
+          const susutPct = baku > 0 ? ((susut / baku) * 100).toFixed(2) + '%' : '0,00%';
+          itemsMap.set(key, {
+            row: r + 1,
+            no: String(itemsMap.size + 1),
+            noMolen: String(numCamp),
+            tanggal: tgl1,
+            batchCode: key,
+            merk: merk1,
+            baku,
+            hasil,
+            susutKg: susut,
+            susutPct,
+            molenCode: molenColB || `AA ${String(numCamp).padStart(2, '0')}`,
+            suhu: suhuVal,
+            suhuStr: suhuStrVal,
+            statusSync: 'SYNC',
+            isMatchedInRekap: false,
+          });
         }
       }
 
-      // Daftar Resmi 12 Batch Aktif Jumat, 23 Oktober 2026
-      // Sesuai data riil Sheet Tab INTEGRASI DATA DHP BLEND:
-      // Kolom W kosong untuk camp 5, 9, 11 dan Karang -> suhu: null, suhuStr: ''
+      // Daftar Resmi Cadangan 12 Batch Aktif Jumat, 23 Oktober 2026 (hanya untuk mode offline)
       const required12Batches = [
         { code: '153 - BK 01', merk: '153 - BK', camp: '1', molen: 'AA 01', baku: 876.1, hasil: 873.9, suhu: 31.0, suhuStr: '31,0 °C', matchedRow: 4731 },
         { code: '153 - BK 02', merk: '153 - BK', camp: '2', molen: 'AA 02', baku: 876.1, hasil: 870.0, suhu: 33.0, suhuStr: '33,0 °C', matchedRow: 4732 },
@@ -390,14 +362,39 @@ export const IntegrasiDhpModalRekapBlend: React.FC<IntegrasiDhpModalProps> = ({
           let matchedRowNumber: number | undefined;
           const found = rekapRows.find((rek) => {
             const rekTgl = (rek.tanggal || '').toLowerCase();
+            const liveTgl = (live.tanggal || '').toLowerCase();
+
+            // Ekstraksi kunci tanggal dinamis
+            const extractDateKey = (str: string) => {
+              if (!str) return '';
+              const iso = str.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+              if (iso) return `${parseInt(iso[3], 10)}-${parseInt(iso[2], 10)}`;
+              const dmy = str.match(/(\d{1,2})\s+([a-z]+)/);
+              if (dmy) {
+                const mIdx = ['jan', 'feb', 'mar', 'apr', 'mei', 'may', 'jun', 'jul', 'agu', 'aug', 'sep', 'okt', 'oct', 'nov', 'des', 'dec']
+                  .findIndex((prefix) => dmy[2].startsWith(prefix));
+                return `${parseInt(dmy[1], 10)}-${mIdx}`;
+              }
+              return str.replace(/[^0-9a-z]/gi, '');
+            };
+
+            const kRek = extractDateKey(rekTgl);
+            const kLive = extractDateKey(liveTgl);
             const dateMatch =
-              rekTgl.includes('23 oktober') ||
-              rekTgl.includes('23 october') ||
-              live.tanggal.toLowerCase().includes(rekTgl);
+              (kRek && kLive && kRek === kLive) ||
+              rekTgl.includes(liveTgl) ||
+              liveTgl.includes(rekTgl) ||
+              (rekTgl.includes('26') && liveTgl.includes('26')) ||
+              (rekTgl.includes('23') && liveTgl.includes('23'));
+
+            // Normalisasi merk agar "FR LN - AVE" cocok dengan "FR LN-AVE" atau spasi berbeda
+            const cleanM = (m: string) => (m || '').toLowerCase().replace(/[\s\-_]/g, '');
             const merkMatch =
-              rek.merk.toLowerCase() === live.merk.toLowerCase() ||
-              rek.merk.toLowerCase().includes(live.merk.toLowerCase());
-            const molenMatch = rek.noMolen ? String(rek.noMolen) === live.noMolen : true;
+              cleanM(rek.merk) === cleanM(live.merk) ||
+              cleanM(rek.merk).includes(cleanM(live.merk)) ||
+              cleanM(live.merk).includes(cleanM(rek.merk));
+
+            const molenMatch = rek.noMolen ? String(rek.noMolen) === String(live.noMolen) : true;
             return dateMatch && merkMatch && molenMatch;
           });
           if (found) matchedRowNumber = found.srcRow;
@@ -941,7 +938,8 @@ function sinkronkanDhpBlendKeRekap() {
     for (var i = 0; i < rekapValues.length; i++) {
       var actualRow = scanStart + i;
       var tglVal = rekapValues[i][0];
-      var merkVal = String(rekapValues[i][4] || '').trim().toLowerCase();
+      var rawMerkVal = String(rekapValues[i][4] || '').trim();
+      var cleanMerkVal = rawMerkVal.toLowerCase().replace(/[\s\-_]/g, '');
       var noMolenVal = String(rekapValues[i][5] || '').trim();
       var bakuVal = Number(String(rekapValues[i][7]).replace(/,/g, '.')) || 0;
       var hasilVal = Number(String(rekapValues[i][8]).replace(/,/g, '.')) || 0;
@@ -952,23 +950,35 @@ function sinkronkanDhpBlendKeRekap() {
       } else {
         tglKey = String(tglVal).trim().toLowerCase();
       }
-      var key = tglKey + '|' + merkVal + '|' + noMolenVal;
+      var key = tglKey + '|' + cleanMerkVal + '|' + noMolenVal;
       rekapRowMap[key] = {
         row: actualRow,
+        merk: rawMerkVal,
         baku: bakuVal,
         hasil: hasilVal
       };
+
+      // Deteksi baris template / placeholder (bobot baku masih 0,0 atau susut anomali template)
+      // Contoh: Baris 4753 DATAMASTER berisi template 'KARANG - BK' dengan baku 0,0 Kg pada 26 Oktober
+      if (bakuVal === 0) {
+        rekapRowMap[tglKey + '|placeholder|' + noMolenVal] = {
+          row: actualRow,
+          merk: rawMerkVal,
+          baku: bakuVal,
+          hasil: hasilVal,
+          isPlaceholder: true
+        };
+      }
     }
   }
 
   // 2. Baca data dari DHP BLEND (Baris 10 ke bawah, Kolom A s/d Kolom W)
-  // Perhatian: Baris 10 adalah transaksi pertama DHP (153 - BK 01, AA 01)
   var lastRowDhp = shDhp.getLastRow();
   if (lastRowDhp < 10) return { success: true, updatedCount: 0, addedCount: 0, message: 'Tidak ada baris DHP' };
 
-  // Baca hingga minimal kolom 23 (Kolom W: SUHU)
+  // Baca hingga minimal kolom 23 (Kolom W: SUHU) dan scan seluruh baris nyata (termasuk FR LN - AVE di baris 38+)
   var dhpColCount = Math.max(23, shDhp.getLastColumn());
-  var numRowsToScan = Math.min(lastRowDhp - 9, 30);
+  var numRowsToScan = Math.max(1, lastRowDhp - 9);
   var dhpValues = shDhp.getRange(10, 1, numRowsToScan, dhpColCount).getValues();
   var updatedCount = 0;
   var rowsToAppend = [];
@@ -977,7 +987,7 @@ function sinkronkanDhpBlendKeRekap() {
     var row = dhpValues[j];
     // Kolom B (index 1): Nama Molen ("AA 01", "AB 03", dst.)
     var molenDhp = String(row[1] || '').trim();
-    var rawTgl = row[2] || 'Jumat, 23 Oktober 2026';
+    var rawTgl = row[2] || 'Senin, 26 Oktober 2026';
     var rawBatch = String(row[3] || '').trim();
     var rawMerk = String(row[4] || '').trim();
 
@@ -988,18 +998,33 @@ function sinkronkanDhpBlendKeRekap() {
     // INSTRUKSI: Kolom W (index 22): Data SUHU ("31,0 °C", "30,0 °C" atau kosong)
     var rawSuhu = parseSuhuValue(row[22]);
 
-    if (rawMerk && (rawMerk.indexOf('153') >= 0 || rawMerk.indexOf('KARANG') >= 0)) {
-      var m = rawBatch.match(/(\\d+)$/);
-      var camp = m ? String(parseInt(m[1], 10)) : (molenDhp.match(/(\\d+)$/)?.[1] || '1');
+    // DINAMIS: Izinkan SEMUA merk tembakau blend (153 - BK, KARANG - BK, FR LN - AVE, SP 153 - BK, TIS - KBT24, dst.)
+    if (rawMerk && rawMerk !== '-' && rawMerk !== '--' && !rawMerk.toLowerCase().includes('total') && rawBatch && rawBatch !== '-' && (rawBaku > 0 || rawHasil > 0)) {
+      var m = rawBatch.match(/(\d+)$/);
+      var camp = m ? String(parseInt(m[1], 10)) : (molenDhp.match(/(\d+)$/)?.[1] || '1');
       var tglDate = parseTglToDateObject(rawTgl);
       var tglKey = Utilities.formatDate(tglDate, 'Asia/Jakarta', 'd MMMM yyyy').toLowerCase();
 
-      var checkKey = tglKey + '|' + rawMerk.toLowerCase() + '|' + camp;
+      var cleanMerkKey = rawMerk.toLowerCase().replace(/[\s\-_]/g, '');
+      var checkKey = tglKey + '|' + cleanMerkKey + '|' + camp;
 
-      // KASUS A: Baris SUDAH ADA di DATAMASTER (misal baris 4730 - 4741)
-      if (rekapRowMap[checkKey]) {
-        var existing = rekapRowMap[checkKey];
-        // Perbarui Bobot Baku (Kolom I) & Hasil Proses (Kolom J)
+      var matchedEntry = rekapRowMap[checkKey];
+      // Jika belum cocok dengan merk, periksa apakah ada baris template/placeholder kosong di tanggal & camp yang sama
+      if (!matchedEntry && rekapRowMap[tglKey + '|placeholder|' + camp]) {
+        matchedEntry = rekapRowMap[tglKey + '|placeholder|' + camp];
+      }
+
+      // KASUS A: Baris SUDAH ADA di DATAMASTER (atau berupa baris template placeholder)
+      if (matchedEntry) {
+        var existing = matchedEntry;
+
+        // Jika merk di DATAMASTER berbeda (misal template lama tertulis 'KARANG - BK' padahal transaksi aktual 'FR LN - AVE'):
+        // Otomatis perbarui Kolom F (6: Merk) menjadi merk riil DHP
+        if (existing.merk.toLowerCase().replace(/[\s\-_]/g, '') !== cleanMerkKey) {
+          shRekap.getRange(existing.row, 6).setValue(rawMerk);
+        }
+
+        // Perbarui Bobot Baku (Kolom I / 9) & Hasil Proses (Kolom J / 10)
         shRekap.getRange(existing.row, 9, 1, 2).setValues([[rawBaku, rawHasil]]);
         
         // INSTRUKSI: Kirim Nama Molen dari Kolom B DHP ke Header MOLEN (Kolom M / 13)
@@ -1026,13 +1051,16 @@ function sinkronkanDhpBlendKeRekap() {
         } catch(e) {}
 
         updatedCount++;
-        Logger.log('UPDATE: Baris ' + existing.row + ' (' + checkKey + ') -> Baku: ' + rawBaku + ', Hasil: ' + rawHasil + ', Molen: ' + molenDhp + ', Suhu: ' + (rawSuhu !== null ? rawSuhu : '-'));
+        Logger.log('UPDATE: Baris ' + existing.row + ' (' + rawMerk + ' Camp ' + camp + ') -> Baku: ' + rawBaku + ', Hasil: ' + rawHasil + ', Molen: ' + molenDhp + ', Suhu: ' + (rawSuhu !== null ? rawSuhu : '-'));
       }
       // KASUS B: Baris BELUM ADA di DATAMASTER -> Append baris baru
       else {
         var nextTargetRow = realLastRow + 1 + rowsToAppend.length;
         var nextRowId = 4700 + nextTargetRow;
-        var nomerLaporanPrefix = '23/BLD/10/26';
+        var dNum = ('0' + tglDate.getDate()).slice(-2);
+        var mNum = ('0' + (tglDate.getMonth() + 1)).slice(-2);
+        var yShort = String(tglDate.getFullYear()).slice(-2);
+        var nomerLaporanPrefix = dNum + '/BLD/' + mNum + '/' + yShort;
 
         rowsToAppend.push({
           rowId: nextRowId,
@@ -1082,6 +1110,36 @@ function sinkronkanDhpBlendKeRekap() {
 
   Logger.log('HASIL: ' + updatedCount + ' baris di-UPDATE, ' + addedCount + ' baris di-APPEND.');
   return { success: true, updatedCount: updatedCount, addedCount: addedCount };
+}
+
+/**
+ * FUNGSI TAMBAHAN: Koreksi Khusus Baris 4753 DATAMASTER ke FR LN - AVE (26 Oktober 2026)
+ * Mengganti template usang KARANG - BK (baku 0,0 Kg) dengan transaksi nyata FR LN - AVE (Baku 196,6 Kg, Hasil 199,1 Kg, Molen AA 1, Suhu 27,0 °C)
+ */
+function perbaikiBaris4753FrLnAve() {
+  var ssRekap = SpreadsheetApp.openById(CONFIG_INTEGRASI_BLEND.REKAP_SS_ID);
+  var shRekap = ssRekap.getSheetByName(CONFIG_INTEGRASI_BLEND.REKAP_SHEET_NAME);
+  var targetRow = 4753;
+
+  var tglDate = new Date(2026, 9, 26, 12, 0, 0);
+  shRekap.getRange(targetRow, 2).setValue(tglDate).setNumberFormat("dd mmmm yyyy");
+  shRekap.getRange(targetRow, 5, 1, 3).setValues([['26/BLD/10/26', 'FR LN - AVE', 1]]);
+  shRekap.getRange(targetRow, 9, 1, 2).setValues([[196.6, 199.1]]);
+
+  var colMolen = cariIndexKolomHeader(shRekap, 'MOLEN', 13);
+  var colSuhu = cariIndexKolomHeader(shRekap, 'SUHU', 14);
+  if (colMolen <= 0 || colMolen === 7) colMolen = 13;
+  if (colSuhu <= 0 || colSuhu === 7) colSuhu = 14;
+
+  shRekap.getRange(targetRow, colMolen).setValue('AA 1');
+  shRekap.getRange(targetRow, colSuhu).setValue(27.0).setNumberFormat('0.0 "°C"');
+
+  try {
+    shRekap.getRange(4752, 11, 1, 2).copyTo(shRekap.getRange(targetRow, 11, 1, 2), SpreadsheetApp.CopyPasteType.PASTE_FORMULA, false);
+  } catch(e) {}
+
+  Logger.log('BERHASIL: Baris 4753 DATAMASTER telah diselaraskan ke FR LN - AVE.');
+  return { success: true, message: 'Baris 4753 berhasil diselaraskan ke FR LN - AVE' };
 }
 
 /**
