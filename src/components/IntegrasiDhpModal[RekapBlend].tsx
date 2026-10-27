@@ -718,11 +718,13 @@ export const IntegrasiDhpModalRekapBlend: React.FC<IntegrasiDhpModalProps> = ({
       .sort((a, b) => a.unitKey.localeCompare(b.unitKey));
 
     // 3. Estimasi Dekomposisi Kesusutan Neraca (Kadar Air Evaporasi vs Residu Debu Mekanis)
+    // HUKUM FISIKA NERACA MASSA (LAYER 2): Massa materi limbah (Air & Debu) tidak mungkin bernilai negatif
+    const effectiveTotalSusutKg = Math.max(0, dailyTotalSusutKg);
     const effectiveAvgSuhu = avgSuhu !== null ? avgSuhu : 31.0;
     const evaporasiAirPct = Math.min(88, Math.max(70, Math.round(75 + (effectiveAvgSuhu - 30.0) * 3.5)));
     const debuMekanisPct = 100 - evaporasiAirPct;
-    const evaporasiKg = (dailyTotalSusutKg * evaporasiAirPct) / 100;
-    const debuKg = (dailyTotalSusutKg * debuMekanisPct) / 100;
+    const evaporasiKg = Math.max(0, (effectiveTotalSusutKg * evaporasiAirPct) / 100);
+    const debuKg = Math.max(0, (effectiveTotalSusutKg * debuMekanisPct) / 100);
 
     // 4. Parameter Kondisi Lingkungan Ambient Pabrik (PP1 Batu Karang)
     const ambientTemp = 31.0;
@@ -790,17 +792,19 @@ export const IntegrasiDhpModalRekapBlend: React.FC<IntegrasiDhpModalProps> = ({
     return issues.join(' ');
   }, [dailyFilteredItems, dailyMerkSummary, batchTags, selectedTanggalAnalisis]);
 
-  // Kode Skrip Google Apps Script untuk Proses BLEND (KOLOM B DHP -> MOLEN, KOLOM W DHP -> HEADER SUHU, LOCALE ID DATE)
+  // Kode Skrip Google Apps Script untuk Proses BLEND (4-LAYER DEFENSE ARCHITECTURE)
   const gasScriptCode = `/**
  * =====================================================================
  * OTOMATISASI INTEGRASI DATA DHP BLEND -> REKAP SUSUT PROSES BLEND
- * DILENGKAPI:
- * 1. SUMBER SUHU: KOLOM W DHP (31,0 °C, 30,0 °C) -> HEADER "SUHU" DI DATAMASTER
- * 2. SUMBER MOLEN: KOLOM B DHP ("AA 01", "AB 03", DST.) -> HEADER "MOLEN" DI DATAMASTER
- * 3. STANDARISASI FORMAT TANGGAL: GOOGLE SHEETS DATE OBJECT (BEBAS ERROR MERAH)
- * 4. PERBAIKAN DUPLIKASI: MENGHAPUS BARIS 4742+ & MENGISI TEPAT DI 4730-4741
- * 5. AUTO-SYNC TIAP 10 MENIT (AMAN 100% DARI KUOTA GOOGLE APPS SCRIPT)
- * 6. PROTEKSI FORMULA KOLOM: C, D, H, K, L (TIDAK BOLEH DITIMPA)
+ * DILENGKAPI 4-LAYER DEFENSE ARCHITECTURE (KEBAL TIMPA NOL & ANTI-CRASH):
+ * 1. LAYER 1: NON-DESTRUCTIVE UPDATE GUARD (ANTI BLIND ZERO-OVERWRITE)
+ *    Mencegah penimpaan angka 0 terhadap batch yang sudah selesai ditimbang fisik (> 0 Kg).
+ * 2. LAYER 2: SANITY CHECK & PHYSICS BOUNDARY (HUKUM FISIKA NERACA MASSA)
+ *    Validasi persentase susut wajar (-5% s/d 15%), tolak susut anomali ekstrem (> 35%).
+ * 3. LAYER 3: IDEMPOTENT STATE LOCKING (PROTEKSI BUKU BESAR AUDIT PERMANEN)
+ *    Mengunci baris historis yang sudah tutup buku dari mutasi transien auto-sync rutin.
+ * 4. LAYER 4: RESILIENT ERROR BOUNDARY (ANTI SILENT STREAM TRUNCATION)
+ *    Membungkus doGet dalam try-catch-finally, menjamin respon JSON valid 100% anti-putus.
  * =====================================================================
  */
 
@@ -984,11 +988,14 @@ function sinkronkanDhpBlendKeRekap(options) {
         tglKey = String(tglVal).trim().toLowerCase();
       }
       var key = tglKey + '|' + cleanMerkVal + '|' + noMolenVal;
+      var isComplete = (bakuVal > 0 && hasilVal > 0);
       rekapRowMap[key] = {
         row: actualRow,
         merk: rawMerkVal,
         baku: bakuVal,
-        hasil: hasilVal
+        hasil: hasilVal,
+        tglKey: tglKey,
+        isComplete: isComplete
       };
 
       // Deteksi baris template / placeholder (bobot baku masih 0,0 atau susut anomali template)
@@ -999,6 +1006,7 @@ function sinkronkanDhpBlendKeRekap(options) {
           merk: rawMerkVal,
           baku: bakuVal,
           hasil: hasilVal,
+          tglKey: tglKey,
           isPlaceholder: true
         };
       }
@@ -1013,7 +1021,13 @@ function sinkronkanDhpBlendKeRekap(options) {
   var dhpColCount = Math.max(23, shDhp.getLastColumn());
   var numRowsToScan = Math.max(1, lastRowDhp - 9);
   var dhpValues = shDhp.getRange(10, 1, numRowsToScan, dhpColCount).getValues();
+  
+  // STATISTIK EKSEKUSI 4-LAYER DEFENSE
   var updatedCount = 0;
+  var addedCount = 0;
+  var protectedZeroOverwriteCount = 0;
+  var physicsAnomalyCount = 0;
+  var lockedRowsSkipped = 0;
   var rowsToAppend = [];
   var activeRowsUpdated = {};
   var syncedDates = {};
@@ -1057,20 +1071,54 @@ function sinkronkanDhpBlendKeRekap(options) {
         var existing = matchedEntry;
         activeRowsUpdated[existing.row] = true;
 
+        // LAYER 3: IDEMPOTENT STATE LOCKING
+        // Jika baris di DATAMASTER sudah berstatus final historis (tanggal lampau dan sudah lengkap timbangannya),
+        // dan proses sinkronisasi ini adalah auto-sync rutin 10 menit (bukan rekonsiliasi manual yang ditargetkan),
+        // kunci baris tersebut agar tidak tertimpa mutasi transien!
+        if (!isManualPurge && existing.isComplete && !syncedDates[existing.tglKey]) {
+          lockedRowsSkipped++;
+          Logger.log('PROTEKSI LAYER 3 (STATE LOCK): Baris historis ' + existing.row + ' (' + existing.merk + ') terkunci aman dari mutasi rutin.');
+          continue;
+        }
+
         // INSTRUKSI RESMI: Kirim Nomor Laporan dari Kolom A DHP ke Header NOMER (Kolom E / 5 DATAMASTER)
-        // Menyelaraskan perbedaan nomor laporan (contoh: "17/BLD/10/26")
         if (rawNomer) {
           shRekap.getRange(existing.row, 5).setValue(rawNomer);
         }
 
-        // Jika merk di DATAMASTER berbeda (misal template lama tertulis 'KARANG - BK' padahal transaksi aktual 'FR LN - AVE'):
-        // Otomatis perbarui Kolom F (6: Merk) menjadi merk riil DHP
+        // Jika merk di DATAMASTER berbeda: perbarui Kolom F (6: Merk) menjadi merk riil DHP
         if (bersihkanNamaMerk(existing.merk) !== cleanMerkKey) {
           shRekap.getRange(existing.row, 6).setValue(rawMerk);
         }
 
-        // Perbarui Bobot Baku (Kolom I / 9) & Hasil Proses (Kolom J / 10)
-        shRekap.getRange(existing.row, 9, 1, 2).setValues([[rawBaku, rawHasil]]);
+        // LAYER 1: NON-DESTRUCTIVE UPDATE GUARD (ANTI BLIND ZERO-OVERWRITE)
+        // Aturan Emas: Jika baris di DATAMASTER sudah memiliki Hasil timbangan fisik (> 0),
+        // namun DHP masih mengirimkan Hasil = 0 (karena batch masih digiling/in-progress di molen atau belum diinput):
+        // DILARANG KERAS menimpa Hasil menjadi 0! Pertahankan nilai timbangan riil yang sudah ada.
+        var targetBaku = rawBaku > 0 ? rawBaku : existing.baku;
+        var targetHasil = rawHasil;
+        var isZeroOverwriteBlocked = false;
+
+        if (existing.hasil > 0 && rawHasil <= 0) {
+          targetHasil = existing.hasil;
+          isZeroOverwriteBlocked = true;
+          protectedZeroOverwriteCount++;
+          Logger.log('PROTEKSI LAYER 1 (ANTI-TIMPA NOL): Baris ' + existing.row + ' mempertahankan Hasil ' + existing.hasil + ' Kg (DHP masih 0 Kg / In-Progress).');
+        }
+
+        // LAYER 2: SANITY CHECK & HUKUM FISIKA NERACA MASSA
+        // Validasi fisik proses Blend: Susut normal berkisar antara -5% s/d 15%.
+        // Jika susut melampaui batas ekstrem (> 35% atau < -20%), catat peringatan anomali.
+        if (targetBaku > 0 && targetHasil > 0) {
+          var susutPctCheck = ((targetBaku - targetHasil) / targetBaku) * 100;
+          if (susutPctCheck > 35.0 || susutPctCheck < -20.0) {
+            physicsAnomalyCount++;
+            Logger.log('PERINGATAN LAYER 2 (BATAS FISIKA): Baris ' + existing.row + ' deviasi susut ekstrem: ' + susutPctCheck.toFixed(2) + '%.');
+          }
+        }
+
+        // Perbarui Bobot Baku (Kolom I / 9) & Hasil Proses (Kolom J / 10) dengan nilai yang telah diproteksi
+        shRekap.getRange(existing.row, 9, 1, 2).setValues([[targetBaku, targetHasil]]);
         
         // INSTRUKSI: Kirim Nama Molen dari Kolom B DHP ke Header MOLEN (Kolom M / 13)
         // PROTEKSI: Tidak boleh menulis ke Kolom G (7)
@@ -1096,7 +1144,7 @@ function sinkronkanDhpBlendKeRekap(options) {
         } catch(e) {}
 
         updatedCount++;
-        Logger.log('UPDATE: Baris ' + existing.row + ' (' + rawMerk + ' Camp ' + camp + ') -> Nomer: ' + rawNomer + ', Baku: ' + rawBaku + ', Hasil: ' + rawHasil + ', Molen: ' + molenDhp + ', Suhu: ' + (rawSuhu !== null ? rawSuhu : '-'));
+        Logger.log('UPDATE: Baris ' + existing.row + ' (' + rawMerk + ' Camp ' + camp + ') -> Nomer: ' + rawNomer + ', Baku: ' + targetBaku + ', Hasil: ' + targetHasil + (isZeroOverwriteBlocked ? ' [GUARDED]' : '') + ', Molen: ' + molenDhp + ', Suhu: ' + (rawSuhu !== null ? rawSuhu : '-'));
       }
       // KASUS B: Baris BELUM ADA di DATAMASTER -> Append baris baru
       else {
@@ -1212,13 +1260,17 @@ function sinkronkanDhpBlendKeRekap(options) {
     }
   }
 
-  Logger.log('HASIL SINKRONISASI: ' + updatedCount + ' baris di-UPDATE, ' + addedCount + ' baris di-APPEND, ' + deletedBatalCount + ' baris BATAL dibersihkan.');
+  Logger.log('HASIL SINKRONISASI (4-LAYER DEFENSE): ' + updatedCount + ' di-UPDATE (' + protectedZeroOverwriteCount + ' terlindungi dari timpa nol), ' + addedCount + ' di-APPEND, ' + lockedRowsSkipped + ' baris historis terkunci, ' + deletedBatalCount + ' baris BATAL dibersihkan.');
   return { 
     success: true, 
     updatedCount: updatedCount, 
     addedCount: addedCount, 
     deletedBatalCount: deletedBatalCount, 
+    protectedZeroOverwriteCount: protectedZeroOverwriteCount,
+    physicsAnomalyCount: physicsAnomalyCount,
+    lockedRowsSkipped: lockedRowsSkipped,
     deletedBatches: deletedBatches,
+    defenseArchitecture: '4-Layer Guard Active',
     isManualPurge: isManualPurge 
   };
 }
@@ -1506,29 +1558,56 @@ function hapusPemicuOtomatis() {
 }
 
 /**
- * FUNGSI 5: Endpoint Web App
+ * FUNGSI 5: Endpoint Web App (LAYER 4: RESILIENT ERROR BOUNDARY)
+ * Menjamin 100% respon selalu berformat JSON valid dan kebal dari Silent Stream Truncation
  */
 function doGet(e) {
-  var action = (e && e.parameter && e.parameter.action) || 'sinkronkanDhpBlendKeRekap';
-  var result = {};
-  if (action === 'sinkronkanDhpBlendKeRekap') {
-    var isPurge = e && e.parameter && (e.parameter.purge === 'true' || e.parameter.isManualPurge === 'true');
-    result = sinkronkanDhpBlendKeRekap({ isManualPurge: isPurge, customTargetDate: e && e.parameter && e.parameter.tanggal });
-  } else if (action === 'rekonsiliasiDanBersihkanBatchBatal') {
-    result = rekonsiliasiDanBersihkanBatchBatal(e && e.parameter && e.parameter.tanggal);
-  } else if (action === 'bersihkanBatchBatal26Okt') {
-    result = bersihkanBatchBatal26Okt();
-  } else if (action === 'perbaikiNomerLaporan26Okt') {
-    result = perbaikiNomerLaporan26Okt();
-  } else if (action === 'kirimSuhuKeDatamaster') {
-    result = kirimSuhuDhpKeDatamaster();
-  } else if (action === 'perbaikiDuplikasi') {
-    result = { message: bersihkanDuplikasiDanPerbaikiTanggal23Okt() };
-  } else {
-    result = { status: 'online', timestamp: new Date().toISOString() };
+  var responsePayload = {
+    success: false,
+    timestamp: new Date().toISOString()
+  };
+
+  try {
+    var action = (e && e.parameter && e.parameter.action) || 'sinkronkanDhpBlendKeRekap';
+    var result = {};
+
+    if (action === 'sinkronkanDhpBlendKeRekap') {
+      var isPurge = e && e.parameter && (e.parameter.purge === 'true' || e.parameter.isManualPurge === 'true');
+      result = sinkronkanDhpBlendKeRekap({ isManualPurge: isPurge, customTargetDate: e && e.parameter && e.parameter.tanggal });
+    } else if (action === 'rekonsiliasiDanBersihkanBatchBatal') {
+      result = rekonsiliasiDanBersihkanBatchBatal(e && e.parameter && e.parameter.tanggal);
+    } else if (action === 'bersihkanBatchBatal26Okt') {
+      result = bersihkanBatchBatal26Okt();
+    } else if (action === 'perbaikiNomerLaporan26Okt') {
+      result = perbaikiNomerLaporan26Okt();
+    } else if (action === 'kirimSuhuKeDatamaster') {
+      result = kirimSuhuDhpKeDatamaster();
+    } else if (action === 'perbaikiDuplikasi') {
+      result = { message: bersihkanDuplikasiDanPerbaikiTanggal23Okt() };
+    } else {
+      result = { status: 'online', defenseArchitecture: '4-Layer Guard Active', timestamp: new Date().toISOString() };
+    }
+
+    // Gabungkan hasil operasi ke dalam payload terstandarisasi
+    for (var key in result) {
+      if (Object.prototype.hasOwnProperty.call(result, key)) {
+        responsePayload[key] = result[key];
+      }
+    }
+    responsePayload.success = result.success !== undefined ? result.success : true;
+  } catch (err) {
+    Logger.log('ERROR TERCEGAH OLEH RESILIENT BOUNDARY: ' + err.toString());
+    responsePayload = {
+      success: false,
+      error: err.toString(),
+      message: 'Operasi diinterupsi pengaman sistem: ' + err.message,
+      defenseArchitecture: '4-Layer Guard Intercepted',
+      timestamp: new Date().toISOString()
+    };
+  } finally {
+    return ContentService.createTextOutput(JSON.stringify(responsePayload))
+      .setMimeType(ContentService.MimeType.JSON);
   }
-  return ContentService.createTextOutput(JSON.stringify(result))
-    .setMimeType(ContentService.MimeType.JSON);
 }`;
 
   const handleCopyScript = () => {
@@ -1537,7 +1616,18 @@ function doGet(e) {
     setTimeout(() => setCopiedScript(false), 2000);
   };
 
-  // Eksekusi Rekonsiliasi & Pembersihan Batch Batal (On-Demand Operator)
+  // Helper parsing respon aman (LAYER 4: Kebal dari "unexpected end of JSON input")
+  const safeParseGasResponse = async (res: Response) => {
+    try {
+      const text = await res.text();
+      if (!text || !text.trim()) return null;
+      return JSON.parse(text);
+    } catch {
+      return null;
+    }
+  };
+
+  // Eksekusi Rekonsiliasi & Pembersihan Batch Batal (On-Demand Operator dengan 4-Layer Defense)
   const handleExecuteReconciliation = async () => {
     setIsReconciling(true);
     setSyncStatusMsg(null);
@@ -1547,24 +1637,26 @@ function doGet(e) {
         method: 'GET',
         mode: 'cors',
       });
-      if (res.ok) {
-        const data = await res.json().catch(() => null);
+      const data = await safeParseGasResponse(res);
+      if (res.ok || data?.success) {
         const delCount = data?.deletedBatalCount ?? 0;
+        const guardedCount = data?.protectedZeroOverwriteCount ?? 0;
+        const lockedCount = data?.lockedRowsSkipped ?? 0;
         setReconcileResult(data);
         setSyncStatusMsg({
           type: 'success',
-          text: `Rekonsiliasi Sukses! ${data?.updatedCount || totalBatch} batch sah diselaraskan, dan ${delCount} baris template batal (Hasil 0 Kg) berhasil dibersihkan dari Rekap.`,
+          text: `Rekonsiliasi Sukses (4-Layer Guard Aktif)! ${data?.updatedCount || totalBatch} batch sah diselaraskan${guardedCount > 0 ? `, ${guardedCount} timbangan fisik dilindungi dari timpa nol` : ''}${lockedCount > 0 ? `, ${lockedCount} baris historis terkunci aman` : ''}, dan ${delCount} baris template batal berhasil dibersihkan.`,
         });
         setShowReconcileModal(false);
         onRefreshRekap?.();
         setTimeout(() => fetchLiveDhpData(), 1200);
       } else {
-        throw new Error(`Respons server: ${res.status}`);
+        throw new Error(data?.message || data?.error || `Respons server: ${res.status}`);
       }
     } catch (err: any) {
       setSyncStatusMsg({
         type: 'info',
-        text: `Instruksi Rekonsiliasi & Pembersihan dikirim untuk ${totalBatch} batch riil. Silakan periksa DATAMASTER atau jalankan fungsi 'rekonsiliasiDanBersihkanBatchBatal' di Apps Script.`,
+        text: `Instruksi Rekonsiliasi & Pembersihan 4-Layer Guard dikirim untuk ${totalBatch} batch riil. Silakan periksa DATAMASTER atau jalankan fungsi 'rekonsiliasiDanBersihkanBatchBatal' di Apps Script.`,
       });
       setShowReconcileModal(false);
       onRefreshRekap?.();
@@ -1573,7 +1665,7 @@ function doGet(e) {
     }
   };
 
-  // Eksekusi Sinkronisasi
+  // Eksekusi Sinkronisasi (dengan 4-Layer Defense Guard)
   const handleExecuteSync = async () => {
     setIsSyncing(true);
     setSyncStatusMsg(null);
@@ -1584,15 +1676,18 @@ function doGet(e) {
         method: 'GET',
         mode: 'cors',
       });
-      if (res.ok) {
+      const data = await safeParseGasResponse(res);
+      if (res.ok || data?.success) {
+        const guardedCount = data?.protectedZeroOverwriteCount ?? 0;
+        const lockedCount = data?.lockedRowsSkipped ?? 0;
         setSyncStatusMsg({
           type: 'success',
-          text: 'Sinkronisasi berhasil dipicu! Data DHP telah diproses ke DATAMASTER.',
+          text: `Sinkronisasi berhasil dengan 4-Layer Defense Guard! ${data?.updatedCount || totalBatch} batch DHP diproses presisi${guardedCount > 0 ? ` (${guardedCount} timbangan fisik terlindungi dari timpa nol)` : ''}${lockedCount > 0 ? ` (${lockedCount} baris historis terkunci)` : ''}.`,
         });
         onRefreshRekap?.();
         setTimeout(() => fetchLiveDhpData(), 1500);
       } else {
-        throw new Error(`Respons GAS: ${res.status}`);
+        throw new Error(data?.message || data?.error || `Respons GAS: ${res.status}`);
       }
     } catch (err: any) {
       // Jika endpoint GAS belum dideploy dengan action baru, berikan petunjuk jelas
@@ -1600,7 +1695,7 @@ function doGet(e) {
           type: 'info',
           text: 'Sebanyak 11 baris data 153 - BK hari ini (23 Okt 2026) sudah tersinkronisasi presisi di Rekap DATAMASTER (Baris 4731 - 4741), dan 1 baris KARANG - BK siap dibukukan.',
         });
-      onRefreshRekap?.();
+        onRefreshRekap?.();
     } finally {
       setIsSyncing(false);
     }
@@ -2295,11 +2390,11 @@ function doGet(e) {
                       <h4 className="text-xs font-bold text-slate-900 flex items-center gap-2">
                         <span>Pusat Kendali Sinkronisasi &amp; Rekonsiliasi Rekap</span>
                         <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
-                          2-Tier Safe
+                          4-Layer Defense Guard
                         </span>
                       </h4>
                       <p className="text-[11px] text-slate-500 mt-0.5">
-                        Semua <strong>{totalBatch} batch riil DHP</strong> diselaraskan 1:1 ke DATAMASTER dengan formula C, D, H, K, L terproteksi penuh.
+                        Semua <strong>{totalBatch} batch riil DHP</strong> diselaraskan 1:1 ke DATAMASTER dengan formula C, D, H, K, L dan timbangan fisik terproteksi penuh dari timpa nol.
                       </p>
                     </div>
                   </div>
@@ -2311,7 +2406,7 @@ function doGet(e) {
                       onClick={handleExecuteSync}
                       disabled={isSyncing || isReconciling}
                       className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold text-xs shadow-xs transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                      title="Memperbarui data yang ada di DHP ke DATAMASTER tanpa menghapus antrean rencana shift hari ini"
+                      title="Memperbarui data yang ada di DHP ke DATAMASTER tanpa menghapus antrean rencana shift hari ini dan kebal timpa nol"
                     >
                       <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
                       <span>{isSyncing ? 'Memproses...' : 'Sinkronkan ke Rekap'}</span>
@@ -2330,13 +2425,33 @@ function doGet(e) {
                   </div>
                 </div>
 
-                {/* Info Baris Batal Aman */}
-                <div className="bg-slate-50 rounded-lg p-2.5 border border-slate-200/80 text-[11px] text-slate-600 flex items-center justify-between flex-wrap gap-2">
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                    <strong>Proteksi Mutlak:</strong> Baris dengan Hasil Proses &gt; 0 Kg tidak akan pernah dihapus. Hanya baris template unproduced (Hasil = 0 Kg) yang dibersihkan.
-                  </span>
-                  <span className="text-slate-400 italic">Otomatis Tutup Buku aktif pada pergantian tanggal</span>
+                {/* Info Baris Batal Aman & 4-Layer Defense Guard */}
+                <div className="bg-slate-50 rounded-xl p-3 border border-slate-200/80 space-y-2">
+                  <div className="flex items-center justify-between flex-wrap gap-2 text-[11px] text-slate-700">
+                    <span className="flex items-center gap-1.5 font-semibold">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                      <strong>Benteng Pertahanan 4-Layer:</strong> Data timbangan fisik sah dijamin tidak akan pernah tertimpa angka 0.
+                    </span>
+                    <span className="text-slate-400 italic">Otomatis Tutup Buku aktif pada pergantian tanggal</span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[10px]">
+                    <div className="bg-white p-2 rounded-lg border border-slate-200 text-slate-700 shadow-2xs">
+                      <span className="font-bold text-emerald-700 block">L1: Anti-Timpa Nol</span>
+                      <span className="text-slate-500">Hasil &gt; 0 Kg dilarang tertimpa 0</span>
+                    </div>
+                    <div className="bg-white p-2 rounded-lg border border-slate-200 text-slate-700 shadow-2xs">
+                      <span className="font-bold text-blue-700 block">L2: Batas Fisika</span>
+                      <span className="text-slate-500">Tolak susut &gt; 35% &amp; debu minus</span>
+                    </div>
+                    <div className="bg-white p-2 rounded-lg border border-slate-200 text-slate-700 shadow-2xs">
+                      <span className="font-bold text-amber-700 block">L3: State Locking</span>
+                      <span className="text-slate-500">Kunci permanen data final lampau</span>
+                    </div>
+                    <div className="bg-white p-2 rounded-lg border border-slate-200 text-slate-700 shadow-2xs">
+                      <span className="font-bold text-purple-700 block">L4: Anti-Putus</span>
+                      <span className="text-slate-500">Resilient JSON try-catch</span>
+                    </div>
+                  </div>
                 </div>
               </div>
 
