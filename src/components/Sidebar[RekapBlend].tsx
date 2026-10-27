@@ -15,6 +15,7 @@ import {
   ArrowLeftRight,
   Gauge,
 } from 'lucide-react';
+import { PWAInstallButtonRekapBlend } from './PWAInstallButton[RekapBlend]';
 
 interface SidebarProps {
   activeTab: ActiveTab;
@@ -277,6 +278,9 @@ export const SidebarRekapBlend: React.FC<SidebarProps> = ({
                 <span>Bantuan</span>
               </button>
             </div>
+
+            {/* PWA Quick Install Pill */}
+            <PWAInstallButtonRekapBlend variant="sidebar" />
 
             {/* Role Switcher in Sidebar */}
             <div className="bg-slate-800/60 p-2 rounded-xl border border-slate-700/50">

@@ -411,9 +411,6 @@ export default function App() {
             </div>
           </div>
 
-          {/* PWA Install Banner */}
-          <PWAInstallButtonRekapBlend variant="banner" />
-
           {/* Quick Tab Selector for Mobile / Compact Devices */}
           <div className="flex lg:hidden overflow-x-auto gap-1.5 p-1 bg-white border border-slate-200 rounded-xl mb-4 no-print scrollbar-none">
             <button
@@ -584,8 +581,10 @@ export default function App() {
         chartType={chartModal.chartType}
         data={chartModal.data}
       />
+      {/* 9. PWA Install Floating Prompt (Pojok Kanan Bawah, 0px overhead pada kanvas) */}
+      <PWAInstallButtonRekapBlend variant="floating" />
 
-      {/* 9. Bottom Navigation Bar untuk Layar Smartphone & Tablet */}
+      {/* 10. Bottom Navigation Bar untuk Layar Smartphone & Tablet */}
       <BottomNavBarRekapBlend
         activeTab={activeTab}
         onTabChange={setActiveTab}

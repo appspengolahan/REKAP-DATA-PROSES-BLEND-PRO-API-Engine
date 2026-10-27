@@ -236,6 +236,9 @@ export const HeaderRekapBlend: React.FC<HeaderProps> = ({
             <span>Export PDF</span>
           </button>
 
+          {/* Quick PWA Install Pill (Header Action) */}
+          <PWAInstallButtonRekapBlend variant="header" />
+
           {/* Profile & Tools Dropdown Menu */}
           <div className="relative" ref={menuRef}>
             <button
