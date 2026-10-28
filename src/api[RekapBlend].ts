@@ -33,7 +33,7 @@ export const MONTH_ORDER = [
   'Desember',
 ];
 
-const LOCAL_STORAGE_CACHE_KEY = 'rekap_blend_cache_v2';
+const LOCAL_STORAGE_CACHE_KEY = 'rekap_blend_cache_v3';
 const LOCAL_STORAGE_GAS_URL_KEY = 'rekap_blend_gas_endpoint_url';
 
 export function getSavedGasUrl(): string {
@@ -1169,7 +1169,7 @@ function parseGvizCsv(csv: string): RawBlendRow[] {
   const sampleLine = lines.slice(0, 20).find((l) => l.includes('153 - BK') || l.includes('Camp') || l.length > 20) || '';
   const delimiter = sampleLine.split(';').length > sampleLine.split(',').length ? ';' : ',';
 
-  for (let i = 10; i < lines.length; i++) {
+  for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
     if (!line) continue;
 
@@ -1201,6 +1201,15 @@ function parseGvizCsv(csv: string): RawBlendRow[] {
       const noMolenRaw = cols[6] ? cols[6].trim() : '';
       const molenRaw = cols[12] ? cols[12].trim() : '';
 
+      // Abaikan baris header atau ringkasan atas (misal kolom judul atau rekap berjalan)
+      const isHeaderOrSummary =
+        !tanggal ||
+        tanggal.toLowerCase().includes('tanggal') ||
+        merk.toLowerCase().includes('jenis') ||
+        merk.toLowerCase().includes('blend') ||
+        merk.toLowerCase().includes('camp');
+      if (isHeaderOrSummary) continue;
+
       // Normalisasi teks bulan bahasa Inggris ke bahasa Indonesia
       const enToId: Record<string, string> = {
         january: 'Januari', february: 'Februari', march: 'Maret', april: 'April',
@@ -1226,7 +1235,7 @@ function parseGvizCsv(csv: string): RawBlendRow[] {
       const molenDetail = formatMolenWithCycle(molenRaw, noMolenRaw || String((i % 3) + 1));
       const suhu = cols[13] ? parseNum(cols[13]) : null;
 
-      if (!isNaN(bobot) && !isNaN(hasil) && tanggal && merk) {
+      if (!isNaN(bobot) && !isNaN(hasil) && bobot > 0 && hasil > 0 && tanggal && merk) {
         if (isNaN(susutKg)) susutKg = round2(bobot - hasil);
         rows.push({
           srcRow: i + 1,
