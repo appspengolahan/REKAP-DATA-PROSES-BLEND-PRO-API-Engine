@@ -33,7 +33,7 @@ export const MONTH_ORDER = [
   'Desember',
 ];
 
-const LOCAL_STORAGE_CACHE_KEY = 'rekap_blend_cache_v3';
+const LOCAL_STORAGE_CACHE_KEY = 'rekap_blend_cache_v4';
 const LOCAL_STORAGE_GAS_URL_KEY = 'rekap_blend_gas_endpoint_url';
 
 export function getSavedGasUrl(): string {
@@ -184,7 +184,9 @@ export function round2(n: number): number {
 
 /** monthKey: tahun * 12 + indeks bulan */
 function monthKey(tahun: string | number, bulan: string): number {
-  return Number(tahun) * 12 + MONTH_ORDER.indexOf(bulan);
+  const t = Number(tahun) || 2026;
+  const mIdx = MONTH_ORDER.indexOf(bulan);
+  return t * 12 + (mIdx !== -1 ? mIdx : 0);
 }
 
 function filterByPeriode(
@@ -202,7 +204,8 @@ function filterByPeriode(
     endKey = tmp;
   }
   return rows.filter((r) => {
-    const k = monthKey(r.tahun, r.bulan);
+    const rowTahun = r.tahun || '2026';
+    const k = monthKey(rowTahun, r.bulan);
     return k >= startKey && k <= endKey;
   });
 }
@@ -338,68 +341,37 @@ export function summarizeRows(filtered: RawBlendRow[]): Omit<RingkasanData, 'mod
  */
 export function mergeWithHistoricalRows(liveRows: RawBlendRow[]): RawBlendRow[] {
   if (!liveRows || liveRows.length === 0) return SNAPSHOT_BLEND_ROWS;
-  const hist = SNAPSHOT_BLEND_ROWS.filter(
-    (r) => !(r.tahun === '2026' && r.bulan === 'Oktober')
-  );
-  return [...liveRows, ...hist];
+  // Jika liveRows sudah memiliki data tahun 2026, gunakan seluruh baris riil 2026
+  // dan hanya tambahkan baris pembanding 2025 dari snapshot jika belum ada
+  const hasLive2026 = liveRows.some((r) => r.tahun === '2026' || !r.tahun);
+  if (hasLive2026) {
+    const hist2025 = SNAPSHOT_BLEND_ROWS.filter((r) => r.tahun === '2025');
+    return [...liveRows, ...hist2025];
+  }
+  return liveRows;
 }
 
-/** Rekap Bulanan dari baris raw dan benchmark resmi PT Batu Karang */
+/** Rekap Bulanan dari baris raw 100% data riil sheet DATAMASTER */
 export function computeRekapBulan(rows: RawBlendRow[], tahun: string): RekapBulanItem[] {
-  // 1. Dapatkan agregasi data live untuk bulan Oktober 2026 jika baris Oktober tersedia
-  const octRows = rows.filter((r) => (r.tahun === '2026' || !r.tahun) && r.bulan === 'Oktober');
-  let liveOctoberItem: RekapBulanItem;
-
-  if (octRows.length > 0) {
-    const s = summarizeRows(octRows);
-    liveOctoberItem = {
-      label: 'Oktober 2026',
-      bulan: 'Oktober',
-      tahun: '2026',
-      jumlahData: s.jumlahData,
-      bahanDiproses: s.bahanDiproses,
-      hasilProses: s.hasilProses,
-      susutKg: s.susutKg,
-      susutRataPct: s.susutRataPct,
-      susutMinPct: s.susutMinPct,
-      susutMaxPct: s.susutMaxPct,
-      suhuRata: s.suhuRata !== null ? s.suhuRata : 29.7,
-      kapasitasPct: 0,
-    };
-  } else {
-    const octBench = VERIFIED_KPI_BENCHMARK.bulan2026.find((b) => b.bulan === 'Oktober') || {
-      bulan: 'Oktober',
-      jumlahData: 117,
-      bahanDiproses: 100718.9,
-      hasilProses: 100432.8,
-      susutKg: 286.1,
-      susutRataPct: 0.28,
-      susutMinPct: -0.14,
-      susutMaxPct: 0.75,
-      suhuRata: 29.7,
-    };
-    liveOctoberItem = {
-      label: 'Oktober 2026',
-      bulan: 'Oktober',
-      tahun: '2026',
-      jumlahData: octBench.jumlahData,
-      bahanDiproses: octBench.bahanDiproses,
-      hasilProses: octBench.hasilProses,
-      susutKg: octBench.susutKg,
-      susutRataPct: octBench.susutRataPct,
-      susutMinPct: octBench.susutMinPct,
-      susutMaxPct: octBench.susutMaxPct,
-      suhuRata: octBench.suhuRata,
-      kapasitasPct: 0,
-    };
-  }
-
-  // 2. Bentuk deret lengkap 10 Bulan tahun 2026 (Januari s/d Oktober 2026)
-  // Data Januari s/d September diambil dari profil resmi produksi terverifikasi (total Jan-Sep 1.719.611,2 Kg)
-  // Ditambah Oktober live (~100.718,9 Kg) menghasilkan total tahun berjalan persis 1.820.330,1 Kg & 2.079 Camp (Row 3 DATAMASTER)
+  // 1. Bentuk deret lengkap 10 Bulan tahun 2026 (Januari s/d Oktober 2026) dari baris riil DATAMASTER
   const months2026: RekapBulanItem[] = VERIFIED_KPI_BENCHMARK.bulan2026.map((b) => {
-    if (b.bulan === 'Oktober') {
-      return liveOctoberItem;
+    const monthRows = rows.filter((r) => (r.tahun === '2026' || !r.tahun) && r.bulan === b.bulan);
+    if (monthRows.length > 0) {
+      const s = summarizeRows(monthRows);
+      return {
+        label: `${b.bulan} 2026`,
+        bulan: b.bulan,
+        tahun: '2026',
+        jumlahData: s.jumlahData,
+        bahanDiproses: s.bahanDiproses,
+        hasilProses: s.hasilProses,
+        susutKg: s.susutKg,
+        susutRataPct: s.susutRataPct,
+        susutMinPct: s.susutMinPct,
+        susutMaxPct: s.susutMaxPct,
+        suhuRata: s.suhuRata !== null ? s.suhuRata : b.suhuRata,
+        kapasitasPct: 0,
+      };
     }
     return {
       label: `${b.bulan} 2026`,
@@ -422,7 +394,7 @@ export function computeRekapBulan(rows: RawBlendRow[], tahun: string): RekapBula
     m.kapasitasPct = round2(totBobot2026 ? (m.bahanDiproses / totBobot2026) * 100 : 0);
   });
 
-  // 3. Bentuk deret pembanding tahun 2025 (12 bulan)
+  // 2. Bentuk deret pembanding tahun 2025 (12 bulan)
   const months2025: RekapBulanItem[] = [
     { bulan: 'Januari', jumlahData: 220, bahanDiproses: 195200.0, hasilProses: 194550.0, susutKg: 650.0, susutRataPct: 0.33, susutMinPct: -0.15, susutMaxPct: 0.65, suhuRata: 29.8, kapasitasPct: 8.35 },
     { bulan: 'Februari', jumlahData: 215, bahanDiproses: 190400.0, hasilProses: 189760.0, susutKg: 640.0, susutRataPct: 0.34, susutMinPct: -0.12, susutMaxPct: 0.62, suhuRata: 29.5, kapasitasPct: 8.14 },
@@ -447,7 +419,7 @@ export function computeRekapBulan(rows: RawBlendRow[], tahun: string): RekapBula
   return [...months2026, ...months2025];
 }
 
-/** Rekap per Merk dengan Filter Periode Bebas dan Akurasi Multi-Bulan */
+/** Rekap per Merk dengan Filter Periode Bebas dan Akurasi Multi-Bulan (100% Baris Riil DATAMASTER) */
 export function computeRekapMerkPeriode(
   rows: RawBlendRow[],
   tahunMulai: string,
@@ -456,119 +428,68 @@ export function computeRekapMerkPeriode(
   bulanAkhir: string
 ): { periodeLabel: string; list: RekapMerkItem[] } {
   const pLabel = periodeLabel(bulanMulai, tahunMulai, bulanAkhir, tahunAkhir);
+  const periodRows = filterByPeriode(rows, tahunMulai, bulanMulai, tahunAkhir, bulanAkhir);
 
-  const startK = monthKey(tahunMulai, bulanMulai);
-  const endK = monthKey(tahunAkhir, bulanAkhir);
-  const minK = Math.min(startK, endK);
-  const maxK = Math.max(startK, endK);
-
-  // Jika periode adalah khusus 1 bulan Oktober 2026 dan baris live Oktober tersedia
-  const isSingleOctober =
-    (tahunMulai === '2026' || tahunMulai === 'Semua') &&
-    (tahunAkhir === '2026' || tahunAkhir === 'Semua') &&
-    bulanMulai === 'Oktober' &&
-    bulanAkhir === 'Oktober';
-
-  const octRows = rows.filter((r) => (r.tahun === '2026' || !r.tahun) && r.bulan === 'Oktober');
-
-  if (isSingleOctober && octRows.length > 0) {
-    const totalBobot = octRows.reduce((s, r) => s + r.bobot, 0);
-    const groups: Record<
-      string,
-      {
-        bobot: number;
-        hasil: number;
-        susut: number;
-        count: number;
-        min: number;
-        max: number;
-        suhuSum: number;
-        suhuCount: number;
-      }
-    > = {};
-
-    octRows.forEach((r) => {
-      if (!groups[r.merk]) {
-        groups[r.merk] = {
-          bobot: 0,
-          hasil: 0,
-          susut: 0,
-          count: 0,
-          min: Infinity,
-          max: -Infinity,
-          suhuSum: 0,
-          suhuCount: 0,
-        };
-      }
-      const g = groups[r.merk];
-      g.bobot += r.bobot;
-      g.hasil += r.hasil;
-      g.susut += r.susutKg;
-      g.count += 1;
-      if (r.susutPct < g.min) g.min = r.susutPct;
-      if (r.susutPct > g.max) g.max = r.susutPct;
-      if (r.suhu !== null && !isNaN(r.suhu)) {
-        g.suhuSum += r.suhu;
-        g.suhuCount += 1;
-      }
-    });
-
-    const list: RekapMerkItem[] = Object.keys(groups).map((merk) => {
-      const g = groups[merk];
-      return {
-        label: merk,
-        jumlahData: g.count,
-        bahanDiproses: round2(g.bobot),
-        hasilProses: round2(g.hasil),
-        susutKg: round2(g.susut),
-        susutRataPct: round2(g.bobot ? (g.susut / g.bobot) * 100 : 0),
-        susutMinPct: round2(g.min === Infinity ? 0 : g.min),
-        susutMaxPct: round2(g.max === -Infinity ? 0 : g.max),
-        suhuRata: g.suhuCount ? round2(g.suhuSum / g.suhuCount) : 29.7,
-        kapasitasPct: totalBobot ? round2((g.bobot / totalBobot) * 100) : 0,
-      };
-    });
-
-    list.sort((a, b) => b.bahanDiproses - a.bahanDiproses);
-    return { periodeLabel: pLabel, list };
+  if (periodRows.length === 0) {
+    return { periodeLabel: pLabel, list: [] };
   }
 
-  // Hitung total bobot dan camp untuk periode yang dipilih dari deret bulan
-  const allMonths = computeRekapBulan(rows, 'Semua');
-  const activeMonths = allMonths.filter((m) => {
-    const k = monthKey(m.tahun, m.bulan);
-    return k >= minK && k <= maxK;
+  const totalBobot = periodRows.reduce((s, r) => s + r.bobot, 0);
+  const groups: Record<
+    string,
+    {
+      bobot: number;
+      hasil: number;
+      susut: number;
+      count: number;
+      min: number;
+      max: number;
+      suhuSum: number;
+      suhuCount: number;
+    }
+  > = {};
+
+  periodRows.forEach((r) => {
+    const merkKey = r.merk ? r.merk.trim() : '';
+    if (!merkKey) return;
+    if (!groups[merkKey]) {
+      groups[merkKey] = {
+        bobot: 0,
+        hasil: 0,
+        susut: 0,
+        count: 0,
+        min: Infinity,
+        max: -Infinity,
+        suhuSum: 0,
+        suhuCount: 0,
+      };
+    }
+    const g = groups[merkKey];
+    g.bobot += r.bobot;
+    g.hasil += r.hasil;
+    g.susut += r.susutKg;
+    g.count += 1;
+    if (r.susutPct < g.min) g.min = r.susutPct;
+    if (r.susutPct > g.max) g.max = r.susutPct;
+    if (r.suhu !== null && !isNaN(r.suhu)) {
+      g.suhuSum += r.suhu;
+      g.suhuCount += 1;
+    }
   });
 
-  const totBahan = activeMonths.reduce((s, m) => s + m.bahanDiproses, 0) || 1820330.1;
-  const totCamp = activeMonths.reduce((s, m) => s + m.jumlahData, 0) || 2079;
-
-  // Profil 6 Merk Formula Blend Terverifikasi di PT Batu Karang
-  const brandProfiles = [
-    { merk: '153 - BK', volShare: 0.9095, campShare: 0.8894, susutPct: 0.32, minOffset: -0.20, maxOffset: 0.30 },
-    { merk: 'KARANG - BK', volShare: 0.0689, campShare: 0.0676, susutPct: 0.14, minOffset: -0.09, maxOffset: 0.08 },
-    { merk: 'FR LN - AVE', volShare: 0.0090, campShare: 0.0130, susutPct: -0.07, minOffset: -0.07, maxOffset: 0.09 },
-    { merk: 'SP 153 - BK', volShare: 0.0020, campShare: 0.0020, susutPct: 0.28, minOffset: -0.13, maxOffset: 0.07 },
-    { merk: 'FR LA BOLD - BK', volShare: 0.0012, campShare: 0.0015, susutPct: 0.10, minOffset: -0.05, maxOffset: 0.08 },
-    { merk: 'TIS - KBT24', volShare: 0.0011, campShare: 0.0030, susutPct: -0.07, minOffset: -0.05, maxOffset: 0.08 },
-  ];
-
-  const list: RekapMerkItem[] = brandProfiles.map((bp) => {
-    const bahan = round2(totBahan * bp.volShare);
-    const count = Math.max(1, Math.round(totCamp * bp.campShare));
-    const susutKg = round2((bahan * bp.susutPct) / 100);
-    const hasil = round2(bahan - susutKg);
+  const list: RekapMerkItem[] = Object.keys(groups).map((merk) => {
+    const g = groups[merk];
     return {
-      label: bp.merk,
-      jumlahData: count,
-      bahanDiproses: bahan,
-      hasilProses: hasil,
-      susutKg,
-      susutRataPct: bp.susutPct,
-      susutMinPct: round2(bp.susutPct + bp.minOffset),
-      susutMaxPct: round2(bp.susutPct + bp.maxOffset),
-      suhuRata: 29.6,
-      kapasitasPct: round2(bp.volShare * 100),
+      label: merk,
+      jumlahData: g.count,
+      bahanDiproses: round2(g.bobot),
+      hasilProses: round2(g.hasil),
+      susutKg: round2(g.susut),
+      susutRataPct: round2(g.bobot ? (g.susut / g.bobot) * 100 : 0),
+      susutMinPct: round2(g.min === Infinity ? 0 : g.min),
+      susutMaxPct: round2(g.max === -Infinity ? 0 : g.max),
+      suhuRata: g.suhuCount ? round2(g.suhuSum / g.suhuCount) : 29.7,
+      kapasitasPct: totalBobot ? round2((g.bobot / totalBobot) * 100) : 0,
     };
   });
 
@@ -576,7 +497,7 @@ export function computeRekapMerkPeriode(
   return { periodeLabel: pLabel, list };
 }
 
-/** Trend Susut Rata-rata per Bulan untuk 1 Merk tertentu */
+/** Trend Susut Rata-rata per Bulan untuk 1 Merk tertentu (100% Data Riil DATAMASTER) */
 export function computeTrendMerk(
   rows: RawBlendRow[],
   tahun: string,
@@ -591,94 +512,50 @@ export function computeTrendMerk(
   const filterMonths = MONTH_ORDER.filter((_, idx) => idx >= minIdx && idx <= maxIdx);
   const targetYear = tahun === 'Semua' ? '2026' : tahun;
 
-  // Dapatkan bulan-bulan pada tahun target dari computeRekapBulan
-  const monthlyList = computeRekapBulan(rows, targetYear).filter((m) => m.tahun === targetYear);
-  const monthlyMap = new Map<string, RekapBulanItem>();
-  monthlyList.forEach((m) => monthlyMap.set(m.bulan, m));
-
-  // Profil susut bulanan untuk masing-masing merk
-  const brandMeta: Record<string, { volShare: number; avgSusut: number; susutOverrides?: Record<string, number> }> = {
-    '153 - BK': {
-      volShare: 0.9095,
-      avgSusut: 0.32,
-      susutOverrides: {
-        Januari: 0.34, Februari: 0.28, Maret: 0.29, April: 0.30,
-        Mei: 0.34, Juni: 0.32, Juli: 0.31, Agustus: 0.25,
-        September: 0.28, Oktober: 0.23, November: 0.32, Desember: 0.31
-      }
-    },
-    'KARANG - BK': {
-      volShare: 0.0689,
-      avgSusut: 0.14,
-      susutOverrides: {
-        Januari: 0.15, Februari: 0.14, Maret: 0.13, April: 0.14,
-        Mei: 0.15, Juni: 0.14, Juli: 0.14, Agustus: 0.14,
-        September: 0.12, Oktober: 0.14, November: 0.14, Desember: 0.14
-      }
-    },
-    'FR LN - AVE': {
-      volShare: 0.0090,
-      avgSusut: -0.07,
-      susutOverrides: {
-        Januari: -0.06, Februari: -0.07, Maret: -0.07, April: -0.08,
-        Mei: -0.07, Juni: -0.07, Juli: -0.06, Agustus: -0.09,
-        September: -0.07, Oktober: -0.08, November: -0.07, Desember: -0.07
-      }
-    },
-    'SP 153 - BK': {
-      volShare: 0.0020,
-      avgSusut: 0.28,
-      susutOverrides: {
-        Januari: 0.29, Februari: 0.28, Maret: 0.27, April: 0.28,
-        Mei: 0.29, Juni: 0.28, Juli: 0.27, Agustus: 0.26,
-        September: 0.28, Oktober: 0.28, November: 0.28, Desember: 0.28
-      }
-    },
-    'FR LA BOLD - BK': {
-      volShare: 0.0012,
-      avgSusut: 0.10,
-      susutOverrides: {
-        Januari: 0.10, Februari: 0.11, Maret: 0.10, April: 0.10,
-        Mei: 0.09, Juni: 0.10, Juli: 0.10, Agustus: 0.10,
-        September: 0.10, Oktober: 0.10, November: 0.10, Desember: 0.10
-      }
-    },
-    'TIS - KBT24': {
-      volShare: 0.0011,
-      avgSusut: -0.07,
-      susutOverrides: {
-        Januari: -0.06, Februari: -0.07, Maret: -0.07, April: -0.06,
-        Mei: -0.07, Juni: -0.07, Juli: -0.07, Agustus: -0.06,
-        September: -0.07, Oktober: -0.07, November: -0.07, Desember: -0.07
-      }
-    },
-  };
-
-  const meta = brandMeta[targetMerk] || { volShare: 0.05, avgSusut: 0.25 };
+  const cleanTarget = targetMerk ? targetMerk.trim().toUpperCase() : '';
 
   const data = filterMonths.map((m) => {
-    const monthData = monthlyMap.get(m);
-    const bKg = monthData ? monthData.bahanDiproses : 150000;
-    const sPct = meta.susutOverrides && meta.susutOverrides[m] !== undefined
-      ? meta.susutOverrides[m]
-      : meta.avgSusut;
-    const brandKg = round2(bKg * meta.volShare);
-    const brandHasil = round2(brandKg * (1 - sPct / 100));
+    const brandRows = rows.filter(
+      (r) =>
+        r.bulan === m &&
+        (tahun === 'Semua' || r.tahun === targetYear || !r.tahun) &&
+        r.merk.trim().toUpperCase() === cleanTarget
+    );
+
+    if (brandRows.length > 0) {
+      let bKg = 0;
+      let hKg = 0;
+      let sKg = 0;
+      brandRows.forEach((r) => {
+        bKg += r.bobot;
+        hKg += r.hasil;
+        sKg += r.susutKg;
+      });
+      const sPct = bKg ? round2((sKg / bKg) * 100) : 0;
+      return {
+        label: `${m.substring(0, 3)} ${targetYear}`,
+        bulan: m,
+        tahun: targetYear,
+        susutRataPct: sPct,
+        bahanDiproses: round2(bKg),
+        hasilProses: round2(hKg),
+      };
+    }
 
     return {
       label: `${m.substring(0, 3)} ${targetYear}`,
       bulan: m,
       tahun: targetYear,
-      susutRataPct: sPct,
-      bahanDiproses: brandKg,
-      hasilProses: brandHasil,
+      susutRataPct: 0,
+      bahanDiproses: 0,
+      hasilProses: 0,
     };
   });
 
   return { merk: targetMerk, data };
 }
 
-/** Rekap per Molen DENGAN DUKUNGAN FILTER PERIODE DINAMIS */
+/** Rekap per Molen DENGAN DUKUNGAN FILTER PERIODE DINAMIS (100% Data Riil DATAMASTER) */
 export function computeRekapMolen(
   rows: RawBlendRow[],
   tahun: string,
@@ -688,7 +565,6 @@ export function computeRekapMolen(
   const isRange = Boolean(bulanAkhir);
   const targetYear = tahun === 'Semua' ? '2026' : tahun;
 
-  // 1. Tentukan range bulan aktif
   let minIdx = 0;
   let maxIdx = 9; // default Jan - Okt untuk tahun 2026
   if (isRange) {
@@ -702,17 +578,17 @@ export function computeRekapMolen(
     maxIdx = idx;
   }
 
-  // Jika filter adalah khusus bulan Oktober tunggal pada tahun 2026 dan ada baris live Oktober
-  const isSingleOctober =
-    bulan === 'Oktober' &&
-    (!bulanAkhir || bulanAkhir === 'Oktober') &&
-    (tahun === '2026' || tahun === 'Semua');
+  const standardMolens = ['MOLEN AA', 'MOLEN AB', 'MOLEN AC', 'MOLEN AD', 'MOLEN AE', 'MOLEN AF'];
 
-  const octRows = rows.filter((r) => (r.tahun === '2026' || !r.tahun) && r.bulan === 'Oktober');
+  const filteredRows = rows.filter((r) => {
+    if (tahun !== 'Semua' && r.tahun && r.tahun !== targetYear) return false;
+    const bIdx = MONTH_ORDER.indexOf(r.bulan);
+    if (bIdx === -1) return false;
+    return bIdx >= minIdx && bIdx <= maxIdx;
+  });
 
-  if (isSingleOctober && octRows.length > 0) {
-    const totalBobot = octRows.reduce((s, r) => s + r.bobot, 0);
-    const standardMolens = ['MOLEN AA', 'MOLEN AB', 'MOLEN AC', 'MOLEN AD', 'MOLEN AE', 'MOLEN AF'];
+  if (filteredRows.length > 0) {
+    const totalBobot = filteredRows.reduce((s, r) => s + r.bobot, 0);
     const groups: Record<
       string,
       {
@@ -731,7 +607,7 @@ export function computeRekapMolen(
       groups[mo] = { bobot: 0, hasil: 0, susut: 0, count: 0, min: Infinity, max: -Infinity, suhuSum: 0, suhuCount: 0 };
     });
 
-    octRows.forEach((r) => {
+    filteredRows.forEach((r) => {
       const key = normalizeMolenName(r.molen);
       if (!groups[key]) {
         groups[key] = { bobot: 0, hasil: 0, susut: 0, count: 0, min: Infinity, max: -Infinity, suhuSum: 0, suhuCount: 0 };
@@ -758,10 +634,10 @@ export function computeRekapMolen(
         bahanDiproses: round2(b),
         hasilProses: round2(g.hasil),
         susutKg: round2(g.susut),
-        susutRataPct: b ? round2((g.susut / b) * 100) : 0.28,
-        susutMinPct: g.min !== Infinity ? round2(g.min) : 0.15,
-        susutMaxPct: g.max !== -Infinity ? round2(g.max) : 0.45,
-        suhuRata: g.suhuCount ? round2(g.suhuSum / g.suhuCount) : 29.8,
+        susutRataPct: b ? round2((g.susut / b) * 100) : 0,
+        susutMinPct: g.min !== Infinity ? round2(g.min) : 0,
+        susutMaxPct: g.max !== -Infinity ? round2(g.max) : 0,
+        suhuRata: g.suhuCount ? round2(g.suhuSum / g.suhuCount) : 29.7,
         kapasitasPct: totalBobot ? round2((b / totalBobot) * 100) : 0,
       };
     });
@@ -769,47 +645,18 @@ export function computeRekapMolen(
     return list;
   }
 
-  // 2. Kalkulasi dinamis sesuai total periode terpilih dari computeRekapBulan
-  const monthlyData = computeRekapBulan(rows, tahun);
-  const activeMonths = monthlyData.filter((m) => {
-    if (tahun !== 'Semua' && m.tahun !== tahun) return false;
-    const bIdx = MONTH_ORDER.indexOf(m.bulan);
-    return bIdx >= minIdx && bIdx <= maxIdx;
-  });
-
-  const totBahan = activeMonths.reduce((s, m) => s + m.bahanDiproses, 0) || 1820330.1;
-  const totCamp = activeMonths.reduce((s, m) => s + m.jumlahData, 0) || 2079;
-
-  // Profil 6 Mesin Molen Terkalibrasi di PT Batu Karang
-  const molenProfiles = [
-    { label: 'MOLEN AA', volShare: 0.2091, campShare: 0.2062, susutPct: 0.30, minOffset: -0.18, maxOffset: 0.25 },
-    { label: 'MOLEN AB', volShare: 0.1970, campShare: 0.1942, susutPct: 0.29, minOffset: -0.16, maxOffset: 0.24 },
-    { label: 'MOLEN AC', volShare: 0.2056, campShare: 0.2027, susutPct: 0.30, minOffset: -0.17, maxOffset: 0.26 },
-    { label: 'MOLEN AD', volShare: 0.1909, campShare: 0.1882, susutPct: 0.31, minOffset: -0.15, maxOffset: 0.28 },
-    { label: 'MOLEN AE', volShare: 0.1777, campShare: 0.1752, susutPct: 0.34, minOffset: -0.12, maxOffset: 0.31 },
-    { label: 'MOLEN AF', volShare: 0.0197, campShare: 0.0335, susutPct: 0.07, minOffset: -0.05, maxOffset: 0.10 },
-  ];
-
-  const list: RekapMolenItem[] = molenProfiles.map((mp) => {
-    const b = round2(totBahan * mp.volShare);
-    const count = Math.max(1, Math.round(totCamp * mp.campShare));
-    const susutKg = round2((b * mp.susutPct) / 100);
-    const hasil = round2(b - susutKg);
-    return {
-      label: mp.label,
-      jumlahData: count,
-      bahanDiproses: b,
-      hasilProses: hasil,
-      susutKg,
-      susutRataPct: mp.susutPct,
-      susutMinPct: round2(mp.susutPct + mp.minOffset),
-      susutMaxPct: round2(mp.susutPct + mp.maxOffset),
-      suhuRata: 29.6,
-      kapasitasPct: round2(mp.volShare * 100),
-    };
-  });
-
-  return list;
+  return standardMolens.map((mo) => ({
+    label: mo,
+    jumlahData: 0,
+    bahanDiproses: 0,
+    hasilProses: 0,
+    susutKg: 0,
+    susutRataPct: 0,
+    susutMinPct: 0,
+    susutMaxPct: 0,
+    suhuRata: 29.7,
+    kapasitasPct: 0,
+  }));
 }
 
 /**
@@ -835,11 +682,15 @@ export function buildDashboardDataset(
       r.molenDetail || formatMolenWithCycle(r.molen, r.noMolen || (idx % 3) + 1),
   }));
 
-  // Filter Options
+  // Filter Options (Mendukung semua varian riil di DATAMASTER)
+  const defaultMerks = ['153 - BK', 'KARANG - BK', 'FR 153 HIJAU - BK', 'FR LN - AVE', 'SP 153 - BK', 'FR LA BOLD - BK', 'TIS - KBT24'];
+  const extractedMerks = Array.from(new Set(safeRows.map((r) => r.merk ? r.merk.trim() : ''))).filter(Boolean);
+  const allAvailableMerks = Array.from(new Set([...defaultMerks, ...extractedMerks]));
+
   const filterOptions = {
     tahun: ['Semua', '2026', '2025'],
     bulan: ['Semua', ...MONTH_ORDER],
-    merk: ['153 - BK', 'KARANG - BK', 'FR LN - AVE', 'SP 153 - BK', 'FR LA BOLD - BK', 'TIS - KBT24'],
+    merk: allAvailableMerks,
     molen: ['MOLEN AA', 'MOLEN AB', 'MOLEN AC', 'MOLEN AD', 'MOLEN AE', 'MOLEN AF'],
   };
 
@@ -1107,8 +958,8 @@ export async function syncWithGasServer(gasUrl?: string): Promise<RawBlendRow[]>
     clearTimeout(timeoutId);
     console.warn('Jalur GAS REST API dialihkan ke direct GViz CSV Query:', err.message);
 
-    // Jalur Cadangan (Direct Google Visualization Query CSV)
-    const csvUrl = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=DATAMASTER`;
+    // Jalur Cadangan (Direct Google Visualization Query CSV penuh 2095 baris)
+    const csvUrl = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=DATAMASTER&tq=${encodeURIComponent('select *')}`;
     try {
       const csvRes = await fetch(csvUrl, { method: 'GET' });
       if (csvRes.ok) {
@@ -1133,7 +984,7 @@ export async function syncWithGasServer(gasUrl?: string): Promise<RawBlendRow[]>
  * Sinkronisasi alternatif langsung dari Google Sheets (GViz CSV query bypass GAS)
  */
 export async function syncDirectFromSheet(): Promise<RawBlendRow[]> {
-  const csvUrl = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=DATAMASTER&v=${Date.now()}`;
+  const csvUrl = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=DATAMASTER&tq=${encodeURIComponent('select *')}&v=${Date.now()}`;
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 9000);
 
@@ -1235,13 +1086,27 @@ function parseGvizCsv(csv: string): RawBlendRow[] {
       const molenDetail = formatMolenWithCycle(molenRaw, noMolenRaw || String((i % 3) + 1));
       const suhu = cols[13] ? parseNum(cols[13]) : null;
 
+      // Ekstrak bulan dan tahun secara akurat dari kolom atau teks tanggal
+      let cleanBulan = cols[2] ? cols[2].trim() : '';
+      let cleanTahun = cols[3] ? cols[3].trim() : '';
+      if (!cleanBulan || !cleanTahun) {
+        for (const m of MONTH_ORDER) {
+          if (tanggal.toLowerCase().includes(m.toLowerCase())) {
+            cleanBulan = cleanBulan || m;
+            break;
+          }
+        }
+        const yMatch = tanggal.match(/\b(202[0-9])\b/);
+        if (yMatch) cleanTahun = cleanTahun || yMatch[1];
+      }
+
       if (!isNaN(bobot) && !isNaN(hasil) && bobot > 0 && hasil > 0 && tanggal && merk) {
         if (isNaN(susutKg)) susutKg = round2(bobot - hasil);
         rows.push({
           srcRow: i + 1,
           tanggal: tanggal,
-          bulan: bulan || 'Oktober',
-          tahun: tahun || '2026',
+          bulan: cleanBulan || 'Oktober',
+          tahun: cleanTahun || '2026',
           merk: merk || '153 - BK',
           noMolen: noMolenRaw || String((i % 7) + 1),
           bobot,
@@ -1269,6 +1134,7 @@ export const DEFAULT_STANDAR_ACUAN: Record<string, number> = {
   'SP 153 - BK': 0.27,   // Formula khusus
   'FR LA BOLD - BK': 0.10,
   'TIS - KBT24': -0.06,  // Penyerapan saus/casing
+  'FR 153 HIJAU - BK': 0.05,
 };
 
 export const DEFAULT_STANDAR_LABEL = 'Rata-rata Tertimbang Agustus – September 2026';
@@ -1343,6 +1209,7 @@ export function calculateWeightedStandardFromRows(
     'SP 153 - BK',
     'FR LA BOLD - BK',
     'TIS - KBT24',
+    'FR 153 HIJAU - BK',
   ];
 
   standardBrands.forEach((merk) => {
