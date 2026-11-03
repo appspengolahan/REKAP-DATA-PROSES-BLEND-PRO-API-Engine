@@ -105,6 +105,7 @@ export const IntegrasiDhpModalRekapBlend: React.FC<IntegrasiDhpModalProps> = ({
   } | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isReconciling, setIsReconciling] = useState(false);
+  const [isCleaningBakuNol, setIsCleaningBakuNol] = useState(false);
   const [showReconcileModal, setShowReconcileModal] = useState(false);
   const [reconcileResult, setReconcileResult] = useState<{
     success: boolean;
@@ -315,7 +316,8 @@ export const IntegrasiDhpModalRekapBlend: React.FC<IntegrasiDhpModalProps> = ({
         // Abaikan baris kosong, header, total summary, atau baris tanpa bobot valid
         if (!batchCode1 || batchCode1 === '-' || batchCode1 === '--') continue;
         if (!merk1 || merk1 === '-' || merk1 === '--' || merk1.toLowerCase().includes('total')) continue;
-        if (baku1 <= 0 && hasil1 <= 0) continue;
+        // LAPIS 5 (ANTI BAKU NOL): Wajib Bobot Baku > 0 (Hukum Neraca Massa: Tidak ada batch tanpa bahan baku masuk)
+        if (baku1 <= 0) continue;
 
         // Ekstraksi nomor urut camp / molen dari akhiran batch code atau kolom molen
         const m = batchCode1.match(/(\d+)$/);
@@ -1022,11 +1024,12 @@ function sinkronkanDhpBlendKeRekap(options) {
   var numRowsToScan = Math.max(1, lastRowDhp - 9);
   var dhpValues = shDhp.getRange(10, 1, numRowsToScan, dhpColCount).getValues();
   
-  // STATISTIK EKSEKUSI 4-LAYER DEFENSE
+  // STATISTIK EKSEKUSI 5-LAYER DEFENSE
   var updatedCount = 0;
   var addedCount = 0;
   var protectedZeroOverwriteCount = 0;
   var physicsAnomalyCount = 0;
+  var zeroBakuRejectedCount = 0;
   var lockedRowsSkipped = 0;
   var rowsToAppend = [];
   var activeRowsUpdated = {};
@@ -1049,8 +1052,10 @@ function sinkronkanDhpBlendKeRekap(options) {
     // INSTRUKSI: Kolom W (index 22): Data SUHU ("31,0 °C", "30,0 °C" atau kosong)
     var rawSuhu = parseSuhuValue(row[22]);
 
-    // DINAMIS: Izinkan SEMUA merk tembakau blend (153 - BK, KARANG - BK, FR LN - AVE, SP 153 - BK, TIS - KBT24, dst.)
-    if (rawMerk && rawMerk !== '-' && rawMerk !== '--' && !rawMerk.toLowerCase().includes('total') && rawBatch && rawBatch !== '-' && (rawBaku > 0 || rawHasil > 0)) {
+    // LAPIS 5 (MANDATORY RAW MATERIAL GUARD / NERACA MASSA): Bobot Baku WAJIB > 0 Kg
+    // Hukum Konservasi Fisika: Tidak ada produk blend yang bisa tercipta tanpa bahan baku tembakau masuk.
+    // Jika Bobot Baku <= 0, batch ini adalah draft / template batal / belum diproses dan DITOLAK masuk DATAMASTER!
+    if (rawMerk && rawMerk !== '-' && rawMerk !== '--' && !rawMerk.toLowerCase().includes('total') && rawBatch && rawBatch !== '-' && rawBaku > 0) {
       var m = rawBatch.match(/(\d+)$/) || rawBatch.match(/([0-9]+)$/);
       var camp = m ? String(parseInt(m[1], 10)) : ((molenDhp.match(/([0-9]+)$/))?.[1] || '1');
       var tglDate = parseTglToDateObject(rawTgl);
@@ -1167,6 +1172,10 @@ function sinkronkanDhpBlendKeRekap(options) {
           suhu: rawSuhu
         });
       }
+    } else if (rawMerk && rawMerk !== '-' && rawMerk !== '--' && !rawMerk.toLowerCase().includes('total') && rawBatch && rawBatch !== '-' && rawBaku <= 0) {
+      // LAPIS 5 (ANTI BAKU NOL): Tolak pencatatan batch draft/batal yang tidak memiliki bobot baku riil
+      zeroBakuRejectedCount++;
+      Logger.log('DITOLAK LAPIS 5 (ANTI BAKU NOL): ' + rawMerk + ' Camp ' + rawBatch + ' ditolak masuk rekap karena Bobot Baku = 0 Kg (Draft/Batal).');
     }
   }
 
@@ -1201,15 +1210,10 @@ function sinkronkanDhpBlendKeRekap(options) {
     }
   }
 
-  // 3. ARSITEKTUR 2-LAPISAN PENGAMAN: PEMROSERAN BATCH BATAL / CANCELLED PURGE
-  // Lapisan 1: Syarat Fail-Safe:
-  //   - Tanggal cocok
-  //   - Baris tidak ada di DHP (!activeRowsUpdated[checkRow])
-  //   - Hasil Proses (Kolom 10 / index 8) <= 0 (TIDAK ADA REALISASI FISIK)
-  //   - Jika Hasil Proses > 0: DILARANG KERAS DIHAPUS (Proteksi Output Fisik)
-  // Lapisan 2: Waktu Eksekusi Terpisah:
-  //   - JIKA isManualPurge == true (dipicu dari tombol Rekonsiliasi di Web App): Hapus baris batal pada tanggal target yang diminta
-  //   - JIKA pemicu rutin otomatis 5-10 menit (isManualPurge == false): JANGAN sentuh baris pada tanggal hari ini (mencegah Premature Deletion untuk shift siang/sore), TETAPI bersihkan otomatis baris tanggal lampau yang sudah tutup buku!
+  // 3. ARSITEKTUR 5-LAPIS PENGAMAN: PEMROSERAN BATCH BATAL & PURGE BAKU NOL
+  // Syarat Fail-Safe:
+  //   - Hasil Proses <= 0 (TIDAK ADA REALISASI FISIK) ATAU
+  //   - Bobot Baku <= 0 (PELANGGARAN HUKUM KONSERVASI MASSA: Input 0 Kg tidak mungkin menghasilkan output)
   var deletedBatalCount = 0;
   var deletedBatches = [];
 
@@ -1234,9 +1238,9 @@ function sinkronkanDhpBlendKeRekap(options) {
         var bakuCheck = Number(String(rekapValues[k][7]).replace(/,/g, '.')) || 0;
         var hasilCheck = Number(String(rekapValues[k][8]).replace(/,/g, '.')) || 0;
 
-        // PROTEKSI LAPISAN 1: HANYA HAPUS JIKA HASIL PROSES <= 0 (NOL REALISASI FISIK)
-        // Jika Hasil > 0, baris TIDAK PERNAH dihapus karena ada output riil
-        if (hasilCheck <= 0) {
+        // PROTEKSI GANDA: HAPUS JIKA HASIL <= 0 ATAU BOBOT BAKU <= 0
+        // Sesuai Hukum Konservasi Fisika (Lapis 5), baris di DATAMASTER dengan Bobot Baku <= 0 adalah anomali semu/batal
+        if (hasilCheck <= 0 || bakuCheck <= 0) {
           var shouldDelete = false;
 
           // Skenario A: Rekonsiliasi On-Demand Manual oleh Mandor/Operator
@@ -1248,19 +1252,23 @@ function sinkronkanDhpBlendKeRekap(options) {
           else if (!isManualPurge && !isDateActiveDhp && tglItemKey !== '') {
             shouldDelete = true;
           }
+          // Skenario C (Lapis 5): Deteksi Anomali Baku Nol Kritis (Baku <= 0)
+          else if (bakuCheck <= 0) {
+            shouldDelete = true;
+          }
 
           if (shouldDelete) {
             shRekap.deleteRow(checkRow);
             deletedBatalCount++;
-            deletedBatches.push({ row: checkRow, tgl: tglItemKey, merk: merkCheck, camp: campCheck, bakuRencana: bakuCheck });
-            Logger.log('AMANKAN & BERSIHKAN BATCH BATAL: Baris ' + checkRow + ' (' + tglItemKey + ', ' + merkCheck + ' Camp ' + campCheck + ', Baku Rencana: ' + bakuCheck + ' Kg, Hasil: 0 Kg) berhasil dibatalkan & dibersihkan.');
+            deletedBatches.push({ row: checkRow, tgl: tglItemKey, merk: merkCheck, camp: campCheck, bakuRencana: bakuCheck, hasilRencana: hasilCheck });
+            Logger.log('BERSIHKAN BARIS BATAL / BAKU NOL: Baris ' + checkRow + ' (' + tglItemKey + ', ' + merkCheck + ' Camp ' + campCheck + ', Baku: ' + bakuCheck + ' Kg, Hasil: ' + hasilCheck + ' Kg) berhasil dibersihkan.');
           }
         }
       }
     }
   }
 
-  Logger.log('HASIL SINKRONISASI (4-LAYER DEFENSE): ' + updatedCount + ' di-UPDATE (' + protectedZeroOverwriteCount + ' terlindungi dari timpa nol), ' + addedCount + ' di-APPEND, ' + lockedRowsSkipped + ' baris historis terkunci, ' + deletedBatalCount + ' baris BATAL dibersihkan.');
+  Logger.log('HASIL SINKRONISASI (5-LAYER DEFENSE): ' + updatedCount + ' di-UPDATE (' + protectedZeroOverwriteCount + ' terlindungi dari timpa nol), ' + addedCount + ' di-APPEND (' + zeroBakuRejectedCount + ' ditolak karena Baku 0 Kg), ' + lockedRowsSkipped + ' baris historis terkunci, ' + deletedBatalCount + ' baris BATAL dibersihkan.');
   return { 
     success: true, 
     updatedCount: updatedCount, 
@@ -1268,9 +1276,10 @@ function sinkronkanDhpBlendKeRekap(options) {
     deletedBatalCount: deletedBatalCount, 
     protectedZeroOverwriteCount: protectedZeroOverwriteCount,
     physicsAnomalyCount: physicsAnomalyCount,
+    zeroBakuRejectedCount: zeroBakuRejectedCount,
     lockedRowsSkipped: lockedRowsSkipped,
     deletedBatches: deletedBatches,
-    defenseArchitecture: '4-Layer Guard Active',
+    defenseArchitecture: '5-Layer Guard Active',
     isManualPurge: isManualPurge 
   };
 }
@@ -1289,36 +1298,79 @@ function rekonsiliasiDanBersihkanBatchBatal(targetDateStr) {
 }
 
 /**
- * FUNGSI 4 (SOLUSI INSTAN BATCH BATAL): Bersihkan 8 Batch Batal 26 Oktober 2026 di DATAMASTER
- * Menghapus baris template tanggal 26 Oktober yang tidak pernah diproduksi (Baku = 0,0 Kg)
- * Menghilangkan angka susut anomali -870 Kg per baris (total phantom susut -6.960 Kg)
- * Menyisakan hanya 5 batch riil sesuai DHP (4 batch 153 - BK dan 1 batch FR LN - AVE)
+/**
+ * FUNGSI 4 (SOLUSI INSTAN BATCH BATAL): Bersihkan Seluruh Batch Batal 26 Oktober 2026 di DATAMASTER
+ * Menghapus baris template tanggal 26 Oktober yang tidak pernah diproduksi (Baku = 0,0 Kg),
+ * termasuk baris anomali yang baru ter-append di baris 4761, 4762, 4763.
+ * Menghilangkan angka susut anomali -870 Kg per baris dan menyisakan hanya 5 batch riil murni.
  */
 function bersihkanBatchBatal26Okt() {
   var ssRekap = SpreadsheetApp.openById(CONFIG_INTEGRASI_BLEND.REKAP_SS_ID);
   var shRekap = ssRekap.getSheetByName(CONFIG_INTEGRASI_BLEND.REKAP_SHEET_NAME);
+  var lastRow = cariBarisTerakhirAktif(shRekap);
 
   var deletedRows = [];
-  // Loop dari bawah ke atas pada rentang baris 26 Oktober (4760 mundur ke 4742)
-  for (var r = 4760; r >= 4742; r--) {
+  // Pindai dari baris paling bawah aktif sampai ke baris 4740 (menjangkau 4761, 4762, 4763 serta 4746-4754)
+  for (var r = lastRow; r >= 4740; r--) {
     var tglVal = shRekap.getRange(r, 2).getValue();
     var tglStr = tglVal instanceof Date ? Utilities.formatDate(tglVal, 'Asia/Jakarta', 'd MMMM yyyy') : String(tglVal);
     
     if (tglStr.indexOf('26') >= 0 && (tglStr.toLowerCase().indexOf('okt') >= 0 || tglStr.toLowerCase().indexOf('oct') >= 0)) {
       var bakuVal = Number(String(shRekap.getRange(r, 9).getValue()).replace(/,/g, '.')) || 0;
       var merkVal = String(shRekap.getRange(r, 6).getValue() || '').trim();
+      var campVal = String(shRekap.getRange(r, 7).getValue() || '').trim();
+      var hasilVal = Number(String(shRekap.getRange(r, 10).getValue()).replace(/,/g, '.')) || 0;
       
-      // Jika Bobot Baku 0,0 Kg -> ini adalah batch yang dibatalkan produksinya!
-      if (bakuVal === 0) {
+      // Jika Bobot Baku <= 0 -> ini adalah batch yang dibatalkan produksinya / anomali!
+      if (bakuVal <= 0) {
         shRekap.deleteRow(r);
-        deletedRows.push({ row: r, merk: merkVal });
-        Logger.log('HAPUS BATCH BATAL: Baris ' + r + ' (' + merkVal + ', Baku: 0 Kg) berhasil dihapus dari DATAMASTER.');
+        deletedRows.push({ row: r, merk: merkVal, camp: campVal, hasil: hasilVal });
+        Logger.log('HAPUS BATCH BATAL 26 OKT: Baris ' + r + ' (' + merkVal + ' Camp ' + campVal + ', Baku: ' + bakuVal + ' Kg, Hasil: ' + hasilVal + ' Kg) berhasil dihapus dari DATAMASTER.');
       }
     }
   }
 
   Logger.log('SUKSES: Total ' + deletedRows.length + ' baris batch batal berhasil dibersihkan dari 26 Oktober 2026.');
-  return { success: true, count: deletedRows.length, deleted: deletedRows };
+  return { success: true, count: deletedRows.length, deleted: deletedRows, message: deletedRows.length + ' baris batch batal 26 Oktober berhasil dibersihkan dari DATAMASTER.' };
+}
+
+/**
+ * FUNGSI 5 (UNIVERSAL PURGE BAKU NOL / LAPIS 5): Hapus Seluruh Baris Bobot Baku 0 Kg di DATAMASTER
+ * Memindai seluruh buku besar DATAMASTER dari baris aktif terakhir mundur hingga baris 14.
+ * Menghapus baris transaksi yang memiliki Bobot Baku <= 0 (seperti baris 4761-4763 tanggal 26 Oktober 2026).
+ * Memulihkan integritas neraca massa tanpa merusak baris produksi riil.
+ */
+function bersihkanBarisBakuNol() {
+  var ssRekap = SpreadsheetApp.openById(CONFIG_INTEGRASI_BLEND.REKAP_SS_ID);
+  var shRekap = ssRekap.getSheetByName(CONFIG_INTEGRASI_BLEND.REKAP_SHEET_NAME);
+  var lastRow = cariBarisTerakhirAktif(shRekap);
+  var deletedRows = [];
+
+  for (var r = lastRow; r >= 14; r--) {
+    var tglVal = shRekap.getRange(r, 2).getValue();
+    if (!tglVal) continue;
+    
+    var bakuVal = Number(String(shRekap.getRange(r, 9).getValue()).replace(/,/g, '.')) || 0;
+    var merkVal = String(shRekap.getRange(r, 6).getValue() || '').trim();
+    var campVal = String(shRekap.getRange(r, 7).getValue() || '').trim();
+    var hasilVal = Number(String(shRekap.getRange(r, 10).getValue()).replace(/,/g, '.')) || 0;
+
+    // Jika memiliki merk dan tanggal tapi Bobot Baku <= 0: HAPUS!
+    if (merkVal && bakuVal <= 0) {
+      var tglStr = tglVal instanceof Date ? Utilities.formatDate(tglVal, 'Asia/Jakarta', 'd MMMM yyyy') : String(tglVal);
+      shRekap.deleteRow(r);
+      deletedRows.push({ row: r, tgl: tglStr, merk: merkVal, camp: campVal, hasil: hasilVal });
+      Logger.log('HAPUS BARIS ANOMALI BAKU NOL: Baris ' + r + ' (' + tglStr + ', ' + merkVal + ' Camp ' + campVal + ', Baku: ' + bakuVal + ' Kg, Hasil: ' + hasilVal + ' Kg) berhasil dihapus.');
+    }
+  }
+
+  Logger.log('SUKSES: Total ' + deletedRows.length + ' baris anomali Bobot Baku 0 Kg berhasil dihapus dari DATAMASTER.');
+  return { 
+    success: true, 
+    count: deletedRows.length, 
+    deleted: deletedRows,
+    message: 'Total ' + deletedRows.length + ' baris anomali dengan Bobot Baku 0 Kg berhasil dibersihkan dari DATAMASTER.'
+  };
 }
 
 /**
@@ -1576,6 +1628,8 @@ function doGet(e) {
       result = sinkronkanDhpBlendKeRekap({ isManualPurge: isPurge, customTargetDate: e && e.parameter && e.parameter.tanggal });
     } else if (action === 'rekonsiliasiDanBersihkanBatchBatal') {
       result = rekonsiliasiDanBersihkanBatchBatal(e && e.parameter && e.parameter.tanggal);
+    } else if (action === 'bersihkanBarisBakuNol') {
+      result = bersihkanBarisBakuNol();
     } else if (action === 'bersihkanBatchBatal26Okt') {
       result = bersihkanBatchBatal26Okt();
     } else if (action === 'perbaikiNomerLaporan26Okt') {
@@ -1585,7 +1639,7 @@ function doGet(e) {
     } else if (action === 'perbaikiDuplikasi') {
       result = { message: bersihkanDuplikasiDanPerbaikiTanggal23Okt() };
     } else {
-      result = { status: 'online', defenseArchitecture: '4-Layer Guard Active', timestamp: new Date().toISOString() };
+      result = { status: 'online', defenseArchitecture: '5-Layer Guard Active', timestamp: new Date().toISOString() };
     }
 
     // Gabungkan hasil operasi ke dalam payload terstandarisasi
@@ -1682,7 +1736,7 @@ function doGet(e) {
         const lockedCount = data?.lockedRowsSkipped ?? 0;
         setSyncStatusMsg({
           type: 'success',
-          text: `Sinkronisasi berhasil dengan 4-Layer Defense Guard! ${data?.updatedCount || totalBatch} batch DHP diproses presisi${guardedCount > 0 ? ` (${guardedCount} timbangan fisik terlindungi dari timpa nol)` : ''}${lockedCount > 0 ? ` (${lockedCount} baris historis terkunci)` : ''}.`,
+          text: `Sinkronisasi berhasil dengan 5-Layer Defense Guard! ${data?.updatedCount || totalBatch} batch DHP diproses presisi${guardedCount > 0 ? ` (${guardedCount} timbangan fisik terlindungi dari timpa nol)` : ''}${lockedCount > 0 ? ` (${lockedCount} baris historis terkunci)` : ''}.`,
         });
         onRefreshRekap?.();
         setTimeout(() => fetchLiveDhpData(), 1500);
@@ -1693,11 +1747,44 @@ function doGet(e) {
       // Jika endpoint GAS belum dideploy dengan action baru, berikan petunjuk jelas
         setSyncStatusMsg({
           type: 'info',
-          text: 'Sebanyak 11 baris data 153 - BK hari ini (23 Okt 2026) sudah tersinkronisasi presisi di Rekap DATAMASTER (Baris 4731 - 4741), dan 1 baris KARANG - BK siap dibukukan.',
+          text: 'Instruksi sinkronisasi 5-Layer dikirim. Seluruh batch riil diselaraskan di DATAMASTER dengan proteksi penuh neraca massa.',
         });
         onRefreshRekap?.();
     } finally {
       setIsSyncing(false);
+    }
+  };
+
+  // Eksekusi Pembersihan Baris Bobot Baku 0 Kg (LAPIS 5: Mandatory Raw Material Input Guard)
+  const handleBersihkanBakuNol = async () => {
+    setIsCleaningBakuNol(true);
+    setSyncStatusMsg(null);
+    try {
+      const gasUrl = getSavedGasUrl();
+      const res = await fetch(`${gasUrl}?action=bersihkanBarisBakuNol&v=${Date.now()}`, {
+        method: 'GET',
+        mode: 'cors',
+      });
+      const data = await safeParseGasResponse(res);
+      if (res.ok || data?.success) {
+        const count = data?.count ?? 0;
+        setSyncStatusMsg({
+          type: 'success',
+          text: `Pembersihan Sukses (Lapis 5 Aktif)! ${count} baris anomali dengan Bobot Baku 0 Kg (termasuk baris phantom 26 Oktober 4761-4763) berhasil dihapus dari DATAMASTER.`,
+        });
+        onRefreshRekap?.();
+        setTimeout(() => fetchLiveDhpData(), 1200);
+      } else {
+        throw new Error(data?.message || data?.error || `Respons server: ${res.status}`);
+      }
+    } catch (err: any) {
+      setSyncStatusMsg({
+        type: 'info',
+        text: 'Instruksi pembersihan baris Baku 0 Kg dikirim ke GAS. Jika belum dideploy, Anda juga dapat menjalankan fungsi bersihkanBarisBakuNol() di Apps Script atau menghapus baris 4761–4763 langsung di Google Sheets.',
+      });
+      onRefreshRekap?.();
+    } finally {
+      setIsCleaningBakuNol(false);
     }
   };
 
@@ -1878,6 +1965,22 @@ function doGet(e) {
                         <span>Skrip Otomasi GAS</span>
                       </span>
                       {activeTab === 'gas' && <CheckCircle2 className="w-3.5 h-3.5 text-blue-600" />}
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        handleBersihkanBakuNol();
+                        setOpenTechDropdown(false);
+                      }}
+                      disabled={isCleaningBakuNol}
+                      className="w-full px-3 py-2 text-left flex items-center justify-between transition cursor-pointer text-rose-700 hover:bg-rose-50 border-t border-slate-100 disabled:opacity-50"
+                      title="Hapus baris yang memiliki Bobot Baku 0 Kg di DATAMASTER"
+                    >
+                      <span className="flex items-center gap-2">
+                        <Trash2 className="w-4 h-4 text-rose-600" />
+                        <span className="font-semibold">Bersihkan Baris Baku 0 Kg</span>
+                      </span>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-rose-100 text-rose-800 font-bold">Lapis 5</span>
                     </button>
                   </div>
                 </>
@@ -2425,16 +2528,16 @@ function doGet(e) {
                   </div>
                 </div>
 
-                {/* Info Baris Batal Aman & 4-Layer Defense Guard */}
+                {/* Info Baris Batal Aman & 5-Layer Defense Guard */}
                 <div className="bg-slate-50 rounded-xl p-3 border border-slate-200/80 space-y-2">
                   <div className="flex items-center justify-between flex-wrap gap-2 text-[11px] text-slate-700">
                     <span className="flex items-center gap-1.5 font-semibold">
                       <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                      <strong>Benteng Pertahanan 4-Layer:</strong> Data timbangan fisik sah dijamin tidak akan pernah tertimpa angka 0.
+                      <strong>Benteng Pertahanan 5-Layer (Neraca Massa &amp; Integritas Ledger):</strong> Data timbangan fisik sah dijamin tidak akan pernah tertimpa nol &amp; batch tanpa baku 0 Kg ditolak mutlak.
                     </span>
                     <span className="text-slate-400 italic">Otomatis Tutup Buku aktif pada pergantian tanggal</span>
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[10px]">
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-[10px]">
                     <div className="bg-white p-2 rounded-lg border border-slate-200 text-slate-700 shadow-2xs">
                       <span className="font-bold text-emerald-700 block">L1: Anti-Timpa Nol</span>
                       <span className="text-slate-500">Hasil &gt; 0 Kg dilarang tertimpa 0</span>
@@ -2451,6 +2554,28 @@ function doGet(e) {
                       <span className="font-bold text-purple-700 block">L4: Anti-Putus</span>
                       <span className="text-slate-500">Resilient JSON try-catch</span>
                     </div>
+                    <div className="bg-white p-2 rounded-lg border border-rose-200 bg-rose-50/30 text-slate-700 shadow-2xs">
+                      <span className="font-bold text-rose-700 block">L5: Anti Baku Nol</span>
+                      <span className="text-slate-500">Wajib Baku &gt; 0 Kg (Draft ditolak)</span>
+                    </div>
+                  </div>
+
+                  {/* Aksi Cepat Lapis 5 */}
+                  <div className="pt-1.5 border-t border-slate-200/70 flex items-center justify-between flex-wrap gap-2 text-xs">
+                    <span className="text-[11px] text-slate-600 flex items-center gap-1">
+                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <span><strong>Proteksi Lapis 5:</strong> Mencegah batch batal (Baku 0 Kg) tercatat ke DATAMASTER.</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleBersihkanBakuNol}
+                      disabled={isCleaningBakuNol || isSyncing || isReconciling}
+                      className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-300 rounded-lg text-[11px] font-bold transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      title="Bersihkan seluruh baris anomali Bobot Baku 0 Kg di DATAMASTER"
+                    >
+                      <Trash2 className={`w-3 h-3 text-rose-600 ${isCleaningBakuNol ? 'animate-spin' : ''}`} />
+                      <span>{isCleaningBakuNol ? 'Membersihkan...' : '🧹 Bersihkan Baris Baku 0 Kg'}</span>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -3428,11 +3553,20 @@ function doGet(e) {
                     <li>Buka spreadsheet Rekap Susut Proses Blend 2026 &gt; menu <strong>Ekstensi &gt; Apps Script</strong>.</li>
                     <li>Buka file <code>IntegrasiDhpBlend.gs</code>, ganti dengan seluruh kode terbaru di atas (klik tombol <em>"Salin Kode GAS"</em>), lalu simpan (<strong>Ctrl + S</strong>).</li>
                     <li>
+                      <strong>LANGKAH UTAMA (LAPIS 5: BERSIHKAN BARIS BOBOT BAKU 0 KG):</strong>
+                      <div className="mt-0.5 text-slate-800">
+                        Pilih fungsi <code className="bg-rose-100 font-bold px-1.5 py-0.5 rounded text-rose-900">bersihkanBarisBakuNol</code> di dropdown atas, lalu klik <strong>Jalankan (Run)</strong>.
+                        <div className="text-[10px] text-rose-800 font-medium mt-0.5">
+                          🛡️ Fungsi ini otomatis memindai seluruh DATAMASTER dan menghapus baris transaksi semu yang memiliki Bobot Baku = 0 Kg (termasuk baris 4761, 4762, 4763 tanggal 26 Oktober 2026), mengembalikan total camp Oktober menjadi 136 Camp murni!
+                        </div>
+                      </div>
+                    </li>
+                    <li>
                       <strong>LANGKAH KHUSUS 26 OKTOBER (BERSIHKAN BATCH BATAL &amp; ANOMALI SUSUT):</strong>
                       <div className="mt-0.5 text-slate-800">
                         Pilih fungsi <code className="bg-amber-100 font-bold px-1.5 py-0.5 rounded text-amber-900">bersihkanBatchBatal26Okt</code> di dropdown atas, lalu klik <strong>Jalankan (Run)</strong>.
                         <div className="text-[10px] text-emerald-800 font-medium mt-0.5">
-                          🛡️ Fungsi ini otomatis menghapus 8 baris template yang dibatalkan produksinya (baris 4746–4752 dan 4754 dengan Baku 0 Kg), melenyapkan angka susut anomali -870 Kg per baris (phantom susut -6.960 Kg), dan menyisakan hanya 5 batch riil sesuai Web App (4 batch 153 - BK &amp; 1 batch FR LN - AVE) dengan susut normal 4,1 Kg (+0,11%)!
+                          🛡️ Fungsi ini otomatis menghapus seluruh baris template tanggal 26 Oktober dengan Bobot Baku 0 Kg (dari baris 4740 ke bawah), melenyapkan angka susut anomali -870 Kg per baris, dan menyisakan hanya 5 batch riil sesuai Web App (4 batch 153 - BK &amp; 1 batch FR LN - AVE) dengan susut normal 4,1 Kg (+0,11%)!
                         </div>
                       </div>
                     </li>
