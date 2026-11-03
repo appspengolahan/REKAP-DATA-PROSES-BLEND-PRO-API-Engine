@@ -1943,7 +1943,7 @@ function doGet(e) {
                       }`}
                     >
                       <span className="flex items-center gap-2">
-                        <FileSpreadsheet className="w-4 h-4 text-purple-600" />
+                        <FileSpreadsheet className="w-4 h-4 text-purple-600 shrink-0" />
                         <span>Pemetaan Kolom &amp; Proteksi</span>
                       </span>
                       {activeTab === 'pemetaan' && <CheckCircle2 className="w-3.5 h-3.5 text-purple-600" />}
@@ -1961,10 +1961,31 @@ function doGet(e) {
                       }`}
                     >
                       <span className="flex items-center gap-2">
-                        <Code className="w-4 h-4 text-blue-600" />
+                        <Code className="w-4 h-4 text-blue-600 shrink-0" />
                         <span>Skrip Otomasi GAS</span>
                       </span>
                       {activeTab === 'gas' && <CheckCircle2 className="w-3.5 h-3.5 text-blue-600" />}
+                    </button>
+
+                    {/* SEKSI ALAT PEMELIHARAAN & PEMBERSIHAN DATA */}
+                    <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-t border-b border-slate-100 mt-1">
+                      Alat Pembersihan &amp; Rekonsiliasi
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        setShowReconcileModal(true);
+                        setOpenTechDropdown(false);
+                      }}
+                      disabled={isSyncing || isReconciling}
+                      className="w-full px-3 py-2 text-left flex items-center justify-between transition cursor-pointer text-amber-900 hover:bg-amber-50 disabled:opacity-50"
+                      title="Rekonsiliasi & bersihkan batch rencana yang tidak diproduksi (Hasil 0 Kg)"
+                    >
+                      <span className="flex items-center gap-2">
+                        <Trash2 className="w-4 h-4 text-amber-600 shrink-0" />
+                        <span className="font-semibold">Rekonsiliasi &amp; Bersihkan Batal</span>
+                      </span>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 font-bold">Smart</span>
                     </button>
 
                     <button
@@ -1972,12 +1993,12 @@ function doGet(e) {
                         handleBersihkanBakuNol();
                         setOpenTechDropdown(false);
                       }}
-                      disabled={isCleaningBakuNol}
+                      disabled={isCleaningBakuNol || isSyncing || isReconciling}
                       className="w-full px-3 py-2 text-left flex items-center justify-between transition cursor-pointer text-rose-700 hover:bg-rose-50 border-t border-slate-100 disabled:opacity-50"
                       title="Hapus baris yang memiliki Bobot Baku 0 Kg di DATAMASTER"
                     >
                       <span className="flex items-center gap-2">
-                        <Trash2 className="w-4 h-4 text-rose-600" />
+                        <ShieldCheck className="w-4 h-4 text-rose-600 shrink-0" />
                         <span className="font-semibold">Bersihkan Baris Baku 0 Kg</span>
                       </span>
                       <span className="text-[9px] px-1.5 py-0.5 rounded bg-rose-100 text-rose-800 font-bold">Lapis 5</span>
@@ -2491,9 +2512,9 @@ function doGet(e) {
                     <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
                     <div>
                       <h4 className="text-xs font-bold text-slate-900 flex items-center gap-2">
-                        <span>Pusat Kendali Sinkronisasi &amp; Rekonsiliasi Rekap</span>
+                        <span>Pusat Kendali Sinkronisasi DHP</span>
                         <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
-                          4-Layer Defense Guard
+                          5-Layer Defense Guard
                         </span>
                       </h4>
                       <p className="text-[11px] text-slate-500 mt-0.5">
@@ -2502,28 +2523,16 @@ function doGet(e) {
                     </div>
                   </div>
 
-                  {/* Tombol Aksi Ganda (Sinkronisasi Biasa vs Rekonsiliasi & Pembersihan Batal) */}
+                  {/* Tombol Aksi Utama: Sinkronkan ke Rekap */}
                   <div className="flex items-center gap-2 self-start lg:self-auto flex-wrap">
-                    {/* Tombol 1: Sinkronisasi Aman Shift Berjalan */}
                     <button
                       onClick={handleExecuteSync}
                       disabled={isSyncing || isReconciling}
-                      className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold text-xs shadow-xs transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-lg font-bold text-xs shadow-xs transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
                       title="Memperbarui data yang ada di DHP ke DATAMASTER tanpa menghapus antrean rencana shift hari ini dan kebal timpa nol"
                     >
                       <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
                       <span>{isSyncing ? 'Memproses...' : 'Sinkronkan ke Rekap'}</span>
-                    </button>
-
-                    {/* Tombol 2: Rekonsiliasi & Bersihkan Batch Batal (On-Demand) */}
-                    <button
-                      onClick={() => setShowReconcileModal(true)}
-                      disabled={isSyncing || isReconciling}
-                      className="px-3.5 py-2 bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-700 hover:to-amber-700 text-white rounded-lg font-bold text-xs shadow-xs transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                      title="Gunakan bila produksi hari ini resmi selesai/ditutup. Menyapu bersih baris rencana yang tidak diproduksi (Hasil 0 Kg) agar tidak menimbulkan susut semu"
-                    >
-                      <Trash2 className="w-3.5 h-3.5 text-rose-100" />
-                      <span>🧹 Rekonsiliasi &amp; Bersihkan Batal</span>
                     </button>
                   </div>
                 </div>
@@ -2560,21 +2569,19 @@ function doGet(e) {
                     </div>
                   </div>
 
-                  {/* Aksi Cepat Lapis 5 */}
+                  {/* Keterangan Akses Alat Teknis */}
                   <div className="pt-1.5 border-t border-slate-200/70 flex items-center justify-between flex-wrap gap-2 text-xs">
-                    <span className="text-[11px] text-slate-600 flex items-center gap-1">
+                    <span className="text-[11px] text-slate-600 flex items-center gap-1.5">
                       <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                      <span><strong>Proteksi Lapis 5:</strong> Mencegah batch batal (Baku 0 Kg) tercatat ke DATAMASTER.</span>
+                      <span>Alat <strong>Rekonsiliasi &amp; Pembersihan Batal</strong> serta <strong>Bersihkan Baris Baku 0 Kg</strong> kini tersedia di dropdown <strong>Alat Teknis</strong> (kanan atas).</span>
                     </span>
                     <button
                       type="button"
-                      onClick={handleBersihkanBakuNol}
-                      disabled={isCleaningBakuNol || isSyncing || isReconciling}
-                      className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-300 rounded-lg text-[11px] font-bold transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                      title="Bersihkan seluruh baris anomali Bobot Baku 0 Kg di DATAMASTER"
+                      onClick={() => setOpenTechDropdown((prev) => !prev)}
+                      className="text-[11px] font-bold text-purple-700 hover:text-purple-900 bg-purple-50 hover:bg-purple-100 border border-purple-200 px-2 py-0.5 rounded-md transition flex items-center gap-1 cursor-pointer"
                     >
-                      <Trash2 className={`w-3 h-3 text-rose-600 ${isCleaningBakuNol ? 'animate-spin' : ''}`} />
-                      <span>{isCleaningBakuNol ? 'Membersihkan...' : '🧹 Bersihkan Baris Baku 0 Kg'}</span>
+                      <span>Buka Alat Teknis</span>
+                      <ChevronDown className="w-3 h-3" />
                     </button>
                   </div>
                 </div>
