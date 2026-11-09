@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { WeeklyBlendPlanData } from '../types[RekapBlend]';
 import {
+  fetchWeeklyBlendPlan,
   fetchLiveWeeklyBlendPlan,
   getCachedWeeklyBlendPlan,
   PLANING_SPREADSHEET_ID,

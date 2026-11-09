@@ -55,6 +55,7 @@ import {
 } from '../api[RekapBlend]';
 import { WeeklyBlendScheduleTable } from './JadwalAlokasiMingguanModal';
 import {
+  fetchWeeklyBlendPlan,
   fetchLiveWeeklyBlendPlan,
   getCachedWeeklyBlendPlan,
   PLANING_SPREADSHEET_ID,
