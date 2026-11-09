@@ -42,7 +42,7 @@ import {
   Settings,
   Trash2,
 } from 'lucide-react';
-import { RawBlendRow, UserRole, QuickBatchTag } from '../types[RekapBlend]';
+import { RawBlendRow, UserRole, QuickBatchTag, WeeklyBlendPlanData } from '../types[RekapBlend]';
 import {
   fmtKg,
   fmtPct,
@@ -53,6 +53,13 @@ import {
   getSavedBatchTags,
   saveBatchTag,
 } from '../api[RekapBlend]';
+import { WeeklyBlendScheduleTable } from './JadwalAlokasiMingguanModal';
+import {
+  fetchLiveWeeklyBlendPlan,
+  getCachedWeeklyBlendPlan,
+  PLANING_SPREADSHEET_ID,
+  PLANING_SHEET_NAME,
+} from '../apiJadwalBlend';
 
 export const DHP_SPREADSHEET_ID = '1Fg3aNLsdkwXthNGxIsFJ9gbHy6Va6DokNV8IVpTnXDA';
 export const DHP_SHEET_NAME = 'INTEGRASI DATA DHP BLEND';
@@ -93,7 +100,30 @@ export const IntegrasiDhpModalRekapBlend: React.FC<IntegrasiDhpModalProps> = ({
   currentRole,
   onRefreshRekap,
 }) => {
-  const [activeTab, setActiveTab] = useState<'transaksi' | 'analisis' | 'pemetaan' | 'gas'>('transaksi');
+  const [activeTab, setActiveTab] = useState<'transaksi' | 'analisis' | 'jadwal' | 'pemetaan' | 'gas'>('transaksi');
+  const [weeklyPlanData, setWeeklyPlanData] = useState<WeeklyBlendPlanData>(getCachedWeeklyBlendPlan());
+  const [isLoadingWeeklyPlan, setIsLoadingWeeklyPlan] = useState(false);
+  const [weeklyPlanSyncTime, setWeeklyPlanSyncTime] = useState<string>('');
+
+  const refreshWeeklyPlan = useCallback(async () => {
+    setIsLoadingWeeklyPlan(true);
+    try {
+      const plan = await fetchLiveWeeklyBlendPlan();
+      setWeeklyPlanData(plan);
+      setWeeklyPlanSyncTime(new Date().toLocaleTimeString('id-ID'));
+    } catch (err) {
+      console.warn('Gagal memuat jadwal alokasi blend:', err);
+    } finally {
+      setIsLoadingWeeklyPlan(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isOpen && activeTab === 'jadwal') {
+      refreshWeeklyPlan();
+    }
+  }, [isOpen, activeTab, refreshWeeklyPlan]);
+
   const [isLoading, setIsLoading] = useState(false);
   const [dhpItems, setDhpItems] = useState<DhpBatchItem[]>([]);
   const [lastFetchedTime, setLastFetchedTime] = useState<string>('');
@@ -1893,6 +1923,31 @@ function doGet(e) {
                 Deviasi
               </span>
             </button>
+
+            {/* Toggle 3: Jadwal Alokasi Campuran Mingguan PP1 */}
+            <button
+              onClick={() => {
+                setActiveTab('jadwal');
+                setOpenTechDropdown(false);
+              }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs whitespace-nowrap ${
+                activeTab === 'jadwal'
+                  ? 'bg-indigo-600 text-white shadow-indigo-500/20'
+                  : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200 hover:bg-slate-50'
+              }`}
+            >
+              <Calendar className="w-3.5 h-3.5 shrink-0" />
+              <span>Jadwal Alokasi Mingguan</span>
+              <span
+                className={`px-1.5 py-0.2 text-[10px] rounded-full font-bold ${
+                  activeTab === 'jadwal'
+                    ? 'bg-indigo-900 text-indigo-200'
+                    : 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                }`}
+              >
+                PP1
+              </span>
+            </button>
           </div>
 
           {/* SISI KANAN: DROPDOWN MENU TEKNIS, TIMER AUTO-TARIK & TOMBOL TARIK ULANG */}
@@ -3253,7 +3308,75 @@ function doGet(e) {
             </div>
           )}
 
-          {/* TAB 3: PEMETAAN KOLOM & PROTEKSI RUMUS */}
+          {/* TAB: JADWAL ALOKASI CAMPURAN MINGGUAN PP1 (SENIN - MINGGU) */}
+          {activeTab === 'jadwal' && (
+            <div className="space-y-4">
+              {/* Card Header & Metadata */}
+              <div className="p-4 sm:p-5 bg-white rounded-xl border border-slate-200 shadow-xs space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                      <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 tracking-wide uppercase">
+                        SUMBER DATA TERVERIFIKASI
+                      </span>
+                      <span className="text-xs text-slate-500 font-medium">
+                        Google Sheets: Tab PLANING BLEND MINGGUAN
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-600">
+                        <Calendar className="w-5 h-5" />
+                      </div>
+                      <h3 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
+                        Jadwal Alokasi Campuran Mingguan PP1 (Senin – Minggu)
+                      </h3>
+                    </div>
+
+                    <p className="text-xs text-slate-500 mt-1">
+                      Data kapasitas molen dan rencana batch harian untuk seluruh jenis tembakau blend
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2 self-start sm:self-auto">
+                    {weeklyPlanSyncTime && (
+                      <span className="text-[11px] text-slate-400 hidden sm:inline">
+                        Sinkron: {weeklyPlanSyncTime}
+                      </span>
+                    )}
+                    <button
+                      onClick={refreshWeeklyPlan}
+                      disabled={isLoadingWeeklyPlan}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition shadow-xs cursor-pointer"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${isLoadingWeeklyPlan ? 'animate-spin text-blue-600' : ''}`} />
+                      <span>{isLoadingWeeklyPlan ? 'Menarik...' : 'Refresh Live'}</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-slate-700">Rentang Periode:</span>
+                    <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-mono text-[11px]">
+                      {weeklyPlanData.dates.senin} s/d {weeklyPlanData.dates.minggu}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 text-emerald-700 text-xs font-semibold">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                    <span>Sinkronisasi otomatis aktif dengan Master Resep DATABASEPRUF</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Tabel Visualisasi Mingguan */}
+              <div className="bg-white p-3 sm:p-4 rounded-xl border border-slate-200 shadow-xs">
+                <WeeklyBlendScheduleTable data={weeklyPlanData} isLoading={isLoadingWeeklyPlan} />
+              </div>
+            </div>
+          )}
+
+          {/* TAB: PEMETAAN KOLOM & PROTEKSI RUMUS */}
           {activeTab === 'pemetaan' && (
             <div className="space-y-4">
               <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-xs space-y-3">

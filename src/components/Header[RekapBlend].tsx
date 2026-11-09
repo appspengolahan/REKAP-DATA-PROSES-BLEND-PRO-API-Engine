@@ -29,6 +29,7 @@ interface HeaderProps {
   isRefreshing: boolean;
   onOpenSwitchApp: () => void;
   onOpenIntegrasiDhp?: () => void;
+  onOpenJadwalAlokasi?: () => void;
   onOpenGasCenter: () => void;
   onOpenHelp: () => void;
   onExportSummaryPdf: () => void;
@@ -56,6 +57,7 @@ export const HeaderRekapBlend: React.FC<HeaderProps> = ({
   isRefreshing,
   onOpenSwitchApp,
   onOpenIntegrasiDhp,
+  onOpenJadwalAlokasi,
   onOpenGasCenter,
   onOpenHelp,
   onExportSummaryPdf,
@@ -193,6 +195,18 @@ export const HeaderRekapBlend: React.FC<HeaderProps> = ({
             >
               <ArrowLeftRight className="w-3.5 h-3.5 text-blue-400 shrink-0" />
               <span className="hidden md:inline">DHP Blend</span>
+            </button>
+          )}
+
+          {/* Tombol Jadwal Alokasi Campuran Mingguan PP1 */}
+          {onOpenJadwalAlokasi && (
+            <button
+              onClick={onOpenJadwalAlokasi}
+              className="flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-bold border transition cursor-pointer shadow-xs bg-indigo-600/20 text-indigo-300 border-indigo-500/40 hover:bg-indigo-600/30"
+              title="Jadwal Alokasi Campuran Mingguan PP1 (Senin – Minggu)"
+            >
+              <Calendar className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+              <span className="hidden md:inline">Jadwal PP1</span>
             </button>
           )}
 
@@ -426,6 +440,26 @@ export const HeaderRekapBlend: React.FC<HeaderProps> = ({
                       </div>
                       <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold shrink-0">
                         Live DHP
+                      </span>
+                    </button>
+                  )}
+
+                  {/* Jadwal Alokasi Campuran Mingguan PP1 */}
+                  {onOpenJadwalAlokasi && (
+                    <button
+                      onClick={() => {
+                        setIsMenuOpen(false);
+                        onOpenJadwalAlokasi();
+                      }}
+                      className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition cursor-pointer group"
+                      title="Buka Jadwal Alokasi Campuran Mingguan PP1"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Calendar className="w-4 h-4 text-indigo-400 group-hover:scale-110 transition shrink-0" />
+                        <span className="font-semibold text-slate-200 group-hover:text-white">Jadwal Alokasi PP1</span>
+                      </div>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-bold shrink-0">
+                        Mingguan
                       </span>
                     </button>
                   )}

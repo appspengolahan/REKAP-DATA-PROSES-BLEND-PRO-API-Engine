@@ -14,6 +14,7 @@ import {
   ShieldCheck,
   ArrowLeftRight,
   Gauge,
+  Calendar,
 } from 'lucide-react';
 import { PWAInstallButtonRekapBlend } from './PWAInstallButton[RekapBlend]';
 
@@ -27,6 +28,7 @@ interface SidebarProps {
   cachedRowsCount: number;
   onOpenSwitchApp?: () => void;
   onOpenIntegrasiDhp?: () => void;
+  onOpenJadwalAlokasi?: () => void;
   onOpenGasCenter?: () => void;
   onOpenHelp?: () => void;
 }
@@ -41,6 +43,7 @@ export const SidebarRekapBlend: React.FC<SidebarProps> = ({
   cachedRowsCount,
   onOpenSwitchApp,
   onOpenIntegrasiDhp,
+  onOpenJadwalAlokasi,
   onOpenGasCenter,
   onOpenHelp,
 }) => {
@@ -208,6 +211,37 @@ export const SidebarRekapBlend: React.FC<SidebarProps> = ({
               </div>
             )}
           </button>
+
+          {/* Jadwal Alokasi Campuran Mingguan PP1 */}
+          {onOpenJadwalAlokasi && (
+            <button
+              onClick={onOpenJadwalAlokasi}
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left transition relative group cursor-pointer text-slate-300 hover:bg-slate-800 hover:text-white border border-slate-800/80 hover:border-indigo-500/40"
+              title={isCollapsed ? 'Jadwal Alokasi Campuran Mingguan PP1' : undefined}
+            >
+              <Calendar className="w-4 h-4 shrink-0 text-indigo-400 group-hover:scale-110 transition" />
+
+              {!isCollapsed && (
+                <div className="flex-1 truncate">
+                  <div className="text-xs font-semibold truncate text-slate-200">Jadwal Alokasi PP1</div>
+                  <div className="text-[10px] truncate text-slate-400">Rencana Mingguan Molen</div>
+                </div>
+              )}
+
+              {!isCollapsed && (
+                <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                  Mingguan
+                </span>
+              )}
+
+              {isCollapsed && (
+                <div className="absolute left-full ml-2 px-2.5 py-1.5 bg-slate-800 text-white text-xs rounded-lg whitespace-nowrap shadow-xl border border-slate-700 pointer-events-none opacity-0 group-hover:opacity-100 transition z-50">
+                  Jadwal Alokasi PP1
+                  <div className="text-[10px] text-indigo-400">Rencana Campuran Mingguan</div>
+                </div>
+              )}
+            </button>
+          )}
 
           {/* Switchboard Susut Nav Item */}
           <button

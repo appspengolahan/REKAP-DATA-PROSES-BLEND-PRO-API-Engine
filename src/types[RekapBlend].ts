@@ -166,3 +166,39 @@ export interface QuickBatchTag {
   timestamp: string;
 }
 
+export interface DailyBlendScheduleItem {
+  blendName: string;
+  kapasitas: string;
+  senin: number;
+  selasa: number;
+  rabu: number;
+  kamis: number;
+  jumat: number;
+  sabtu: number;
+  minggu: number;
+  totalCampuran: number;
+}
+
+export interface WeeklyBlendPlanData {
+  dates: {
+    senin: string;
+    selasa: string;
+    rabu: string;
+    kamis: string;
+    jumat: string;
+    sabtu: string;
+    minggu: string;
+  };
+  schedules: DailyBlendScheduleItem[];
+  dailyTotals: {
+    senin: number;
+    selasa: number;
+    rabu: number;
+    kamis: number;
+    jumat: number;
+    sabtu: number;
+    minggu: number;
+    total: number;
+  };
+}
+

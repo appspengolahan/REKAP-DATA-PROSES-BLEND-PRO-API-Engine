@@ -29,6 +29,7 @@ import { DataExplorerRekapBlend } from './components/DataExplorer[RekapBlend]';
 import { HelpModalRekapBlend } from './components/HelpModal[RekapBlend]';
 import { SwitchBoardModalRekapBlend } from './components/SwitchBoardModal[RekapBlend]';
 import { IntegrasiDhpModalRekapBlend } from './components/IntegrasiDhpModal[RekapBlend]';
+import { JadwalAlokasiMingguanModal } from './components/JadwalAlokasiMingguanModal';
 import { GasCenterModalRekapBlend } from './components/GasCenterModal[RekapBlend]';
 import { ChartModalRekapBlend } from './components/ChartModal[RekapBlend]';
 import { PWAInstallButtonRekapBlend } from './components/PWAInstallButton[RekapBlend]';
@@ -66,6 +67,7 @@ export default function App() {
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [isSwitchAppOpen, setIsSwitchAppOpen] = useState(false);
   const [isIntegrasiDhpOpen, setIsIntegrasiDhpOpen] = useState(false);
+  const [isJadwalAlokasiOpen, setIsJadwalAlokasiOpen] = useState(false);
   const [isGasCenterOpen, setIsGasCenterOpen] = useState(false);
   const [chartModal, setChartModal] = useState<{
     isOpen: boolean;
@@ -363,6 +365,7 @@ export default function App() {
         isRefreshing={isRefreshing}
         onOpenSwitchApp={() => setIsSwitchAppOpen(true)}
         onOpenIntegrasiDhp={() => setIsIntegrasiDhpOpen(true)}
+        onOpenJadwalAlokasi={() => setIsJadwalAlokasiOpen(true)}
         onOpenGasCenter={() => setIsGasCenterOpen(true)}
         onOpenHelp={() => setIsHelpOpen(true)}
         onExportSummaryPdf={handleExportSummaryPdf}
@@ -387,6 +390,7 @@ export default function App() {
           cachedRowsCount={dataset.allRows.length}
           onOpenSwitchApp={() => setIsSwitchAppOpen(true)}
           onOpenIntegrasiDhp={() => setIsIntegrasiDhpOpen(true)}
+          onOpenJadwalAlokasi={() => setIsJadwalAlokasiOpen(true)}
           onOpenGasCenter={() => setIsGasCenterOpen(true)}
           onOpenHelp={() => setIsHelpOpen(true)}
         />
@@ -566,6 +570,11 @@ export default function App() {
         rekapRows={dataset.allRows}
         currentRole={currentRole}
         onRefreshRekap={() => handleRefresh(false)}
+      />
+
+      <JadwalAlokasiMingguanModal
+        isOpen={isJadwalAlokasiOpen}
+        onClose={() => setIsJadwalAlokasiOpen(false)}
       />
 
       <GasCenterModalRekapBlend
