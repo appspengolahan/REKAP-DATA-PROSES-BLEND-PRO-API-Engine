@@ -918,6 +918,14 @@ function cariBarisTerakhirAktif(sheet) {
 }
 
 /**
+ * Helper: Normalisasi teks nama merk (menghapus spasi, strip, dan underscore secara aman tanpa regex)
+ */
+function bersihkanNamaMerk(m) {
+  if (!m) return '';
+  return String(m).toLowerCase().split(' ').join('').split('-').join('').split('_').join('');
+}
+
+/**
  * Normalisasi nama varian blend agar 100% LOLOS aturan Validasi Data Google Sheets di Kolom F DATAMASTER
  * Mencegah error 'melanggar aturan validasi data yang ditetapkan pada sel ini'
  * Daftar Resmi Dropdown DATAMASTER:
@@ -932,7 +940,7 @@ function cariBarisTerakhirAktif(sheet) {
 function normalisasiMerkKeValidasiDatamaster(m) {
   if (!m) return '';
   var str = String(m).trim();
-  var clean = str.toLowerCase().replace(/[\s\-_]/g, '');
+  var clean = bersihkanNamaMerk(str);
   if (clean === 'tiskbt24' || clean.indexOf('tiskbt') >= 0) return 'TIS - KBT24';
   if (clean === '153bk' || clean === '153') return '153 - BK';
   if (clean === 'sp153bk' || clean === 'sp153') return 'SP 153 - BK';
@@ -949,7 +957,7 @@ function normalisasiMerkKeValidasiDatamaster(m) {
 function parseTglToDateObject(tglStr) {
   if (tglStr instanceof Date) return tglStr;
   var str = String(tglStr || '').toLowerCase();
-  var m = str.match(/(\\d{1,2})\\s+([a-z]+)\\s+(\\d{4})/);
+  var m = str.match(/([0-9]{1,2})\s+([a-z]+)\s+([0-9]{4})/);
   if (m) {
     var d = parseInt(m[1], 10);
     var blnName = m[2];
@@ -977,14 +985,6 @@ function parseSuhuValue(val) {
   if (clean === '' || clean === '-') return null;
   var num = parseFloat(clean);
   return (isNaN(num) || num <= 0) ? null : num;
-}
-
-/**
- * Helper: Normalisasi teks nama merk (menghapus spasi, strip, dan underscore secara aman)
- */
-function bersihkanNamaMerk(m) {
-  if (!m) return '';
-  return String(m).toLowerCase().split(' ').join('').split('-').join('').split('_').join('');
 }
 
 /**
@@ -1119,7 +1119,7 @@ function sinkronkanDhpBlendKeRekap(options) {
     // Hukum Konservasi Fisika: Tidak ada produk blend yang bisa tercipta tanpa bahan baku tembakau masuk.
     // Jika Bobot Baku <= 0, batch ini adalah draft / template batal / belum diproses dan DITOLAK masuk DATAMASTER!
     if (rawMerk && rawMerk !== '-' && rawMerk !== '--' && !rawMerk.toLowerCase().includes('total') && rawBatch && rawBatch !== '-' && rawBaku > 0) {
-      var m = rawBatch.match(/(\d+)$/) || rawBatch.match(/([0-9]+)$/);
+      var m = rawBatch.match(/([0-9]+)$/);
       var camp = m ? String(parseInt(m[1], 10)) : ((molenDhp.match(/([0-9]+)$/))?.[1] || '1');
       var tglDate = parseTglToDateObject(rawTgl);
       var tglKey = Utilities.formatDate(tglDate, 'Asia/Jakarta', 'd MMMM yyyy').toLowerCase();
@@ -1692,7 +1692,7 @@ function kirimSuhuDhpKeDatamaster() {
     var rowD = dhpValues[i];
     var merkD = String(rowD[4] || '').trim().toLowerCase();
     var batchD = String(rowD[3] || '').trim();
-    var m = batchD.match(/(\\d+)$/);
+    var m = batchD.match(/([0-9]+)$/);
     var campD = m ? String(parseInt(m[1], 10)) : '1';
     var suhuRaw = parseSuhuValue(rowD[22]); // Kolom W
 
