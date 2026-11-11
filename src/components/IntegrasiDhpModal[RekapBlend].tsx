@@ -1456,14 +1456,31 @@ function perbaikiTanggal10November2026() {
   var ssRekap = SpreadsheetApp.openById(CONFIG_INTEGRASI_BLEND.REKAP_SS_ID);
   var shRekap = ssRekap.getSheetByName(CONFIG_INTEGRASI_BLEND.REKAP_SHEET_NAME);
   var lastRow = shRekap.getLastRow();
-  var targetRow = 4815;
 
-  // 1. Tulis Transaksi ke-8: TIS - KBT24 Camp 1 pada Baris 4815
-  var tglDate = new Date(2026, 10, 10); // 10 November 2026
+  // PROTEKSI KETAT: Periksa apakah TIS - KBT24 pada 10 November sudah tercatat di DATAMASTER
+  var checkLimit = Math.min(60, lastRow);
+  var checkStart = Math.max(1, lastRow - checkLimit + 1);
+  var values = shRekap.getRange(checkStart, 2, checkLimit, 8).getValues();
+  for (var i = 0; i < values.length; i++) {
+    var tgl = String(values[i][0] || '');
+    var merk = String(values[i][4] || '').toLowerCase();
+    if (tgl.indexOf('10') >= 0 && (tgl.toLowerCase().indexOf('nov') >= 0 || tgl.toLowerCase().indexOf('november') >= 0) && merk.indexOf('tis') >= 0) {
+      Logger.log('INFO: Transaksi 10 November TIS - KBT24 sudah tercatat lengkap dan valid di DATAMASTER. Tidak ada perubahan baris.');
+      return {
+        success: true,
+        alreadyComplete: true,
+        message: 'Data 10 November (TIS - KBT24) sudah 100% lengkap dan valid di DATAMASTER (8 Batch). Data terlindungi aman.'
+      };
+    }
+  }
+
+  // Jika belum ada, baru lakukan penulisan aman pada baris 4815
+  var targetRow = 4815;
+  var tglDate = new Date(2026, 10, 10);
   shRekap.getRange(targetRow, 1).setValue(9515);
   shRekap.getRange(targetRow, 2).setValue(tglDate).setNumberFormat("dd mmmm yyyy");
   shRekap.getRange(targetRow, 5).setValue('07/BLD/11/26');
-  shRekap.getRange(targetRow, 6).setValue('TIS - KBT24'); // Validasi dropdown resmi DATAMASTER
+  shRekap.getRange(targetRow, 6).setValue('TIS - KBT24');
   shRekap.getRange(targetRow, 7).setValue(1);
   shRekap.getRange(targetRow, 9, 1, 2).setValues([[205.9, 206.6]]);
 
@@ -1475,33 +1492,17 @@ function perbaikiTanggal10November2026() {
   shRekap.getRange(targetRow, colMolen).setValue('AF 1');
   shRekap.getRange(targetRow, colSuhu).setValue(31.0).setNumberFormat('0.0 "°C"');
 
-  // Salin formula resmi C, D, H, K, L dari baris 4814
   try {
     shRekap.getRange(4814, 3, 1, 2).copyTo(shRekap.getRange(targetRow, 3, 1, 2), SpreadsheetApp.CopyPasteType.PASTE_FORMULA, false);
     shRekap.getRange(4814, 8).copyTo(shRekap.getRange(targetRow, 8, 1, 1), SpreadsheetApp.CopyPasteType.PASTE_FORMULA, false);
     shRekap.getRange(4814, 11, 1, 2).copyTo(shRekap.getRange(targetRow, 11, 1, 2), SpreadsheetApp.CopyPasteType.PASTE_FORMULA, false);
   } catch(e) {}
 
-  // 2. Hapus baris kosong anomali dari baris 4816 ke bawah (baris 4816 s/d lastRow)
-  var deletedCount = 0;
-  if (lastRow > 4815) {
-    var countToDelete = lastRow - 4815;
-    shRekap.deleteRows(4816, countToDelete);
-    deletedCount = countToDelete;
-    Logger.log('BERHASIL: ' + countToDelete + ' baris kosong anomali (4816 - ' + lastRow + ') berhasil dihapus dari DATAMASTER.');
-  }
-
   return {
     success: true,
-    deletedEmptyRowsCount: deletedCount,
-    updatedRow: 4815,
+    updatedRow: targetRow,
     merk: 'TIS - KBT24',
-    camp: 1,
-    baku: 205.9,
-    hasil: 206.6,
-    molen: 'AF 1',
-    suhu: '31,0 °C',
-    message: 'Baris 4815 berhasil disinkronkan ke TIS - KBT24 (8 Batch 10 Nov Lengkap) dan ' + deletedCount + ' baris kosong (4816 ke bawah) berhasil dihapus bersih.'
+    message: 'Baris 4815 berhasil diselaraskan ke TIS - KBT24.'
   };
 }
 
