@@ -44,10 +44,10 @@ export const TabBulanRekapBlend: React.FC<TabBulanProps> = ({
     return ['Semua', ...sorted];
   }, [data]);
 
-  // Default periode: Tahun berjalan (2026), dari Januari sampai Oktober (atau Desember)
+  // Default periode: Tahun berjalan (2026), dari Januari sampai Desember
   const [tahunFilter, setTahunFilter] = useState<string>('2026');
   const [bulanAwal, setBulanAwal] = useState<string>('Januari');
-  const [bulanAkhir, setBulanAkhir] = useState<string>('Oktober');
+  const [bulanAkhir, setBulanAkhir] = useState<string>('Desember');
 
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<'bulan_desc' | 'bulan_asc' | 'bobot' | 'susutPct'>('bulan_desc');
@@ -233,11 +233,11 @@ export const TabBulanRekapBlend: React.FC<TabBulanProps> = ({
           </div>
 
           {/* Tombol Reset ke Default Tahun Berjalan */}
-          {(tahunFilter !== '2026' || bulanAwal !== 'Januari' || bulanAkhir !== 'Oktober') && (
+          {(tahunFilter !== '2026' || bulanAwal !== 'Januari' || bulanAkhir !== 'Desember') && (
             <button
               onClick={handleResetFilter}
               className="flex items-center gap-1 text-[11px] font-semibold text-slate-500 hover:text-blue-600 bg-slate-100 hover:bg-blue-50 px-2.5 py-1 rounded-lg border border-slate-200 transition cursor-pointer"
-              title="Kembalikan ke periode default (Januari – Oktober 2026)"
+              title="Kembalikan ke periode default (Januari – Desember 2026)"
             >
               <RotateCcw className="w-3 h-3" />
               <span>Reset Default (2026)</span>

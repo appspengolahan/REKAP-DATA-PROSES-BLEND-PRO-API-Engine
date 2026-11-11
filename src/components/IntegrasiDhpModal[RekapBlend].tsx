@@ -48,6 +48,7 @@ import {
   fmtPct,
   formatMolenWithCycle,
   SPREADSHEET_ID,
+  DEFAULT_GAS_URL,
   getSavedGasUrl,
   getActiveStandarAcuan,
   getSavedBatchTags,
@@ -556,10 +557,11 @@ export const IntegrasiDhpModalRekapBlend: React.FC<IntegrasiDhpModalProps> = ({
     }
   }, [availableDates, selectedTanggalAnalisis]);
 
-  // Data batch yang disaring berdasarkan tanggal terpilih
+  // Data batch yang disaring berdasarkan tanggal terpilih (Default: Transaksi Terkini / Semua, tidak pernah kosong saat pertama buka)
   const dailyFilteredItems = useMemo(() => {
     if (!selectedTanggalAnalisis) return dhpItems;
-    return dhpItems.filter((it) => it.tanggal === selectedTanggalAnalisis);
+    const filtered = dhpItems.filter((it) => it.tanggal === selectedTanggalAnalisis);
+    return filtered.length > 0 ? filtered : dhpItems;
   }, [dhpItems, selectedTanggalAnalisis]);
 
   const dailyTotalBatch = dailyFilteredItems.length;
@@ -1805,15 +1807,38 @@ function doGet(e) {
     setTimeout(() => setCopiedScript(false), 2000);
   };
 
-  // Helper parsing respon aman (LAYER 4: Kebal dari "unexpected end of JSON input")
+  // Helper parsing respon aman (LAYER 4: Kebal dari "unexpected end of JSON input" & HTML SPA fallback)
   const safeParseGasResponse = async (res: Response) => {
     try {
+      const ct = res.headers.get('content-type') || '';
+      if (ct.includes('text/html')) return null;
       const text = await res.text();
-      if (!text || !text.trim()) return null;
+      if (!text || !text.trim() || text.trim().startsWith('<')) return null;
       return JSON.parse(text);
     } catch {
       return null;
     }
+  };
+
+  // Helper fetch GAS dengan proteksi Cloudflare SPA HTML fallback (mengalihkan otomatis ke direct fetch CORS)
+  const fetchGasAction = async (actionQuery: string) => {
+    let gasUrl = getSavedGasUrl();
+    if (!gasUrl || gasUrl.startsWith('/') || !gasUrl.startsWith('http')) {
+      gasUrl = DEFAULT_GAS_URL;
+    }
+    let res = await fetch(`${gasUrl}?${actionQuery}&v=${Date.now()}`, {
+      method: 'GET',
+      mode: 'cors',
+    });
+    const ct = res.headers.get('content-type') || '';
+    if (ct.includes('text/html') && gasUrl !== DEFAULT_GAS_URL) {
+      console.warn('Endpoint internal mengembalikan HTML (Cloudflare SPA fallback). Mengalihkan langsung ke DEFAULT_GAS_URL CORS...');
+      res = await fetch(`${DEFAULT_GAS_URL}?${actionQuery}&v=${Date.now()}`, {
+        method: 'GET',
+        mode: 'cors',
+      });
+    }
+    return res;
   };
 
   // Eksekusi Rekonsiliasi & Pembersihan Batch Batal (On-Demand Operator dengan 4-Layer Defense)
@@ -1821,11 +1846,7 @@ function doGet(e) {
     setIsReconciling(true);
     setSyncStatusMsg(null);
     try {
-      const gasUrl = getSavedGasUrl();
-      const res = await fetch(`${gasUrl}?action=rekonsiliasiDanBersihkanBatchBatal&v=${Date.now()}`, {
-        method: 'GET',
-        mode: 'cors',
-      });
+      const res = await fetchGasAction('action=rekonsiliasiDanBersihkanBatchBatal');
       const data = await safeParseGasResponse(res);
       if (res.ok || data?.success) {
         const delCount = data?.deletedBatalCount ?? 0;
@@ -1859,12 +1880,8 @@ function doGet(e) {
     setIsSyncing(true);
     setSyncStatusMsg(null);
     try {
-      const gasUrl = getSavedGasUrl();
-      // Kirim trigger eksekusi ke Google Apps Script backend
-      const res = await fetch(`${gasUrl}?action=sinkronkanDhpBlendKeRekap&v=${Date.now()}`, {
-        method: 'GET',
-        mode: 'cors',
-      });
+      // Kirim trigger eksekusi ke Google Apps Script backend dengan proteksi fallback
+      const res = await fetchGasAction('action=sinkronkanDhpBlendKeRekap');
       const data = await safeParseGasResponse(res);
       if (res.ok || data?.success) {
         const guardedCount = data?.protectedZeroOverwriteCount ?? 0;
@@ -1880,11 +1897,11 @@ function doGet(e) {
       }
     } catch (err: any) {
       // Jika endpoint GAS belum dideploy dengan action baru, berikan petunjuk jelas
-        setSyncStatusMsg({
-          type: 'info',
-          text: 'Instruksi sinkronisasi 5-Layer dikirim. Seluruh batch riil diselaraskan di DATAMASTER dengan proteksi penuh neraca massa.',
-        });
-        onRefreshRekap?.();
+      setSyncStatusMsg({
+        type: 'info',
+        text: 'Instruksi sinkronisasi 5-Layer dikirim. Seluruh batch riil diselaraskan di DATAMASTER dengan proteksi penuh neraca massa.',
+      });
+      onRefreshRekap?.();
     } finally {
       setIsSyncing(false);
     }
@@ -1895,11 +1912,7 @@ function doGet(e) {
     setIsCleaningBakuNol(true);
     setSyncStatusMsg(null);
     try {
-      const gasUrl = getSavedGasUrl();
-      const res = await fetch(`${gasUrl}?action=bersihkanBarisBakuNol&v=${Date.now()}`, {
-        method: 'GET',
-        mode: 'cors',
-      });
+      const res = await fetchGasAction('action=bersihkanBarisBakuNol');
       const data = await safeParseGasResponse(res);
       if (res.ok || data?.success) {
         const count = data?.count ?? 0;
@@ -1928,11 +1941,7 @@ function doGet(e) {
     setIsFixing10Nov(true);
     setSyncStatusMsg(null);
     try {
-      const gasUrl = getSavedGasUrl();
-      const res = await fetch(`${gasUrl}?action=perbaikiTanggal10November2026&v=${Date.now()}`, {
-        method: 'GET',
-        mode: 'cors',
-      });
+      const res = await fetchGasAction('action=perbaikiTanggal10November2026');
       const data = await safeParseGasResponse(res);
       if (res.ok && data?.success) {
         setSyncStatusMsg({
@@ -2923,13 +2932,16 @@ function doGet(e) {
                         className="appearance-none bg-slate-900 border border-slate-700 text-white font-medium text-xs rounded-lg px-3 py-2 pr-8 focus:outline-none focus:border-amber-500 cursor-pointer"
                       >
                         {availableDates.length === 0 ? (
-                          <option value="">Tidak ada tanggal</option>
+                          <option value="">Transaksi Terkini</option>
                         ) : (
-                          availableDates.map((d) => (
-                            <option key={d} value={d}>
-                              {d}
-                            </option>
-                          ))
+                          <>
+                            <option value="">Transaksi Terkini ({availableDates[0] || 'Semua'})</option>
+                            {availableDates.map((d) => (
+                              <option key={d} value={d}>
+                                {d}
+                              </option>
+                            ))}
+                          </>
                         )}
                       </select>
                       <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />

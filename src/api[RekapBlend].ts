@@ -38,7 +38,11 @@ const LOCAL_STORAGE_GAS_URL_KEY = 'rekap_blend_gas_endpoint_url';
 
 export function getSavedGasUrl(): string {
   if (typeof window === 'undefined') return DEFAULT_GAS_URL;
-  return localStorage.getItem(LOCAL_STORAGE_GAS_URL_KEY) || DEFAULT_GAS_URL;
+  const saved = localStorage.getItem(LOCAL_STORAGE_GAS_URL_KEY);
+  if (!saved || saved.startsWith('/') || saved.includes('/api') || !saved.startsWith('http')) {
+    return DEFAULT_GAS_URL;
+  }
+  return saved;
 }
 
 export function saveGasUrl(url: string): void {
@@ -900,22 +904,52 @@ export async function loadInitialDataset(): Promise<DashboardDataset> {
  * Sinkronisasi data ke Headless GAS REST endpoint dengan dual-channel fallback
  */
 export async function syncWithGasServer(gasUrl?: string): Promise<RawBlendRow[]> {
-  const url = gasUrl || getSavedGasUrl();
+  let url = gasUrl || getSavedGasUrl();
+  if (!url || url.startsWith('/') || !url.startsWith('http')) {
+    url = DEFAULT_GAS_URL;
+  }
   const fetchUrl = `${url}?action=getDataMaster&v=${Date.now()}`;
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 9000);
 
   try {
-    const res = await fetch(fetchUrl, {
+    let res = await fetch(fetchUrl, {
       method: 'GET',
       mode: 'cors',
       signal: controller.signal,
     });
+
+    // Cloudflare SPA Fallback Protection:
+    // Jika rute internal mengembalikan HTML (misalnya /api tidak ada di Cloudflare sehingga mengembalikan index.html),
+    // otomatis lakukan fallback direct fetch langsung ke DEFAULT_GAS_URL dengan mode CORS.
+    let contentType = res.headers.get('content-type') || '';
+    let responseText = await res.text();
+    if (
+      contentType.includes('text/html') ||
+      responseText.trim().startsWith('<!DOCTYPE') ||
+      responseText.trim().startsWith('<html')
+    ) {
+      if (url !== DEFAULT_GAS_URL) {
+        console.warn('Endpoint mengembalikan respons HTML (Cloudflare SPA fallback). Mengalihkan langsung ke direct fetch GAS CORS...');
+        const directRes = await fetch(`${DEFAULT_GAS_URL}?action=getDataMaster&v=${Date.now()}`, {
+          method: 'GET',
+          mode: 'cors',
+          signal: controller.signal,
+        });
+        contentType = directRes.headers.get('content-type') || '';
+        responseText = await directRes.text();
+        if (contentType.includes('text/html') || responseText.trim().startsWith('<')) {
+          throw new Error('Endpoint GAS direct juga mengembalikan respons HTML');
+        }
+      } else {
+        throw new Error('GAS endpoint mengembalikan respons HTML (SPA fallback)');
+      }
+    }
     clearTimeout(timeoutId);
 
-    if (res.ok) {
-      const data = await res.json();
+    if (res.ok || responseText.length > 20) {
+      const data = JSON.parse(responseText);
       let rowsList: any[] = [];
       if (Array.isArray(data)) {
         rowsList = data;
