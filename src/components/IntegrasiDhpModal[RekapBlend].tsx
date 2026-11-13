@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   X,
   Layers,
@@ -133,6 +133,13 @@ export const IntegrasiDhpModalRekapBlend: React.FC<IntegrasiDhpModalProps> = ({
 
   const [isLoading, setIsLoading] = useState(false);
   const [dhpItems, setDhpItems] = useState<DhpBatchItem[]>([]);
+  const dhpItemsRef = useRef<DhpBatchItem[]>([]);
+  const rekapRowsRef = useRef<RawBlendRow[]>(rekapRows);
+  const isDhpFetchInFlightRef = useRef<boolean>(false);
+  const dhpConsecutiveFailRef = useRef<number>(0);
+  const dhpNextAllowedFetchRef = useRef<number>(0);
+  rekapRowsRef.current = rekapRows;
+  dhpItemsRef.current = dhpItems;
   const [lastFetchedTime, setLastFetchedTime] = useState<string>('');
   const [countdown, setCountdown] = useState<number>(15);
   const [copiedScript, setCopiedScript] = useState(false);
@@ -302,15 +309,27 @@ export const IntegrasiDhpModalRekapBlend: React.FC<IntegrasiDhpModalProps> = ({
     return val.replace(/^molen\s*/i, '').trim();
   };
 
-  // Fungsi penarik data live langsung dari sheet DHP Blend
-  const fetchLiveDhpData = useCallback(async () => {
+  // Fungsi penarik data live langsung dari sheet DHP Blend (dengan proteksi anti-timpa data live & backoff)
+  const fetchLiveDhpData = useCallback(async (isManualOrInitial: boolean | unknown = true) => {
+    const isBackgroundPoll = isManualOrInitial === false;
+    if (isDhpFetchInFlightRef.current) return;
+    if (isBackgroundPoll && Date.now() < dhpNextAllowedFetchRef.current) return;
+
+    isDhpFetchInFlightRef.current = true;
     setIsLoading(true);
-    setSyncStatusMsg(null);
+    if (!isBackgroundPoll) {
+      setSyncStatusMsg(null);
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 9000);
+
     try {
       const csvUrl = `https://docs.google.com/spreadsheets/d/${DHP_SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(
         DHP_SHEET_NAME
       )}&v=${Date.now()}`;
-      const res = await fetch(csvUrl);
+      const res = await fetch(csvUrl, { signal: controller.signal });
+      clearTimeout(timeoutId);
       if (!res.ok) throw new Error(`HTTP Status ${res.status}`);
       const csvText = await res.text();
       if (isHtmlPayload(res, csvText) || csvText.trim().startsWith('<')) {
@@ -406,29 +425,14 @@ export const IntegrasiDhpModalRekapBlend: React.FC<IntegrasiDhpModalProps> = ({
         }
       }
 
-      // Daftar Resmi Cadangan 12 Batch Aktif Jumat, 23 Oktober 2026 (hanya untuk mode offline)
-      const required12Batches = [
-        { code: '153 - BK 01', merk: '153 - BK', camp: '1', molen: 'AA 01', baku: 876.1, hasil: 873.9, suhu: 31.0, suhuStr: '31,0 °C', matchedRow: 4731 },
-        { code: '153 - BK 02', merk: '153 - BK', camp: '2', molen: 'AA 02', baku: 876.1, hasil: 870.0, suhu: 33.0, suhuStr: '33,0 °C', matchedRow: 4732 },
-        { code: '153 - BK 03', merk: '153 - BK', camp: '3', molen: 'AB 03', baku: 876.1, hasil: 873.6, suhu: 31.0, suhuStr: '31,0 °C', matchedRow: 4733 },
-        { code: '153 - BK 04', merk: '153 - BK', camp: '4', molen: 'AB 04', baku: 875.6, hasil: 870.0, suhu: 33.0, suhuStr: '33,0 °C', matchedRow: 4734 },
-        { code: '153 - BK 05', merk: '153 - BK', camp: '5', molen: 'AB 05', baku: 876.6, hasil: 870.0, suhu: null, suhuStr: '', matchedRow: 4735 },
-        { code: '153 - BK 06', merk: '153 - BK', camp: '6', molen: 'AC 06', baku: 876.1, hasil: 873.7, suhu: 31.0, suhuStr: '31,0 °C', matchedRow: 4736 },
-        { code: '153 - BK 07', merk: '153 - BK', camp: '7', molen: 'AC 07', baku: 876.3, hasil: 870.0, suhu: 33.0, suhuStr: '33,0 °C', matchedRow: 4737 },
-        { code: '153 - BK 08', merk: '153 - BK', camp: '8', molen: 'AD 08', baku: 875.8, hasil: 873.4, suhu: 30.0, suhuStr: '30,0 °C', matchedRow: 4738 },
-        { code: '153 - BK 09', merk: '153 - BK', camp: '9', molen: 'AD 09', baku: 875.8, hasil: 870.0, suhu: null, suhuStr: '', matchedRow: 4739 },
-        { code: '153 - BK 10', merk: '153 - BK', camp: '10', molen: 'AE 10', baku: 876.0, hasil: 873.2, suhu: 30.0, suhuStr: '30,0 °C', matchedRow: 4740 },
-        { code: '153 - BK 11', merk: '153 - BK', camp: '11', molen: 'AE 11', baku: 876.0, hasil: 870.0, suhu: null, suhuStr: '', matchedRow: 4741 },
-        { code: 'KARANG - BK 01', merk: 'KARANG - BK', camp: '1', molen: 'AE 01', baku: 874.7, hasil: 870.0, suhu: null, suhuStr: '', matchedRow: 4730 },
-      ];
-
       let finalItems: DhpBatchItem[] = [];
 
       if (itemsMap.size > 0) {
         // Prioritaskan seluruh data riil yang ditarik langsung dari sheet DHP
+        const activeRekapRows = rekapRowsRef.current;
         finalItems = Array.from(itemsMap.values()).map((live, idx) => {
           let matchedRowNumber: number | undefined;
-          const found = rekapRows.find((rek) => {
+          const found = activeRekapRows.find((rek) => {
             const rekTgl = (rek.tanggal || '').toLowerCase();
             const liveTgl = (live.tanggal || '').toLowerCase();
 
@@ -475,40 +479,25 @@ export const IntegrasiDhpModalRekapBlend: React.FC<IntegrasiDhpModalProps> = ({
           };
         });
       } else {
-        // Fallback hanya saat jaringan offline tanpa respon Google Sheets
-        finalItems = required12Batches.map((req, idx) => {
-          const baku = req.baku;
-          const hasil = req.hasil;
-          const susut = Math.round((baku - hasil) * 10) / 10;
-          const susutPct = ((susut / baku) * 100).toFixed(2) + '%';
-          return {
-            row: 14 + idx,
-            no: String(idx + 1),
-            noMolen: req.camp,
-            tanggal: 'Jumat, 23 Oktober 2026',
-            batchCode: req.code,
-            merk: req.merk,
-            baku,
-            hasil,
-            susutKg: susut,
-            susutPct,
-            molenCode: req.molen,
-            suhu: req.suhu,
-            suhuStr: req.suhuStr,
-            statusSync: 'SYNC',
-            isMatchedInRekap: true,
-            rekapMatchedRow: req.matchedRow,
-          };
-        });
+        throw new Error('Respons CSV DHP tidak memuat batch valid (baku > 0)');
       }
 
+      dhpConsecutiveFailRef.current = 0;
+      dhpNextAllowedFetchRef.current = 0;
       setDhpItems(finalItems);
       setLastFetchedTime(formatWibTimeNow());
       setCountdown(15);
     } catch (err: any) {
-      console.warn('Gagal menarik DHP live:', err.message);
-      // Fallback 12 Batch Jumat, 23 Oktober 2026 dengan Suhu Kolom W DHP Asli (tanpa data semu)
-      setDhpItems([
+      clearTimeout(timeoutId);
+      dhpConsecutiveFailRef.current += 1;
+      const backoffMs = Math.min(120000, 15000 * Math.pow(2, dhpConsecutiveFailRef.current));
+      dhpNextAllowedFetchRef.current = Date.now() + backoffMs;
+      console.warn('Gagal menarik DHP live (mempertahankan data layar):', err.message);
+
+      // JANGAN timpa data live yang sudah tampil di layar dengan data fallback lama!
+      // Fallback 23 Oktober 2026 hanya dipakai jika layar memang masih benar-benar kosong.
+      if (dhpItemsRef.current.length === 0) {
+        setDhpItems([
         { row: 10, no: '1', noMolen: '1', tanggal: 'Jumat, 23 Oktober 2026', batchCode: '153 - BK 01', merk: '153 - BK', baku: 876.1, hasil: 873.9, susutKg: 2.2, susutPct: '0,25%', molenCode: 'AA 01', suhu: 31.0, suhuStr: '31,0 °C', statusSync: 'SYNC', isMatchedInRekap: true, rekapMatchedRow: 4731 },
         { row: 11, no: '2', noMolen: '2', tanggal: 'Jumat, 23 Oktober 2026', batchCode: '153 - BK 02', merk: '153 - BK', baku: 876.1, hasil: 870.0, susutKg: 6.1, susutPct: '0,70%', molenCode: 'AA 02', suhu: 33.0, suhuStr: '33,0 °C', statusSync: 'SYNC', isMatchedInRekap: true, rekapMatchedRow: 4732 },
         { row: 12, no: '3', noMolen: '3', tanggal: 'Jumat, 23 Oktober 2026', batchCode: '153 - BK 03', merk: '153 - BK', baku: 876.1, hasil: 873.6, susutKg: 2.5, susutPct: '0,29%', molenCode: 'AB 03', suhu: 31.0, suhuStr: '31,0 °C', statusSync: 'SYNC', isMatchedInRekap: true, rekapMatchedRow: 4733 },
@@ -522,26 +511,32 @@ export const IntegrasiDhpModalRekapBlend: React.FC<IntegrasiDhpModalProps> = ({
         { row: 20, no: '11', noMolen: '11', tanggal: 'Jumat, 23 Oktober 2026', batchCode: '153 - BK 11', merk: '153 - BK', baku: 876.0, hasil: 870.0, susutKg: 6.0, susutPct: '0,68%', molenCode: 'AE 11', suhu: null, suhuStr: '', statusSync: 'SYNC', isMatchedInRekap: true, rekapMatchedRow: 4741 },
         { row: 21, no: '12', noMolen: '1', tanggal: 'Jumat, 23 Oktober 2026', batchCode: 'KARANG - BK 01', merk: 'KARANG - BK', baku: 874.7, hasil: 870.0, susutKg: 4.7, susutPct: '0,54%', molenCode: 'AE 01', suhu: null, suhuStr: '', statusSync: 'SYNC', isMatchedInRekap: true, rekapMatchedRow: 4730 },
       ]);
-      setLastFetchedTime(formatWibTimeNow());
+        setLastFetchedTime(formatWibTimeNow());
+      }
+      setCountdown(15);
     } finally {
+      isDhpFetchInFlightRef.current = false;
       setIsLoading(false);
     }
-  }, [rekapRows]);
+  }, []);
 
   // Load awal saat modal dibuka
   useEffect(() => {
     if (isOpen) {
-      fetchLiveDhpData();
+      dhpConsecutiveFailRef.current = 0;
+      dhpNextAllowedFetchRef.current = 0;
+      fetchLiveDhpData(true);
     }
   }, [isOpen, fetchLiveDhpData]);
 
-  // Countdown auto refresh tiap 15 detik
+  // Countdown auto refresh tiap 15 detik (otomatis jeda saat tab tidak aktif)
   useEffect(() => {
     if (!isOpen) return;
     const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
       setCountdown((prev) => {
         if (prev <= 1) {
-          fetchLiveDhpData();
+          fetchLiveDhpData(false);
           return 15;
         }
         return prev - 1;

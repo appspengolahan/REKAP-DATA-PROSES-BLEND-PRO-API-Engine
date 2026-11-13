@@ -32,18 +32,26 @@ export const DEFAULT_WEEKLY_PLAN_DATA: WeeklyBlendPlanData = {
 };
 
 let _inMemoryWeeklyPlanCache: WeeklyBlendPlanData | null = null;
+let _inFlightWeeklyPlanPromise: Promise<WeeklyBlendPlanData> | null = null;
 
 /**
  * Mengambil data perencanaan blend mingguan ter-cache dari memori / localStorage
  */
 export function getCachedWeeklyBlendPlan(): WeeklyBlendPlanData {
-  if (_inMemoryWeeklyPlanCache !== null) return _inMemoryWeeklyPlanCache;
+  if (_inMemoryWeeklyPlanCache !== null && _inMemoryWeeklyPlanCache.schedules.length > 0) {
+    return _inMemoryWeeklyPlanCache;
+  }
   if (typeof window === 'undefined') return DEFAULT_WEEKLY_PLAN_DATA;
   try {
     const raw = localStorage.getItem(CACHE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (parsed && parsed.schedules && parsed.dailyTotals) {
+      if (
+        parsed &&
+        Array.isArray(parsed.schedules) &&
+        parsed.schedules.length > 0 &&
+        parsed.dailyTotals
+      ) {
         _inMemoryWeeklyPlanCache = parsed;
         return parsed;
       }
@@ -57,8 +65,12 @@ export function getCachedWeeklyBlendPlan(): WeeklyBlendPlanData {
 
 /**
  * Menyimpan data perencanaan blend mingguan ke memori & localStorage
+ * (Hanya menyimpan jika jadwal valid dan tidak kosong)
  */
 export function saveCachedWeeklyBlendPlan(data: WeeklyBlendPlanData): void {
+  if (!data || !Array.isArray(data.schedules) || data.schedules.length === 0) {
+    return;
+  }
   _inMemoryWeeklyPlanCache = data;
   if (typeof window !== 'undefined') {
     try {
@@ -71,120 +83,141 @@ export function saveCachedWeeklyBlendPlan(data: WeeklyBlendPlanData): void {
 
 /**
  * Logika Pengambilan & Parsing Data (Service Function)
- * Berdasarkan referensi implementasi dari modul Persediaan PP1
+ * Dilengkapi single-flight deduplication, timeout 9s, dan proteksi anti-timpa cache kosong.
  */
 export async function fetchWeeklyBlendPlan(): Promise<WeeklyBlendPlanData> {
-  const SPREADSHEET_ID = '1qnTh5PL0oitFtH7tx7pI1r4jBnWk9vgVuUVJnWUAvk4';
-  const url = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(
-    'PLANING BLEND MINGGUAN'
-  )}&t=${Date.now()}`;
-
-  try {
-    const res = await fetch(url, { cache: 'no-store' });
-    if (!res.ok) throw new Error('Gagal fetch GViz');
-    const csv = await res.text();
-    if (isHtmlPayload(res, csv) || csv.trim().startsWith('<')) {
-      throw new Error('Endpoint mengembalikan HTML (bukan CSV GViz)');
-    }
-
-    // Parsing CSV Sederhana
-    const lines = csv.split('\n').filter((l) => l.trim().length > 0);
-    const parseCsvRow = (line: string) => {
-      const row: string[] = [];
-      let cur = '';
-      let inQuotes = false;
-      for (let i = 0; i < line.length; i++) {
-        const c = line[i];
-        if (c === '"') {
-          if (inQuotes && line[i + 1] === '"') {
-            cur += '"';
-            i++;
-          } else {
-            inQuotes = !inQuotes;
-          }
-        } else if (c === ',' && !inQuotes) {
-          row.push(cur.replace(/^"|"$/g, '').trim());
-          cur = '';
-        } else {
-          cur += c;
-        }
-      }
-      row.push(cur.replace(/^"|"$/g, '').trim());
-      return row;
-    };
-
-    const parseNum = (v: any) => {
-      if (!v) return 0;
-      const clean = String(v).replace(/[^\d.,]/g, '').replace(',', '.');
-      const n = parseFloat(clean);
-      return isNaN(n) ? 0 : n;
-    };
-
-    if (lines.length >= 2) {
-      const dateRow = parseCsvRow(lines[1]);
-      const dates = {
-        senin: dateRow[3] || 'Senin, 09 November 2026',
-        selasa: dateRow[4] || 'Selasa, 10 November 2026',
-        rabu: dateRow[5] || 'Rabu, 11 November 2026',
-        kamis: dateRow[6] || 'Kamis, 12 November 2026',
-        jumat: dateRow[7] || 'Jumat, 13 November 2026',
-        sabtu: dateRow[8] || 'Sabtu, 14 November 2026',
-        minggu: dateRow[9] || 'Minggu, 15 November 2026',
-      };
-
-      const schedules: DailyBlendScheduleItem[] = [];
-      let dailyTotals = {
-        senin: 0,
-        selasa: 0,
-        rabu: 0,
-        kamis: 0,
-        jumat: 0,
-        sabtu: 0,
-        minggu: 0,
-        total: 0,
-      };
-
-      for (let i = 2; i < lines.length; i++) {
-        const r = parseCsvRow(lines[i]);
-        const blendName = (r[1] || '').trim();
-        if (!blendName) continue;
-        if (blendName.toUpperCase() === 'TOTAL') {
-          dailyTotals = {
-            senin: parseNum(r[3]),
-            selasa: parseNum(r[4]),
-            rabu: parseNum(r[5]),
-            kamis: parseNum(r[6]),
-            jumat: parseNum(r[7]),
-            sabtu: parseNum(r[8]),
-            minggu: parseNum(r[9]),
-            total: parseNum(r[10]),
-          };
-        } else {
-          schedules.push({
-            blendName,
-            kapasitas: (r[2] || '').trim() || '—',
-            senin: parseNum(r[3]),
-            selasa: parseNum(r[4]),
-            rabu: parseNum(r[5]),
-            kamis: parseNum(r[6]),
-            jumat: parseNum(r[7]),
-            sabtu: parseNum(r[8]),
-            minggu: parseNum(r[9]),
-            totalCampuran: parseNum(r[10]),
-          });
-        }
-      }
-
-      const result: WeeklyBlendPlanData = { dates, schedules, dailyTotals };
-      saveCachedWeeklyBlendPlan(result);
-      return result;
-    }
-  } catch (err) {
-    console.warn('Menggunakan baseline fallback jadwal alokasi:', err);
+  if (_inFlightWeeklyPlanPromise) {
+    return _inFlightWeeklyPlanPromise;
   }
 
-  // Fallback Baseline Data jika jaringan offline
-  return getCachedWeeklyBlendPlan();
+  _inFlightWeeklyPlanPromise = (async () => {
+    const SPREADSHEET_ID = '1qnTh5PL0oitFtH7tx7pI1r4jBnWk9vgVuUVJnWUAvk4';
+    const url = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(
+      'PLANING BLEND MINGGUAN'
+    )}&t=${Date.now()}`;
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 9000);
+
+    try {
+      const res = await fetch(url, { cache: 'no-store', signal: controller.signal });
+      clearTimeout(timeoutId);
+      if (!res.ok) throw new Error(`Gagal fetch GViz (HTTP ${res.status})`);
+      const csv = await res.text();
+      if (isHtmlPayload(res, csv) || csv.trim().startsWith('<')) {
+        throw new Error('Endpoint mengembalikan HTML (bukan CSV GViz)');
+      }
+
+      // Parsing CSV Sederhana
+      const lines = csv.split('\n').filter((l) => l.trim().length > 0);
+      const parseCsvRow = (line: string) => {
+        const row: string[] = [];
+        let cur = '';
+        let inQuotes = false;
+        for (let i = 0; i < line.length; i++) {
+          const c = line[i];
+          if (c === '"') {
+            if (inQuotes && line[i + 1] === '"') {
+              cur += '"';
+              i++;
+            } else {
+              inQuotes = !inQuotes;
+            }
+          } else if (c === ',' && !inQuotes) {
+            row.push(cur.replace(/^"|"$/g, '').trim());
+            cur = '';
+          } else {
+            cur += c;
+          }
+        }
+        row.push(cur.replace(/^"|"$/g, '').trim());
+        return row;
+      };
+
+      const parseNum = (v: any) => {
+        if (!v) return 0;
+        const clean = String(v).replace(/[^\d.,]/g, '').replace(',', '.');
+        const n = parseFloat(clean);
+        return isNaN(n) ? 0 : n;
+      };
+
+      if (lines.length >= 2) {
+        const dateRow = parseCsvRow(lines[1]);
+        const dates = {
+          senin: dateRow[3] || 'Senin, 09 November 2026',
+          selasa: dateRow[4] || 'Selasa, 10 November 2026',
+          rabu: dateRow[5] || 'Rabu, 11 November 2026',
+          kamis: dateRow[6] || 'Kamis, 12 November 2026',
+          jumat: dateRow[7] || 'Jumat, 13 November 2026',
+          sabtu: dateRow[8] || 'Sabtu, 14 November 2026',
+          minggu: dateRow[9] || 'Minggu, 15 November 2026',
+        };
+
+        const schedules: DailyBlendScheduleItem[] = [];
+        let dailyTotals = {
+          senin: 0,
+          selasa: 0,
+          rabu: 0,
+          kamis: 0,
+          jumat: 0,
+          sabtu: 0,
+          minggu: 0,
+          total: 0,
+        };
+
+        for (let i = 2; i < lines.length; i++) {
+          const r = parseCsvRow(lines[i]);
+          const blendName = (r[1] || '').trim();
+          if (!blendName) continue;
+          if (blendName.toUpperCase() === 'TOTAL') {
+            dailyTotals = {
+              senin: parseNum(r[3]),
+              selasa: parseNum(r[4]),
+              rabu: parseNum(r[5]),
+              kamis: parseNum(r[6]),
+              jumat: parseNum(r[7]),
+              sabtu: parseNum(r[8]),
+              minggu: parseNum(r[9]),
+              total: parseNum(r[10]),
+            };
+          } else {
+            schedules.push({
+              blendName,
+              kapasitas: (r[2] || '').trim() || '—',
+              senin: parseNum(r[3]),
+              selasa: parseNum(r[4]),
+              rabu: parseNum(r[5]),
+              kamis: parseNum(r[6]),
+              jumat: parseNum(r[7]),
+              sabtu: parseNum(r[8]),
+              minggu: parseNum(r[9]),
+              totalCampuran: parseNum(r[10]),
+            });
+          }
+        }
+
+        if (schedules.length === 0) {
+          throw new Error('Respons CSV jadwal alokasi tidak memuat baris data blend (kosong)');
+        }
+
+        const result: WeeklyBlendPlanData = { dates, schedules, dailyTotals };
+        saveCachedWeeklyBlendPlan(result);
+        return result;
+      }
+    } catch (err) {
+      clearTimeout(timeoutId);
+      console.warn('Menggunakan baseline fallback jadwal alokasi:', err);
+    }
+
+    // Fallback Baseline Data jika jaringan offline / respons kosong
+    return getCachedWeeklyBlendPlan();
+  })();
+
+  try {
+    return await _inFlightWeeklyPlanPromise;
+  } finally {
+    _inFlightWeeklyPlanPromise = null;
+  }
 }
 
 /**

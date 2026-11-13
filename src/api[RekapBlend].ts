@@ -1128,119 +1128,137 @@ export async function loadInitialDataset(): Promise<DashboardDataset> {
   );
 }
 
+let _inFlightGasSync: Promise<RawBlendRow[]> | null = null;
+let _inFlightDirectSync: Promise<RawBlendRow[]> | null = null;
+
 /**
  * Sinkronisasi data ke Headless GAS REST endpoint dengan dual-channel fallback
+ * dan single-flight deduplication agar tidak memicu lonjakan request ke Google.
  */
 export async function syncWithGasServer(gasUrl?: string): Promise<RawBlendRow[]> {
-  let url = gasUrl || getSavedGasUrl();
-  const isInternalApiPath = url.startsWith('/') || url.includes('/api/');
-  if (!url || !url.startsWith('http') || (isInternalApiPath && isStaticHostingMode())) {
-    url = DEFAULT_GAS_URL;
-  }
-  const fetchUrl = `${url}?action=getDataMaster&v=${Date.now()}`;
+  if (_inFlightGasSync) return _inFlightGasSync;
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 9000);
-
-  try {
-    const res = await fetch(fetchUrl, {
-      method: 'GET',
-      mode: 'cors',
-      signal: controller.signal,
-    });
-
-    // Cloudflare SPA Fallback Protection:
-    // Jika rute internal mengembalikan HTML (misalnya /api tidak ada di Cloudflare sehingga mengembalikan index.html),
-    // tandai session sebagai static hosting mode dan otomatis lakukan fallback direct fetch langsung ke DEFAULT_GAS_URL dengan mode CORS.
-    let responseText = await res.text();
-    let activeRes = res;
-    if (isHtmlPayload(res, responseText)) {
-      if (isInternalApiPath) markStaticHostingMode();
-      if (url !== DEFAULT_GAS_URL) {
-        console.warn('Endpoint mengembalikan respons HTML (Static SPA fallback). Mengalihkan langsung ke direct fetch GAS CORS...');
-        const directRes = await fetch(`${DEFAULT_GAS_URL}?action=getDataMaster&v=${Date.now()}`, {
-          method: 'GET',
-          mode: 'cors',
-          signal: controller.signal,
-        });
-        activeRes = directRes;
-        responseText = await directRes.text();
-        if (isHtmlPayload(directRes, responseText)) {
-          throw new Error('Endpoint GAS direct juga mengembalikan respons HTML');
-        }
-      } else {
-        throw new Error('GAS endpoint mengembalikan respons HTML (SPA fallback)');
-      }
+  _inFlightGasSync = (async () => {
+    let url = gasUrl || getSavedGasUrl();
+    const isInternalApiPath = url.startsWith('/') || url.includes('/api/');
+    if (!url || !url.startsWith('http') || (isInternalApiPath && isStaticHostingMode())) {
+      url = DEFAULT_GAS_URL;
     }
-    clearTimeout(timeoutId);
+    const fetchUrl = `${url}?action=getDataMaster&v=${Date.now()}`;
 
-    if (activeRes.ok || responseText.length > 20) {
-      const data = JSON.parse(responseText);
-      let rowsList: any[] = [];
-      if (Array.isArray(data)) {
-        rowsList = data;
-      } else if (data && Array.isArray(data.rows)) {
-        rowsList = data.rows;
-      } else if (data && Array.isArray(data.data)) {
-        rowsList = data.data;
-      }
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 9000);
 
-      if (rowsList.length > 0) {
-        const cleanedRows: RawBlendRow[] = rowsList.map((r, idx) => {
-          const rawMolen = r.molenRaw || r.molenDetail || r.molen || '';
-          const noM = r.noMolen || r.nomerMolen || r.nomer || (r.col6 ? String(r.col6) : '');
-          return {
-            srcRow: Number(r.srcRow) || idx + 14,
-            tanggal: String(r.tanggal || '').substring(0, 10),
-            bulan: String(r.bulan || ''),
-            tahun: String(r.tahun || ''),
-            merk: String(r.merk || ''),
-            noMolen: noM || String((idx % 7) + 1),
-            bobot: Number(r.bobot) || 0,
-            hasil: Number(r.hasil) || 0,
-            susutKg: Number(r.susutKg) || 0,
-            susutPct: Number(r.susutPct) || 0,
-            molen: normalizeMolenName(r.molen),
-            molenDetail: formatMolenWithCycle(rawMolen, noM || ((idx % 3) + 1)),
-            suhu: r.suhu !== null && !isNaN(Number(r.suhu)) ? Number(r.suhu) : null,
-          };
-        });
-
-        const mergedRows = mergeWithHistoricalRows(cleanedRows);
-        _cachedRawRows = mergedRows;
-        if (typeof window !== 'undefined') {
-          localStorage.setItem(LOCAL_STORAGE_CACHE_KEY, JSON.stringify(mergedRows));
-        }
-        return mergedRows;
-      }
-    }
-    throw new Error(`GAS Response status: ${activeRes.status}`);
-  } catch (err: any) {
-    clearTimeout(timeoutId);
-    console.warn('Jalur GAS REST API dialihkan ke direct GViz CSV Query:', err.message);
-
-    // Jalur Cadangan (Direct Google Visualization Query CSV penuh)
-    const csvUrl = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=DATAMASTER&tq=${encodeURIComponent('select *')}`;
     try {
-      const csvRes = await fetch(csvUrl, { method: 'GET' });
-      if (csvRes.ok) {
-        const csvText = await csvRes.text();
-        if (!isHtmlPayload(csvRes, csvText) && !csvText.trim().startsWith('<')) {
-          const rows = parseGvizCsv(csvText);
-          if (rows.length > 0) {
-            const mergedRows = mergeWithHistoricalRows(rows);
-            _cachedRawRows = mergedRows;
-            if (typeof window !== 'undefined') {
-              localStorage.setItem(LOCAL_STORAGE_CACHE_KEY, JSON.stringify(mergedRows));
+      const res = await fetch(fetchUrl, {
+        method: 'GET',
+        mode: 'cors',
+        signal: controller.signal,
+      });
+
+      // Cloudflare SPA Fallback Protection:
+      // Jika rute internal mengembalikan HTML (misalnya /api tidak ada di Cloudflare sehingga mengembalikan index.html),
+      // tandai session sebagai static hosting mode dan otomatis lakukan fallback direct fetch langsung ke DEFAULT_GAS_URL dengan mode CORS.
+      let responseText = await res.text();
+      let activeRes = res;
+      if (isHtmlPayload(res, responseText)) {
+        if (isInternalApiPath) markStaticHostingMode();
+        if (url !== DEFAULT_GAS_URL) {
+          console.warn('Endpoint mengembalikan respons HTML (Static SPA fallback). Mengalihkan langsung ke direct fetch GAS CORS...');
+          const directRes = await fetch(`${DEFAULT_GAS_URL}?action=getDataMaster&v=${Date.now()}`, {
+            method: 'GET',
+            mode: 'cors',
+            signal: controller.signal,
+          });
+          activeRes = directRes;
+          responseText = await directRes.text();
+          if (isHtmlPayload(directRes, responseText)) {
+            throw new Error('Endpoint GAS direct juga mengembalikan respons HTML');
+          }
+        } else {
+          throw new Error('GAS endpoint mengembalikan respons HTML (SPA fallback)');
+        }
+      }
+      clearTimeout(timeoutId);
+
+      if (activeRes.ok || responseText.length > 20) {
+        const data = JSON.parse(responseText);
+        let rowsList: any[] = [];
+        if (Array.isArray(data)) {
+          rowsList = data;
+        } else if (data && Array.isArray(data.rows)) {
+          rowsList = data.rows;
+        } else if (data && Array.isArray(data.data)) {
+          rowsList = data.data;
+        }
+
+        if (rowsList.length > 0) {
+          const cleanedRows: RawBlendRow[] = rowsList.map((r, idx) => {
+            const rawMolen = r.molenRaw || r.molenDetail || r.molen || '';
+            const noM = r.noMolen || r.nomerMolen || r.nomer || (r.col6 ? String(r.col6) : '');
+            return {
+              srcRow: Number(r.srcRow) || idx + 14,
+              tanggal: String(r.tanggal || '').substring(0, 10),
+              bulan: String(r.bulan || ''),
+              tahun: String(r.tahun || ''),
+              merk: String(r.merk || ''),
+              noMolen: noM || String((idx % 7) + 1),
+              bobot: Number(r.bobot) || 0,
+              hasil: Number(r.hasil) || 0,
+              susutKg: Number(r.susutKg) || 0,
+              susutPct: Number(r.susutPct) || 0,
+              molen: normalizeMolenName(r.molen),
+              molenDetail: formatMolenWithCycle(rawMolen, noM || ((idx % 3) + 1)),
+              suhu: r.suhu !== null && !isNaN(Number(r.suhu)) ? Number(r.suhu) : null,
+            };
+          });
+
+          const mergedRows = mergeWithHistoricalRows(cleanedRows);
+          _cachedRawRows = mergedRows;
+          if (typeof window !== 'undefined') {
+            localStorage.setItem(LOCAL_STORAGE_CACHE_KEY, JSON.stringify(mergedRows));
+          }
+          return mergedRows;
+        }
+      }
+      throw new Error(`GAS Response status: ${activeRes.status}`);
+    } catch (err: any) {
+      clearTimeout(timeoutId);
+      console.warn('Jalur GAS REST API dialihkan ke direct GViz CSV Query:', err.message);
+
+      // Jalur Cadangan (Direct Google Visualization Query CSV penuh dengan timeout 9s)
+      const csvUrl = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=DATAMASTER&tq=${encodeURIComponent('select *')}`;
+      const csvController = new AbortController();
+      const csvTimeoutId = setTimeout(() => csvController.abort(), 9000);
+      try {
+        const csvRes = await fetch(csvUrl, { method: 'GET', signal: csvController.signal });
+        clearTimeout(csvTimeoutId);
+        if (csvRes.ok) {
+          const csvText = await csvRes.text();
+          if (!isHtmlPayload(csvRes, csvText) && !csvText.trim().startsWith('<')) {
+            const rows = parseGvizCsv(csvText);
+            if (rows.length > 0) {
+              const mergedRows = mergeWithHistoricalRows(rows);
+              _cachedRawRows = mergedRows;
+              if (typeof window !== 'undefined') {
+                localStorage.setItem(LOCAL_STORAGE_CACHE_KEY, JSON.stringify(mergedRows));
+              }
+              return mergedRows;
             }
-            return mergedRows;
           }
         }
+      } catch (csvErr: any) {
+        clearTimeout(csvTimeoutId);
+        console.warn('Jalur GViz CSV juga tidak dapat diakses langsung:', csvErr.message);
       }
-    } catch (csvErr: any) {
-      console.warn('Jalur GViz CSV juga tidak dapat diakses langsung:', csvErr.message);
+      throw err;
     }
-    throw err;
+  })();
+
+  try {
+    return await _inFlightGasSync;
+  } finally {
+    _inFlightGasSync = null;
   }
 }
 
@@ -1248,34 +1266,44 @@ export async function syncWithGasServer(gasUrl?: string): Promise<RawBlendRow[]>
  * Sinkronisasi alternatif langsung dari Google Sheets (GViz CSV query bypass GAS)
  */
 export async function syncDirectFromSheet(): Promise<RawBlendRow[]> {
-  const csvUrl = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=DATAMASTER&tq=${encodeURIComponent('select *')}&v=${Date.now()}`;
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 9000);
+  if (_inFlightDirectSync) return _inFlightDirectSync;
+
+  _inFlightDirectSync = (async () => {
+    const csvUrl = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=DATAMASTER&tq=${encodeURIComponent('select *')}&v=${Date.now()}`;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 9000);
+
+    try {
+      const res = await fetch(csvUrl, { method: 'GET', signal: controller.signal });
+      clearTimeout(timeoutId);
+      if (!res.ok) {
+        throw new Error(`Gagal membaca Google Sheets: status ${res.status}`);
+      }
+      const csvText = await res.text();
+      if (isHtmlPayload(res, csvText) || csvText.trim().startsWith('<')) {
+        throw new Error('Google Sheets GViz mengembalikan respons HTML (bukan CSV)');
+      }
+      const rows = parseGvizCsv(csvText);
+      if (rows.length === 0) {
+        throw new Error('Data Google Sheets kosong atau format tidak sesuai');
+      }
+      const mergedRows = mergeWithHistoricalRows(rows);
+      _cachedRawRows = mergedRows;
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(LOCAL_STORAGE_CACHE_KEY, JSON.stringify(mergedRows));
+      }
+      return mergedRows;
+    } catch (err: any) {
+      clearTimeout(timeoutId);
+      console.error('Error saat tarik data langsung dari Google Sheets:', err);
+      throw err;
+    }
+  })();
 
   try {
-    const res = await fetch(csvUrl, { method: 'GET', signal: controller.signal });
-    clearTimeout(timeoutId);
-    if (!res.ok) {
-      throw new Error(`Gagal membaca Google Sheets: status ${res.status}`);
-    }
-    const csvText = await res.text();
-    if (isHtmlPayload(res, csvText) || csvText.trim().startsWith('<')) {
-      throw new Error('Google Sheets GViz mengembalikan respons HTML (bukan CSV)');
-    }
-    const rows = parseGvizCsv(csvText);
-    if (rows.length === 0) {
-      throw new Error('Data Google Sheets kosong atau format tidak sesuai');
-    }
-    const mergedRows = mergeWithHistoricalRows(rows);
-    _cachedRawRows = mergedRows;
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(LOCAL_STORAGE_CACHE_KEY, JSON.stringify(mergedRows));
-    }
-    return mergedRows;
-  } catch (err: any) {
-    clearTimeout(timeoutId);
-    console.error('Error saat tarik data langsung dari Google Sheets:', err);
-    throw err;
+    return await _inFlightDirectSync;
+  } finally {
+    _inFlightDirectSync = null;
   }
 }
 

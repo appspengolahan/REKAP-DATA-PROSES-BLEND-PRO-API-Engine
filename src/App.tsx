@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   UserRole,
   ActiveTab,
@@ -54,6 +54,9 @@ export default function App() {
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [isAutoSync, setIsAutoSync] = useState<boolean>(true);
   const [dataSourceMode, setDataSourceMode] = useState<DataSourceMode>('gas');
+  const isSyncInFlightRef = useRef<boolean>(false);
+  const consecutiveSyncErrorsRef = useRef<number>(0);
+  const nextAllowedAutoSyncRef = useRef<number>(0);
 
   // Filter States
   const [tahunGlobal, setTahunGlobal] = useState<string>('Semua');
@@ -197,10 +200,17 @@ export default function App() {
     recompute(tahunGlobal, bulanRingkasan, periodeAwal, periodeAkhir);
   };
 
-  // Refresh & Sync Handler (Mendukung manual & background polling)
+  // Refresh & Sync Handler (Mendukung manual & background polling dengan single-flight lock + backoff)
   const handleRefresh = useCallback(
     async (isSilent = false, overrideMode?: DataSourceMode) => {
+      if (isSilent) {
+        if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+        if (Date.now() < nextAllowedAutoSyncRef.current) return;
+      }
+      if (isSyncInFlightRef.current) return;
+
       const activeMode = overrideMode || dataSourceMode;
+      isSyncInFlightRef.current = true;
       if (!isSilent) setIsRefreshing(true);
       try {
         let freshRows;
@@ -215,6 +225,8 @@ export default function App() {
         }
 
         if (freshRows && freshRows.length > 0) {
+          consecutiveSyncErrorsRef.current = 0;
+          nextAllowedAutoSyncRef.current = 0;
           setDataset((prev) => {
             if (!prev) return prev;
             return buildDashboardDataset(
@@ -228,10 +240,14 @@ export default function App() {
           });
         }
       } catch (err: any) {
+        consecutiveSyncErrorsRef.current += 1;
+        const backoffMs = Math.min(180000, 30000 * Math.pow(2, consecutiveSyncErrorsRef.current - 1));
+        nextAllowedAutoSyncRef.current = Date.now() + backoffMs;
         if (!isSilent) {
           console.warn(`Sinkronisasi Google Sheets (${activeMode}):`, err.message);
         }
       } finally {
+        isSyncInFlightRef.current = false;
         if (!isSilent) setIsRefreshing(false);
       }
     },
@@ -250,14 +266,17 @@ export default function App() {
     const nextMode: DataSourceMode = dataSourceMode === 'gas' ? 'direct_sheet' : 'gas';
     setDataSourceMode(nextMode);
     localStorage.setItem('rekap_blend_data_source_mode', nextMode);
+    consecutiveSyncErrorsRef.current = 0;
+    nextAllowedAutoSyncRef.current = 0;
     handleRefresh(false, nextMode);
   };
 
-  // Auto Refresh Interval Timer (Live auto sync tiap 30 detik)
+  // Auto Refresh Interval Timer (Live auto sync tiap 30 detik, otomatis jeda saat tab di-background)
   useEffect(() => {
     if (!isAutoSync) return;
 
     const intervalId = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
       handleRefresh(true);
     }, 30000);
 
