@@ -16,6 +16,7 @@ import {
   syncWithGasServer,
   syncDirectFromSheet,
   getEntriTerkini,
+  formatWibDateLongNow,
 } from './api[RekapBlend]';
 import { HeaderRekapBlend } from './components/Header[RekapBlend]';
 import { SidebarRekapBlend } from './components/Sidebar[RekapBlend]';
@@ -407,11 +408,7 @@ export default function App() {
             </h1>
             <div className="text-xs text-slate-600 mt-1">
               Sumber Data: Sheet DATAMASTER · Entri Terkini: {dataset.entriTerkini} · Tanggal Cetak:{' '}
-              {new Date().toLocaleDateString('id-ID', {
-                day: 'numeric',
-                month: 'long',
-                year: 'numeric',
-              })}
+              {formatWibDateLongNow()}
             </div>
           </div>
 

@@ -1,4 +1,5 @@
 import { WeeklyBlendPlanData, DailyBlendScheduleItem } from './types[RekapBlend]';
+import { isHtmlPayload } from './api[RekapBlend]';
 
 export const PLANING_SPREADSHEET_ID = '1qnTh5PL0oitFtH7tx7pI1r4jBnWk9vgVuUVJnWUAvk4';
 export const PLANING_SHEET_NAME = 'PLANING BLEND MINGGUAN';
@@ -76,6 +77,9 @@ export async function fetchWeeklyBlendPlan(): Promise<WeeklyBlendPlanData> {
     const res = await fetch(url, { cache: 'no-store' });
     if (!res.ok) throw new Error('Gagal fetch GViz');
     const csv = await res.text();
+    if (isHtmlPayload(res, csv) || csv.trim().startsWith('<')) {
+      throw new Error('Endpoint mengembalikan HTML (bukan CSV GViz)');
+    }
 
     // Parsing CSV Sederhana
     const lines = csv.split('\n').filter((l) => l.trim().length > 0);

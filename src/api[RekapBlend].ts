@@ -35,6 +35,76 @@ export const MONTH_ORDER = [
 
 const LOCAL_STORAGE_CACHE_KEY = 'rekap_blend_cache_v4';
 const LOCAL_STORAGE_GAS_URL_KEY = 'rekap_blend_gas_endpoint_url';
+const SESSION_STATIC_HOSTING_KEY = 'rekap_blend_static_hosting_mode';
+
+let _staticHostingDetected: boolean = (() => {
+  if (typeof window === 'undefined') return false;
+  try {
+    return sessionStorage.getItem(SESSION_STATIC_HOSTING_KEY) === 'true';
+  } catch {
+    return false;
+  }
+})();
+
+export function isStaticHostingMode(): boolean {
+  return _staticHostingDetected;
+}
+
+export function markStaticHostingMode(): void {
+  _staticHostingDetected = true;
+  if (typeof window !== 'undefined') {
+    try {
+      sessionStorage.setItem(SESSION_STATIC_HOSTING_KEY, 'true');
+    } catch {
+      // Ignore storage quota / private mode error
+    }
+  }
+}
+
+export function isHtmlPayload(res: Response, bodyText?: string): boolean {
+  const ct = (res.headers.get('content-type') || '').toLowerCase();
+  if (ct.includes('text/html')) return true;
+  if (bodyText !== undefined) {
+    const trimmed = bodyText.trim().toLowerCase();
+    if (trimmed.startsWith('<!doctype') || trimmed.startsWith('<html') || trimmed.startsWith('<')) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// Singleton Intl.DateTimeFormat (WIB Asia/Jakarta) — dibuat sekali di level modul, tidak pernah di dalam loop
+const WIB_TIME_FORMATTER = new Intl.DateTimeFormat('id-ID', {
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  timeZone: 'Asia/Jakarta',
+});
+
+const WIB_HM_FORMATTER = new Intl.DateTimeFormat('id-ID', {
+  hour: '2-digit',
+  minute: '2-digit',
+  timeZone: 'Asia/Jakarta',
+});
+
+const WIB_DATE_LONG_FORMATTER = new Intl.DateTimeFormat('id-ID', {
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric',
+  timeZone: 'Asia/Jakarta',
+});
+
+export function formatWibTimeNow(date: Date = new Date()): string {
+  return WIB_TIME_FORMATTER.format(date);
+}
+
+export function formatWibHourMinNow(date: Date = new Date()): string {
+  return WIB_HM_FORMATTER.format(date);
+}
+
+export function formatWibDateLongNow(date: Date = new Date()): string {
+  return WIB_DATE_LONG_FORMATTER.format(date);
+}
 
 export function getSavedGasUrl(): string {
   if (typeof window === 'undefined') return DEFAULT_GAS_URL;
@@ -225,27 +295,65 @@ function periodeLabel(
   return labelMulai === labelAkhir ? labelMulai : `${labelMulai} — ${labelAkhir}`;
 }
 
+const WIB_OFFSET_MS = 7 * 60 * 60 * 1000;
+const DAY_NAMES_ID = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+
+const EN_TO_ID_MONTH_MAP: Record<string, string> = {
+  january: 'Januari',
+  february: 'Februari',
+  march: 'Maret',
+  april: 'April',
+  may: 'Mei',
+  june: 'Juni',
+  july: 'Juli',
+  august: 'Agustus',
+  september: 'September',
+  october: 'Oktober',
+  november: 'November',
+  december: 'Desember',
+};
+
+const EN_MONTH_REGEX = /\b(january|february|march|april|may|june|july|august|september|october|november|december)\b/gi;
+const DAY_PREFIX_REGEX = /^(Minggu|Senin|Selasa|Rabu|Kamis|Jumat|Sabtu),\s*/i;
+const MONTH_INDEX_MAP = new Map<string, number>(
+  MONTH_ORDER.map((m, idx) => [m.toLowerCase(), idx])
+);
+
+export function normalizeEnglishMonths(input: string): string {
+  if (!input) return '';
+  return input.replace(EN_MONTH_REGEX, (m) => EN_TO_ID_MONTH_MAP[m.toLowerCase()] || m);
+}
+
+/** Aritmatika WIB (UTC+7) murni untuk menghasilkan kunci tanggal YYYY-MM-DD tanpa Intl overhead */
+export function toWibDateKey(input: Date | number = Date.now()): string {
+  const ms = typeof input === 'number' ? input : input.getTime();
+  const wib = new Date(ms + WIB_OFFSET_MS);
+  const y = wib.getUTCFullYear();
+  const m = String(wib.getUTCMonth() + 1).padStart(2, '0');
+  const d = String(wib.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+const _timestampCache = new Map<string, number>();
+const _formattedDateCache = new Map<string, string>();
+const MAX_DATE_CACHE_SIZE = 5000;
+
 /**
  * Konversi teks tanggal (ISO YYYY-MM-DD, teks Indonesia "23 Oktober 2026", "Jumat, 23 Oktober 2026", dll.)
- * ke timestamp numerik milidetik agar perbandingan kronologis akurat 100%.
+ * ke timestamp numerik milidetik (UTC+7 WIB noon anchor) dengan memoization cache agar sorting ribuan baris seketika (<1ms).
  */
 export function parseTanggalToTimestamp(dateStr: string | null | undefined): number {
   if (!dateStr) return 0;
-  let s = String(dateStr).trim();
+  const raw = String(dateStr).trim();
+  if (!raw) return 0;
 
-  // Bersihkan awalan nama hari ("Jumat, ", "Senin, ", etc.)
-  s = s.replace(/^(Minggu|Senin|Selasa|Rabu|Kamis|Jumat|Sabtu),\s*/i, '').trim();
+  const cached = _timestampCache.get(raw);
+  if (cached !== undefined) return cached;
 
-  // Normalisasi bulan bahasa Inggris ke bahasa Indonesia
-  const enToId: Record<string, string> = {
-    january: 'Januari', february: 'Februari', march: 'Maret', april: 'April',
-    may: 'Mei', june: 'Juni', july: 'Juli', august: 'Agustus',
-    september: 'September', october: 'Oktober', november: 'November', december: 'Desember'
-  };
-  for (const [en, id] of Object.entries(enToId)) {
-    const reg = new RegExp(en, 'gi');
-    if (reg.test(s)) s = s.replace(reg, id);
-  }
+  let s = raw.replace(DAY_PREFIX_REGEX, '').trim();
+  s = normalizeEnglishMonths(s);
+
+  let result = 0;
 
   // Pola 1: ISO Format (YYYY-MM-DD)
   const isoMatch = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
@@ -253,53 +361,110 @@ export function parseTanggalToTimestamp(dateStr: string | null | undefined): num
     const y = parseInt(isoMatch[1], 10);
     const m = parseInt(isoMatch[2], 10) - 1;
     const d = parseInt(isoMatch[3], 10);
-    return new Date(y, m, d, 12, 0, 0).getTime();
-  }
-
-  // Pola 2: Format "DD Bulan YYYY" (misal: "23 Oktober 2026" atau "9 Oktober 2026")
-  const dmyMatch = s.match(/^(\d{1,2})\s+([A-Za-z]+)(?:\s+(\d{4}))?/);
-  if (dmyMatch) {
-    const d = parseInt(dmyMatch[1], 10);
-    const mStr = dmyMatch[2];
-    const y = dmyMatch[3] ? parseInt(dmyMatch[3], 10) : 2026;
-    const mIdx = MONTH_ORDER.findIndex((b) => b.toLowerCase() === mStr.toLowerCase());
-    if (mIdx !== -1) {
-      return new Date(y, mIdx, d, 12, 0, 0).getTime();
+    // 12:00 WIB = 05:00 UTC
+    result = Date.UTC(y, m, d, 5, 0, 0);
+  } else {
+    // Pola 2: Format "DD Bulan YYYY" (misal: "23 Oktober 2026" atau "9 Oktober 2026")
+    const dmyMatch = s.match(/^(\d{1,2})\s+([A-Za-z]+)(?:\s+(\d{4}))?/);
+    if (dmyMatch) {
+      const d = parseInt(dmyMatch[1], 10);
+      const mStr = dmyMatch[2].toLowerCase();
+      const y = dmyMatch[3] ? parseInt(dmyMatch[3], 10) : 2026;
+      const mIdx = MONTH_INDEX_MAP.get(mStr);
+      if (mIdx !== undefined) {
+        result = Date.UTC(y, mIdx, d, 5, 0, 0);
+      }
+    } else {
+      // Pola 3: DD/MM/YYYY
+      const slashMatch = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+      if (slashMatch) {
+        const d = parseInt(slashMatch[1], 10);
+        const m = parseInt(slashMatch[2], 10) - 1;
+        const y = parseInt(slashMatch[3], 10);
+        result = Date.UTC(y, m, d, 5, 0, 0);
+      }
     }
   }
 
-  // Pola 3: DD/MM/YYYY
-  const slashMatch = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-  if (slashMatch) {
-    const d = parseInt(slashMatch[1], 10);
-    const m = parseInt(slashMatch[2], 10) - 1;
-    const y = parseInt(slashMatch[3], 10);
-    return new Date(y, m, d, 12, 0, 0).getTime();
+  if (result === 0) {
+    const parsed = Date.parse(s);
+    result = isNaN(parsed) ? 0 : parsed;
   }
 
-  const parsed = Date.parse(s);
-  return isNaN(parsed) ? 0 : parsed;
+  if (_timestampCache.size >= MAX_DATE_CACHE_SIZE) {
+    _timestampCache.clear();
+  }
+  _timestampCache.set(raw, result);
+  return result;
 }
 
-/** Tanggal entri data TERBARU yang terbaca dari baris DATAMASTER */
+/**
+ * Format tanggal menjadi format baku: "Hari, Tanggal Bulan Tahun" (menggunakan aritmatika WIB UTC+7 & memoization cache)
+ */
+export function formatTanggalLengkapCached(dateStr: string): string {
+  if (!dateStr) return '-';
+  const raw = dateStr.trim();
+  if (!raw) return '-';
+
+  const cached = _formattedDateCache.get(raw);
+  if (cached !== undefined) return cached;
+
+  let formatted = raw;
+  if (!DAY_PREFIX_REGEX.test(raw)) {
+    const s = normalizeEnglishMonths(raw);
+    const isoMatch = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (isoMatch) {
+      const y = parseInt(isoMatch[1], 10);
+      const m = parseInt(isoMatch[2], 10) - 1;
+      const d = parseInt(isoMatch[3], 10);
+      const wib = new Date(Date.UTC(y, m, d, 5, 0, 0) + WIB_OFFSET_MS);
+      formatted = `${DAY_NAMES_ID[wib.getUTCDay()]}, ${d} ${MONTH_ORDER[m]} ${y}`;
+    } else {
+      const dmyMatch = s.match(/^(\d{1,2})\s+([A-Za-z]+)(?:\s+(\d{4}))?/);
+      if (dmyMatch) {
+        const d = parseInt(dmyMatch[1], 10);
+        const mStr = dmyMatch[2].toLowerCase();
+        const y = dmyMatch[3] ? parseInt(dmyMatch[3], 10) : 2026;
+        const mIdx = MONTH_INDEX_MAP.get(mStr);
+        if (mIdx !== undefined) {
+          const wib = new Date(Date.UTC(y, mIdx, d, 5, 0, 0) + WIB_OFFSET_MS);
+          formatted = `${DAY_NAMES_ID[wib.getUTCDay()]}, ${d} ${MONTH_ORDER[mIdx]} ${y}`;
+        } else {
+          formatted = s;
+        }
+      } else {
+        formatted = s;
+      }
+    }
+  }
+
+  if (_formattedDateCache.size >= MAX_DATE_CACHE_SIZE) {
+    _formattedDateCache.clear();
+  }
+  _formattedDateCache.set(raw, formatted);
+  return formatted;
+}
+
+/** Tanggal entri data TERBARU yang terbaca dari baris DATAMASTER (WIB UTC+7) */
 export function getEntriTerkini(rows: RawBlendRow[]): string {
   if (!rows || rows.length === 0) return '23 Oktober 2026';
   let maxTime = -Infinity;
   let maxRow: RawBlendRow | null = null;
 
-  rows.forEach((r) => {
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i];
     const t = parseTanggalToTimestamp(r.tanggal);
     if (t > maxTime || (t === maxTime && (r.srcRow || 0) > (maxRow?.srcRow || 0))) {
       maxTime = t;
       maxRow = r;
     }
-  });
+  }
 
   if (maxRow && maxTime > 0) {
-    const dt = new Date(maxTime);
-    const d = dt.getDate();
-    const m = MONTH_ORDER[dt.getMonth()] || 'Oktober';
-    const y = dt.getFullYear();
+    const wib = new Date(maxTime + WIB_OFFSET_MS);
+    const d = wib.getUTCDate();
+    const m = MONTH_ORDER[wib.getUTCMonth()] || 'Oktober';
+    const y = wib.getUTCFullYear();
     return `${d} ${m} ${y}`;
   }
   return '23 Oktober 2026';
@@ -856,7 +1021,7 @@ export function buildDashboardDataset(
     allRows: safeRows,
     sourceInfo: {
       loadedFrom: sourceType,
-      timestamp: new Date().toLocaleTimeString('id-ID'),
+      timestamp: formatWibTimeNow(),
       cachedRowsCount: rows.length,
       syncStatus: sourceType === 'gas_api' ? 'synced' : 'offline_cached',
     },
@@ -905,7 +1070,8 @@ export async function loadInitialDataset(): Promise<DashboardDataset> {
  */
 export async function syncWithGasServer(gasUrl?: string): Promise<RawBlendRow[]> {
   let url = gasUrl || getSavedGasUrl();
-  if (!url || url.startsWith('/') || !url.startsWith('http')) {
+  const isInternalApiPath = url.startsWith('/') || url.includes('/api/');
+  if (!url || !url.startsWith('http') || (isInternalApiPath && isStaticHostingMode())) {
     url = DEFAULT_GAS_URL;
   }
   const fetchUrl = `${url}?action=getDataMaster&v=${Date.now()}`;
@@ -914,7 +1080,7 @@ export async function syncWithGasServer(gasUrl?: string): Promise<RawBlendRow[]>
   const timeoutId = setTimeout(() => controller.abort(), 9000);
 
   try {
-    let res = await fetch(fetchUrl, {
+    const res = await fetch(fetchUrl, {
       method: 'GET',
       mode: 'cors',
       signal: controller.signal,
@@ -922,24 +1088,21 @@ export async function syncWithGasServer(gasUrl?: string): Promise<RawBlendRow[]>
 
     // Cloudflare SPA Fallback Protection:
     // Jika rute internal mengembalikan HTML (misalnya /api tidak ada di Cloudflare sehingga mengembalikan index.html),
-    // otomatis lakukan fallback direct fetch langsung ke DEFAULT_GAS_URL dengan mode CORS.
-    let contentType = res.headers.get('content-type') || '';
+    // tandai session sebagai static hosting mode dan otomatis lakukan fallback direct fetch langsung ke DEFAULT_GAS_URL dengan mode CORS.
     let responseText = await res.text();
-    if (
-      contentType.includes('text/html') ||
-      responseText.trim().startsWith('<!DOCTYPE') ||
-      responseText.trim().startsWith('<html')
-    ) {
+    let activeRes = res;
+    if (isHtmlPayload(res, responseText)) {
+      if (isInternalApiPath) markStaticHostingMode();
       if (url !== DEFAULT_GAS_URL) {
-        console.warn('Endpoint mengembalikan respons HTML (Cloudflare SPA fallback). Mengalihkan langsung ke direct fetch GAS CORS...');
+        console.warn('Endpoint mengembalikan respons HTML (Static SPA fallback). Mengalihkan langsung ke direct fetch GAS CORS...');
         const directRes = await fetch(`${DEFAULT_GAS_URL}?action=getDataMaster&v=${Date.now()}`, {
           method: 'GET',
           mode: 'cors',
           signal: controller.signal,
         });
-        contentType = directRes.headers.get('content-type') || '';
+        activeRes = directRes;
         responseText = await directRes.text();
-        if (contentType.includes('text/html') || responseText.trim().startsWith('<')) {
+        if (isHtmlPayload(directRes, responseText)) {
           throw new Error('Endpoint GAS direct juga mengembalikan respons HTML');
         }
       } else {
@@ -948,7 +1111,7 @@ export async function syncWithGasServer(gasUrl?: string): Promise<RawBlendRow[]>
     }
     clearTimeout(timeoutId);
 
-    if (res.ok || responseText.length > 20) {
+    if (activeRes.ok || responseText.length > 20) {
       const data = JSON.parse(responseText);
       let rowsList: any[] = [];
       if (Array.isArray(data)) {
@@ -987,24 +1150,26 @@ export async function syncWithGasServer(gasUrl?: string): Promise<RawBlendRow[]>
         return mergedRows;
       }
     }
-    throw new Error(`GAS Response status: ${res.status}`);
+    throw new Error(`GAS Response status: ${activeRes.status}`);
   } catch (err: any) {
     clearTimeout(timeoutId);
     console.warn('Jalur GAS REST API dialihkan ke direct GViz CSV Query:', err.message);
 
-    // Jalur Cadangan (Direct Google Visualization Query CSV penuh 2095 baris)
+    // Jalur Cadangan (Direct Google Visualization Query CSV penuh)
     const csvUrl = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=DATAMASTER&tq=${encodeURIComponent('select *')}`;
     try {
       const csvRes = await fetch(csvUrl, { method: 'GET' });
       if (csvRes.ok) {
         const csvText = await csvRes.text();
-        const rows = parseGvizCsv(csvText);
-        if (rows.length > 0) {
-          const mergedRows = mergeWithHistoricalRows(rows);
-          if (typeof window !== 'undefined') {
-            localStorage.setItem(LOCAL_STORAGE_CACHE_KEY, JSON.stringify(mergedRows));
+        if (!isHtmlPayload(csvRes, csvText) && !csvText.trim().startsWith('<')) {
+          const rows = parseGvizCsv(csvText);
+          if (rows.length > 0) {
+            const mergedRows = mergeWithHistoricalRows(rows);
+            if (typeof window !== 'undefined') {
+              localStorage.setItem(LOCAL_STORAGE_CACHE_KEY, JSON.stringify(mergedRows));
+            }
+            return mergedRows;
           }
-          return mergedRows;
         }
       }
     } catch (csvErr: any) {
@@ -1029,6 +1194,9 @@ export async function syncDirectFromSheet(): Promise<RawBlendRow[]> {
       throw new Error(`Gagal membaca Google Sheets: status ${res.status}`);
     }
     const csvText = await res.text();
+    if (isHtmlPayload(res, csvText) || csvText.trim().startsWith('<')) {
+      throw new Error('Google Sheets GViz mengembalikan respons HTML (bukan CSV)');
+    }
     const rows = parseGvizCsv(csvText);
     if (rows.length === 0) {
       throw new Error('Data Google Sheets kosong atau format tidak sesuai');
@@ -1095,16 +1263,8 @@ function parseGvizCsv(csv: string): RawBlendRow[] {
         merk.toLowerCase().includes('camp');
       if (isHeaderOrSummary) continue;
 
-      // Normalisasi teks bulan bahasa Inggris ke bahasa Indonesia
-      const enToId: Record<string, string> = {
-        january: 'Januari', february: 'Februari', march: 'Maret', april: 'April',
-        may: 'Mei', june: 'Juni', july: 'Juli', august: 'Agustus',
-        september: 'September', october: 'Oktober', november: 'November', december: 'Desember'
-      };
-      for (const [en, id] of Object.entries(enToId)) {
-        const reg = new RegExp(en, 'gi');
-        if (reg.test(tanggal)) tanggal = tanggal.replace(reg, id);
-      }
+      // Normalisasi teks bulan bahasa Inggris ke bahasa Indonesia (single precompiled regex)
+      tanggal = normalizeEnglishMonths(tanggal);
 
       // Pembersihan angka format Indonesia (mis. 1.450,2 atau 1450.2)
       const parseNum = (str: string | undefined): number => {

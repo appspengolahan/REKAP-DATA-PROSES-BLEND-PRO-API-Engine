@@ -20,6 +20,7 @@ import {
   calculateWeightedStandardFromRows,
   DEFAULT_STANDAR_ACUAN,
   DEFAULT_STANDAR_LABEL,
+  formatWibDateLongNow,
 } from '../api[RekapBlend]';
 import {
   Sliders,
@@ -1205,7 +1206,7 @@ export const TabDeviasiRekapBlend: React.FC<TabDeviasiProps> = ({
                 <div className="text-right text-[11px] text-slate-600">
                   <div><strong>Periode Audit:</strong> {selectedBulan} {selectedTahun}</div>
                   <div><strong>Acuan Standar:</strong> {activeLabel}</div>
-                  <div><strong>Dicetak Pada:</strong> {new Date().toLocaleDateString('id-ID', { dateStyle: 'long' })}</div>
+                  <div><strong>Dicetak Pada:</strong> {formatWibDateLongNow()}</div>
                 </div>
               </div>
 

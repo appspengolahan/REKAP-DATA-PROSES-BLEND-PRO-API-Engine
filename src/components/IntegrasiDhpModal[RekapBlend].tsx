@@ -53,6 +53,11 @@ import {
   getActiveStandarAcuan,
   getSavedBatchTags,
   saveBatchTag,
+  formatWibTimeNow,
+  formatWibHourMinNow,
+  isStaticHostingMode,
+  markStaticHostingMode,
+  isHtmlPayload,
 } from '../api[RekapBlend]';
 import { WeeklyBlendScheduleTable } from './JadwalAlokasiMingguanModal';
 import {
@@ -112,7 +117,7 @@ export const IntegrasiDhpModalRekapBlend: React.FC<IntegrasiDhpModalProps> = ({
     try {
       const plan = await fetchLiveWeeklyBlendPlan();
       setWeeklyPlanData(plan);
-      setWeeklyPlanSyncTime(new Date().toLocaleTimeString('id-ID'));
+      setWeeklyPlanSyncTime(formatWibTimeNow());
     } catch (err) {
       console.warn('Gagal memuat jadwal alokasi blend:', err);
     } finally {
@@ -207,7 +212,7 @@ export const IntegrasiDhpModalRekapBlend: React.FC<IntegrasiDhpModalProps> = ({
             windSpeed: wind,
             status: st,
             isFetching: false,
-            lastUpdated: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+            lastUpdated: formatWibHourMinNow(),
           });
           return;
         }
@@ -296,6 +301,9 @@ export const IntegrasiDhpModalRekapBlend: React.FC<IntegrasiDhpModalProps> = ({
       const res = await fetch(csvUrl);
       if (!res.ok) throw new Error(`HTTP Status ${res.status}`);
       const csvText = await res.text();
+      if (isHtmlPayload(res, csvText) || csvText.trim().startsWith('<')) {
+        throw new Error('Google Sheets DHP mengembalikan respons HTML (bukan CSV)');
+      }
       const lines = csvText.split(/\r?\n/);
 
       const parseCsvLine = (line: string) => {
@@ -483,7 +491,7 @@ export const IntegrasiDhpModalRekapBlend: React.FC<IntegrasiDhpModalProps> = ({
       }
 
       setDhpItems(finalItems);
-      setLastFetchedTime(new Date().toLocaleTimeString('id-ID'));
+      setLastFetchedTime(formatWibTimeNow());
       setCountdown(15);
     } catch (err: any) {
       console.warn('Gagal menarik DHP live:', err.message);
@@ -502,7 +510,7 @@ export const IntegrasiDhpModalRekapBlend: React.FC<IntegrasiDhpModalProps> = ({
         { row: 20, no: '11', noMolen: '11', tanggal: 'Jumat, 23 Oktober 2026', batchCode: '153 - BK 11', merk: '153 - BK', baku: 876.0, hasil: 870.0, susutKg: 6.0, susutPct: '0,68%', molenCode: 'AE 11', suhu: null, suhuStr: '', statusSync: 'SYNC', isMatchedInRekap: true, rekapMatchedRow: 4741 },
         { row: 21, no: '12', noMolen: '1', tanggal: 'Jumat, 23 Oktober 2026', batchCode: 'KARANG - BK 01', merk: 'KARANG - BK', baku: 874.7, hasil: 870.0, susutKg: 4.7, susutPct: '0,54%', molenCode: 'AE 01', suhu: null, suhuStr: '', statusSync: 'SYNC', isMatchedInRekap: true, rekapMatchedRow: 4730 },
       ]);
-      setLastFetchedTime(new Date().toLocaleTimeString('id-ID'));
+      setLastFetchedTime(formatWibTimeNow());
     } finally {
       setIsLoading(false);
     }
@@ -1823,20 +1831,24 @@ function doGet(e) {
   // Helper fetch GAS dengan proteksi Cloudflare SPA HTML fallback (mengalihkan otomatis ke direct fetch CORS)
   const fetchGasAction = async (actionQuery: string) => {
     let gasUrl = getSavedGasUrl();
-    if (!gasUrl || gasUrl.startsWith('/') || !gasUrl.startsWith('http')) {
+    const isInternalApiPath = gasUrl.startsWith('/') || gasUrl.includes('/api/');
+    if (!gasUrl || !gasUrl.startsWith('http') || (isInternalApiPath && isStaticHostingMode())) {
       gasUrl = DEFAULT_GAS_URL;
     }
     let res = await fetch(`${gasUrl}?${actionQuery}&v=${Date.now()}`, {
       method: 'GET',
       mode: 'cors',
     });
-    const ct = res.headers.get('content-type') || '';
-    if (ct.includes('text/html') && gasUrl !== DEFAULT_GAS_URL) {
-      console.warn('Endpoint internal mengembalikan HTML (Cloudflare SPA fallback). Mengalihkan langsung ke DEFAULT_GAS_URL CORS...');
-      res = await fetch(`${DEFAULT_GAS_URL}?${actionQuery}&v=${Date.now()}`, {
-        method: 'GET',
-        mode: 'cors',
-      });
+    const previewText = await res.clone().text().catch(() => '');
+    if (isHtmlPayload(res, previewText)) {
+      if (isInternalApiPath) markStaticHostingMode();
+      if (gasUrl !== DEFAULT_GAS_URL) {
+        console.warn('Endpoint internal mengembalikan HTML (Static SPA fallback). Mengalihkan langsung ke DEFAULT_GAS_URL CORS...');
+        res = await fetch(`${DEFAULT_GAS_URL}?${actionQuery}&v=${Date.now()}`, {
+          method: 'GET',
+          mode: 'cors',
+        });
+      }
     }
     return res;
   };

@@ -1,6 +1,13 @@
 import React, { useState, useMemo } from 'react';
 import { RawBlendRow, UserRole } from '../types[RekapBlend]';
-import { fmtKg, fmtPct, fmtSuhu, getPctBadgeClass, parseTanggalToTimestamp } from '../api[RekapBlend]';
+import {
+  fmtKg,
+  fmtPct,
+  fmtSuhu,
+  getPctBadgeClass,
+  parseTanggalToTimestamp,
+  formatTanggalLengkapCached,
+} from '../api[RekapBlend]';
 import {
   Database,
   Search,
@@ -23,70 +30,13 @@ interface DataExplorerProps {
   onExportCsv: () => void;
 }
 
-const NAMA_HARI = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
-const NAMA_BULAN = [
-  'Januari',
-  'Februari',
-  'Maret',
-  'April',
-  'Mei',
-  'Juni',
-  'Juli',
-  'Agustus',
-  'September',
-  'Oktober',
-  'November',
-  'Desember',
-];
-
 /**
  * Format tanggal menjadi format baku: "Hari, Tanggal Bulan Tahun"
  * Contoh: "2026-10-23" atau "23 October 2026" atau "23 Oktober" -> "Jumat, 23 Oktober 2026"
+ * Menggunakan cache memoization & aritmatika WIB (UTC+7) agar bebas lag saat merender ribuan baris.
  */
 export function formatTanggalLengkap(dateStr: string): string {
-  if (!dateStr) return '-';
-  let s = dateStr.trim();
-
-  // Jika sudah memuat nama hari Indonesia (misal: "Jumat, 23 Oktober 2026")
-  if (/^(Minggu|Senin|Selasa|Rabu|Kamis|Jumat|Sabtu),/i.test(s)) {
-    return s;
-  }
-
-  // Normalisasi teks bulan bahasa Inggris ke bahasa Indonesia
-  const enToId: Record<string, string> = {
-    january: 'Januari', february: 'Februari', march: 'Maret', april: 'April',
-    may: 'Mei', june: 'Juni', july: 'Juli', august: 'Agustus',
-    september: 'September', october: 'Oktober', november: 'November', december: 'Desember'
-  };
-  for (const [en, id] of Object.entries(enToId)) {
-    const reg = new RegExp(en, 'gi');
-    if (reg.test(s)) s = s.replace(reg, id);
-  }
-
-  // Pola 1: ISO Format (YYYY-MM-DD)
-  const isoMatch = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
-  if (isoMatch) {
-    const y = parseInt(isoMatch[1], 10);
-    const m = parseInt(isoMatch[2], 10) - 1;
-    const d = parseInt(isoMatch[3], 10);
-    const dt = new Date(y, m, d, 12, 0, 0);
-    return `${NAMA_HARI[dt.getDay()]}, ${d} ${NAMA_BULAN[m]} ${y}`;
-  }
-
-  // Pola 2: Format "DD Bulan YYYY" atau "DD Bulan" (misal: "23 Oktober 2026" atau "23 Oktober")
-  const dmyMatch = s.match(/^(\d{1,2})\s+([A-Za-z]+)(?:\s+(\d{4}))?/);
-  if (dmyMatch) {
-    const d = parseInt(dmyMatch[1], 10);
-    const mStr = dmyMatch[2];
-    const y = dmyMatch[3] ? parseInt(dmyMatch[3], 10) : 2026;
-    const mIdx = NAMA_BULAN.findIndex((b) => b.toLowerCase() === mStr.toLowerCase());
-    if (mIdx !== -1) {
-      const dt = new Date(y, mIdx, d, 12, 0, 0);
-      return `${NAMA_HARI[dt.getDay()]}, ${d} ${NAMA_BULAN[mIdx]} ${y}`;
-    }
-  }
-
-  return s;
+  return formatTanggalLengkapCached(dateStr);
 }
 
 export const DataExplorerRekapBlend: React.FC<DataExplorerProps> = ({

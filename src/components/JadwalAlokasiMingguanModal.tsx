@@ -18,6 +18,7 @@ import {
   PLANING_SPREADSHEET_ID,
   PLANING_SHEET_NAME,
 } from '../apiJadwalBlend';
+import { formatWibTimeNow } from '../api[RekapBlend]';
 
 interface WeeklyBlendScheduleTableProps {
   data: WeeklyBlendPlanData;
@@ -213,7 +214,7 @@ export const JadwalAlokasiMingguanModal: React.FC<JadwalAlokasiMingguanModalProp
     try {
       const res = await fetchLiveWeeklyBlendPlan();
       setData(res);
-      setLastUpdatedTime(new Date().toLocaleTimeString('id-ID'));
+      setLastUpdatedTime(formatWibTimeNow());
     } catch (err) {
       console.warn('Menggunakan fallback data alokasi campuran:', err);
       setData(getCachedWeeklyBlendPlan());

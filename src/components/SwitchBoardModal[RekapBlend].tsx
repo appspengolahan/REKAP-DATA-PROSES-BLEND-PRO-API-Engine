@@ -13,6 +13,11 @@ import {
   Link as LinkIcon,
   FolderPlus,
 } from 'lucide-react';
+import {
+  isStaticHostingMode,
+  markStaticHostingMode,
+  isHtmlPayload,
+} from '../api[RekapBlend]';
 
 export interface AppBoardItem {
   id: string;
@@ -23,13 +28,20 @@ export interface AppBoardItem {
   isCurrent?: boolean;
 }
 
-const DEFAULT_APP_BOARDS: AppBoardItem[] = [
+function getCurrentAppOriginUrl(): string {
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    return `${window.location.origin}/`;
+  }
+  return '/';
+}
+
+const BASE_DEFAULT_APP_BOARDS: AppBoardItem[] = [
   {
     id: 'blend',
     name: 'Rekap Proses Blend',
     desc: 'Pencampuran & Molen Proses (Sedang Dibuka)',
     category: 'komoditas',
-    url: 'https://rekap-data-proses-blend-pro-api-eng.vercel.app/',
+    url: '/',
     isCurrent: true,
   },
   {
@@ -66,6 +78,23 @@ const DEFAULT_APP_BOARDS: AppBoardItem[] = [
   },
 ];
 
+function getDefaultAppBoards(): AppBoardItem[] {
+  const currentUrl = getCurrentAppOriginUrl();
+  return BASE_DEFAULT_APP_BOARDS.map((item) =>
+    item.id === 'blend' || item.isCurrent ? { ...item, url: currentUrl } : item
+  );
+}
+
+function normalizeBoardsWithCurrentHost(items: AppBoardItem[]): AppBoardItem[] {
+  const currentUrl = getCurrentAppOriginUrl();
+  return items.map((item) => {
+    if (item.id === 'blend' || item.isCurrent) {
+      return { ...item, url: currentUrl, isCurrent: true };
+    }
+    return item;
+  });
+}
+
 const STORAGE_KEY = 'PP1_SWITCHBOARD_SUSUT_MODULES_V2';
 
 interface SwitchBoardModalProps {
@@ -77,7 +106,7 @@ export const SwitchBoardModalRekapBlend: React.FC<SwitchBoardModalProps> = ({
   isOpen,
   onClose,
 }) => {
-  const [appBoards, setAppBoards] = useState<AppBoardItem[]>(DEFAULT_APP_BOARDS);
+  const [appBoards, setAppBoards] = useState<AppBoardItem[]>(() => getDefaultAppBoards());
   const [isEditingMode, setIsEditingMode] = useState(false);
   const [editingItem, setEditingItem] = useState<AppBoardItem | null>(null);
   const [isAddingNew, setIsAddingNew] = useState(false);
@@ -89,30 +118,76 @@ export const SwitchBoardModalRekapBlend: React.FC<SwitchBoardModalProps> = ({
   const [formUrl, setFormUrl] = useState('');
   const [formCategory, setFormCategory] = useState<'komoditas' | 'ekosistem' | 'kustom'>('komoditas');
 
-  // Load from LocalStorage
+  // Load from LocalStorage on mount
   useEffect(() => {
+    let localBoards: AppBoardItem[] | null = null;
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          setAppBoards(parsed);
-          return;
+          localBoards = normalizeBoardsWithCurrentHost(parsed);
+          setAppBoards(localBoards);
         }
       }
     } catch {
-      // Fallback
+      // Fallback ke default dinamis
     }
-    setAppBoards(DEFAULT_APP_BOARDS);
+    if (!localBoards) {
+      setAppBoards(getDefaultAppBoards());
+    }
   }, []);
 
-  // Save to LocalStorage
+  // Optional non-blocking remote config sync only when modal is opened (and not in static hosting mode)
+  useEffect(() => {
+    if (!isOpen || isStaticHostingMode() || typeof window === 'undefined') return;
+    fetch(`/api/user-configs?key=${encodeURIComponent(STORAGE_KEY)}`, { method: 'GET' })
+      .then(async (res) => {
+        const text = await res.text();
+        if (isHtmlPayload(res, text)) {
+          markStaticHostingMode();
+          return;
+        }
+        if (res.ok && text) {
+          const parsed = JSON.parse(text);
+          const remoteItems = Array.isArray(parsed) ? parsed : parsed?.data;
+          if (Array.isArray(remoteItems) && remoteItems.length > 0) {
+            const normalized = normalizeBoardsWithCurrentHost(remoteItems);
+            setAppBoards(normalized);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
+          }
+        }
+      })
+      .catch(() => {
+        // Mode statis / offline: abaikan tanpa error
+      });
+  }, [isOpen]);
+
+  // Save to LocalStorage (dan sinkronkan ke /api/user-configs hanya jika tidak di static hosting mode)
   const saveToStorage = (items: AppBoardItem[]) => {
-    setAppBoards(items);
+    const normalized = normalizeBoardsWithCurrentHost(items);
+    setAppBoards(normalized);
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
     } catch (err) {
       console.error('Failed to save to localStorage', err);
+    }
+
+    if (!isStaticHostingMode() && typeof window !== 'undefined') {
+      fetch('/api/user-configs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: STORAGE_KEY, value: normalized }),
+      })
+        .then(async (res) => {
+          const text = await res.text().catch(() => '');
+          if (isHtmlPayload(res, text)) {
+            markStaticHostingMode();
+          }
+        })
+        .catch(() => {
+          // Mode statis: abaikan tanpa error
+        });
     }
   };
 
@@ -124,7 +199,7 @@ export const SwitchBoardModalRekapBlend: React.FC<SwitchBoardModalProps> = ({
   // Reset to Default
   const handleResetDefault = () => {
     if (window.confirm('Kembalikan seluruh daftar URL dan Modul ke posisi default PP1?')) {
-      saveToStorage(DEFAULT_APP_BOARDS);
+      saveToStorage(getDefaultAppBoards());
       setIsEditingMode(false);
       setEditingItem(null);
       setIsAddingNew(false);
