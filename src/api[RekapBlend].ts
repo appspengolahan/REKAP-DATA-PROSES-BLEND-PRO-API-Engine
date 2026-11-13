@@ -106,18 +106,25 @@ export function formatWibDateLongNow(date: Date = new Date()): string {
   return WIB_DATE_LONG_FORMATTER.format(date);
 }
 
+let _cachedGasUrl: string | null = null;
+
 export function getSavedGasUrl(): string {
+  if (_cachedGasUrl !== null) return _cachedGasUrl;
   if (typeof window === 'undefined') return DEFAULT_GAS_URL;
   const saved = localStorage.getItem(LOCAL_STORAGE_GAS_URL_KEY);
-  if (!saved || saved.startsWith('/') || saved.includes('/api') || !saved.startsWith('http')) {
-    return DEFAULT_GAS_URL;
-  }
-  return saved;
+  const resolved =
+    !saved || saved.startsWith('/') || saved.includes('/api') || !saved.startsWith('http')
+      ? DEFAULT_GAS_URL
+      : saved;
+  _cachedGasUrl = resolved;
+  return resolved;
 }
 
 export function saveGasUrl(url: string): void {
+  const clean = url.trim();
+  _cachedGasUrl = clean || DEFAULT_GAS_URL;
   if (typeof window !== 'undefined') {
-    localStorage.setItem(LOCAL_STORAGE_GAS_URL_KEY, url.trim());
+    localStorage.setItem(LOCAL_STORAGE_GAS_URL_KEY, clean);
   }
 }
 
@@ -187,37 +194,52 @@ export function formatMolenWithCycle(
   return clean.replace(/^MOLEN\s+/i, '');
 }
 
+// Singleton Intl.NumberFormat (id-ID) — dibuat sekali di level modul untuk menghindari CPU freeze di loop render
+const NUM_FMT_KG = new Intl.NumberFormat('id-ID', {
+  minimumFractionDigits: 1,
+  maximumFractionDigits: 1,
+});
+
+const NUM_FMT_PCT = new Intl.NumberFormat('id-ID', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+const NUM_FMT_INT = new Intl.NumberFormat('id-ID');
+
+const NUM_FMT_SUHU = new Intl.NumberFormat('id-ID', {
+  minimumFractionDigits: 1,
+  maximumFractionDigits: 2,
+});
+
 /** Formatting Helper: Massa (Kg) WAJIB tepat 1 angka di belakang koma */
 export function fmtKg(n: number | null | undefined): string {
   if (n === null || n === undefined || isNaN(n)) return '-';
-  return Number(n).toLocaleString('id-ID', {
-    minimumFractionDigits: 1,
-    maximumFractionDigits: 1,
-  });
+  return NUM_FMT_KG.format(Number(n));
+}
+
+/** Formatting Helper: Massa Ringkas dalam Ton */
+export function fmtTon(n: number | null | undefined): string {
+  if (n === null || n === undefined || isNaN(n)) return '-';
+  return NUM_FMT_KG.format(Number(n) / 1000);
 }
 
 /** Formatting Helper: Persentase (%) WAJIB tepat 2 angka di belakang koma */
 export function fmtPct(n: number | null | undefined): string {
   if (n === null || n === undefined || isNaN(n)) return '-';
-  return Number(n).toLocaleString('id-ID', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+  return NUM_FMT_PCT.format(Number(n));
 }
 
 /** Formatting Helper: Bilangan Bulat / Jumlah Camp */
 export function fmtInt(n: number | null | undefined): string {
   if (n === null || n === undefined || isNaN(n)) return '0';
-  return Math.round(Number(n)).toLocaleString('id-ID');
+  return NUM_FMT_INT.format(Math.round(Number(n)));
 }
 
 /** Formatting Helper: Suhu (°C) */
 export function fmtSuhu(n: number | null | undefined): string {
   if (n === null || n === undefined || isNaN(n)) return '-';
-  return Number(n).toLocaleString('id-ID', {
-    minimumFractionDigits: 1,
-    maximumFractionDigits: 2,
-  });
+  return NUM_FMT_SUHU.format(Number(n));
 }
 
 /** Evaluasi status toleransi mutu susut blend */
@@ -828,8 +850,29 @@ export function computeRekapMolen(
   }));
 }
 
+let _cachedRawRows: RawBlendRow[] | null = null;
+let _dashboardMemo: {
+  rowsRef: RawBlendRow[];
+  rowsLen: number;
+  signature: string;
+  result: DashboardDataset;
+} | null = null;
+
+export function clearLocalDatasetCache(): void {
+  _cachedRawRows = null;
+  _dashboardMemo = null;
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.removeItem(LOCAL_STORAGE_CACHE_KEY);
+      localStorage.removeItem('rekap_blend_cache_v2');
+    } catch {
+      // Ignore storage error
+    }
+  }
+}
+
 /**
- * Membangun paket lengkap DashboardDataset dari raw rows
+ * Membangun paket lengkap DashboardDataset dari raw rows (dilengkapi signature memoization cache)
  */
 export function buildDashboardDataset(
   rows: RawBlendRow[],
@@ -839,6 +882,16 @@ export function buildDashboardDataset(
   periodeAkhir = { bulan: 'Desember', tahun: '2026' },
   sourceType: 'gas_api' | 'direct_sheet' | 'localStorage' | 'bundled_snapshot' = 'bundled_snapshot'
 ): DashboardDataset {
+  const signature = `${tahun}|${bulanRingkasan}|${periodeAwal.bulan}-${periodeAwal.tahun}|${periodeAkhir.bulan}-${periodeAkhir.tahun}|${sourceType}`;
+  if (
+    _dashboardMemo &&
+    _dashboardMemo.rowsRef === rows &&
+    _dashboardMemo.rowsLen === rows.length &&
+    _dashboardMemo.signature === signature
+  ) {
+    return _dashboardMemo.result;
+  }
+
   // Pastikan setiap row memiliki noMolen dan molenDetail
   const safeRows: RawBlendRow[] = rows.map((r, idx) => ({
     ...r,
@@ -1008,7 +1061,7 @@ export function buildDashboardDataset(
   const defaultMerk = rekapMerkPeriode.list.length > 0 ? rekapMerkPeriode.list[0].label : '153 - BK';
   const trendMerk = computeTrendMerk(rows, tahun, defaultMerk);
 
-  return {
+  const datasetResult: DashboardDataset = {
     filterOptions,
     entriTerkini: getEntriTerkini(rows),
     ringkasanTahunan: kpiTahunan,
@@ -1026,25 +1079,35 @@ export function buildDashboardDataset(
       syncStatus: sourceType === 'gas_api' ? 'synced' : 'offline_cached',
     },
   };
+
+  _dashboardMemo = {
+    rowsRef: rows,
+    rowsLen: rows.length,
+    signature,
+    result: datasetResult,
+  };
+
+  return datasetResult;
 }
 
 /**
  * Muat data dengan strategi multi-tier:
- * 1. Membaca cache localStorage seketika (0.01 detik).
+ * 1. Membaca in-memory / cache localStorage seketika (0.01 detik).
  * 2. Jika belum ada, gunakan snapshot bawaan `SNAPSHOT_BLEND_ROWS`.
  * 3. Memulai silent background sync ke Headless GAS.
  */
 export async function loadInitialDataset(): Promise<DashboardDataset> {
-  let cachedRows: RawBlendRow[] | null = null;
-  let fromCache = false;
+  let cachedRows: RawBlendRow[] | null = _cachedRawRows;
+  let fromCache = _cachedRawRows !== null;
 
-  if (typeof window !== 'undefined') {
+  if (!cachedRows && typeof window !== 'undefined') {
     try {
       const raw = localStorage.getItem(LOCAL_STORAGE_CACHE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed) && parsed.length > 0) {
           cachedRows = parsed;
+          _cachedRawRows = parsed;
           fromCache = true;
         }
       }
@@ -1144,6 +1207,7 @@ export async function syncWithGasServer(gasUrl?: string): Promise<RawBlendRow[]>
         });
 
         const mergedRows = mergeWithHistoricalRows(cleanedRows);
+        _cachedRawRows = mergedRows;
         if (typeof window !== 'undefined') {
           localStorage.setItem(LOCAL_STORAGE_CACHE_KEY, JSON.stringify(mergedRows));
         }
@@ -1165,6 +1229,7 @@ export async function syncWithGasServer(gasUrl?: string): Promise<RawBlendRow[]>
           const rows = parseGvizCsv(csvText);
           if (rows.length > 0) {
             const mergedRows = mergeWithHistoricalRows(rows);
+            _cachedRawRows = mergedRows;
             if (typeof window !== 'undefined') {
               localStorage.setItem(LOCAL_STORAGE_CACHE_KEY, JSON.stringify(mergedRows));
             }
@@ -1202,6 +1267,7 @@ export async function syncDirectFromSheet(): Promise<RawBlendRow[]> {
       throw new Error('Data Google Sheets kosong atau format tidak sesuai');
     }
     const mergedRows = mergeWithHistoricalRows(rows);
+    _cachedRawRows = mergedRows;
     if (typeof window !== 'undefined') {
       localStorage.setItem(LOCAL_STORAGE_CACHE_KEY, JSON.stringify(mergedRows));
     }
@@ -1337,27 +1403,37 @@ const LOCAL_STORAGE_STANDAR_ACUAN_KEY = 'rekap_blend_standar_acuan_v1';
 const LOCAL_STORAGE_STANDAR_LABEL_KEY = 'rekap_blend_standar_label_v1';
 const LOCAL_STORAGE_BATCH_TAGS_KEY = 'rekap_blend_batch_tags_v1';
 
-/** Ambil Standar Acuan Aktif (dari LocalStorage atau default) */
+let _cachedStandarAcuan: Record<string, number> | null = null;
+let _cachedStandarLabel: string | null = null;
+
+/** Ambil Standar Acuan Aktif (dari In-Memory / LocalStorage atau default) */
 export function getActiveStandarAcuan(): Record<string, number> {
+  if (_cachedStandarAcuan !== null) return _cachedStandarAcuan;
   if (typeof window === 'undefined') return { ...DEFAULT_STANDAR_ACUAN };
   try {
     const raw = localStorage.getItem(LOCAL_STORAGE_STANDAR_ACUAN_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
       if (typeof parsed === 'object' && parsed !== null) {
-        return { ...DEFAULT_STANDAR_ACUAN, ...parsed };
+        const nextAcuan: Record<string, number> = { ...DEFAULT_STANDAR_ACUAN, ...parsed };
+        _cachedStandarAcuan = nextAcuan;
+        return nextAcuan;
       }
     }
   } catch (err) {
     console.warn('Gagal membaca active standar acuan:', err);
   }
-  return { ...DEFAULT_STANDAR_ACUAN };
+  const fallbackAcuan: Record<string, number> = { ...DEFAULT_STANDAR_ACUAN };
+  _cachedStandarAcuan = fallbackAcuan;
+  return fallbackAcuan;
 }
 
 /** Ambil Label Periode Standar Acuan Aktif */
 export function getActiveStandarAcuanLabel(): string {
+  if (_cachedStandarLabel !== null) return _cachedStandarLabel;
   if (typeof window === 'undefined') return DEFAULT_STANDAR_LABEL;
-  return localStorage.getItem(LOCAL_STORAGE_STANDAR_LABEL_KEY) || DEFAULT_STANDAR_LABEL;
+  _cachedStandarLabel = localStorage.getItem(LOCAL_STORAGE_STANDAR_LABEL_KEY) || DEFAULT_STANDAR_LABEL;
+  return _cachedStandarLabel;
 }
 
 /** Simpan Standar Acuan Baru & Periode Sumbernya */
@@ -1365,9 +1441,12 @@ export function saveActiveStandarAcuan(
   standards: Record<string, number>,
   labelPeriode: string
 ): void {
+  const cleanLabel = labelPeriode.trim();
+  _cachedStandarAcuan = { ...DEFAULT_STANDAR_ACUAN, ...standards };
+  _cachedStandarLabel = cleanLabel || DEFAULT_STANDAR_LABEL;
   if (typeof window !== 'undefined') {
     localStorage.setItem(LOCAL_STORAGE_STANDAR_ACUAN_KEY, JSON.stringify(standards));
-    localStorage.setItem(LOCAL_STORAGE_STANDAR_LABEL_KEY, labelPeriode.trim());
+    localStorage.setItem(LOCAL_STORAGE_STANDAR_LABEL_KEY, cleanLabel);
   }
 }
 
@@ -1564,11 +1643,11 @@ export function generateExecutiveNaratifDeviasi(
   const validSuhus = items.filter((it) => it.suhuRata !== null && it.suhuRata > 0).map((it) => it.suhuRata as number);
   const avgSuhuPabrik = validSuhus.length ? round2(validSuhus.reduce((a, b) => a + b, 0) / validSuhus.length) : null;
 
-  const paragraf1 = `Pada periode ${bulan} ${tahun}, total bahan tembakau blend yang diproses mencapai ${totBahan.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} Kg dengan realisasi susut proses rata-rata sebesar ${avgSusut.toFixed(2).replace('.', ',')}% (${totSusut.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} Kg). Mengacu pada standar referensi "${standarLabel}" sebesar ${avgAcuan.toFixed(2).replace('.', ',')}%, operasional bulan ini membukukan selisih deviasi sebesar ${deltaAvg >= 0 ? '+' : ''}${deltaAvg.toFixed(2).replace('.', ',')}% (${deltaKgTotal >= 0 ? '+' : ''}${deltaKgTotal.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} Kg).`;
+  const paragraf1 = `Pada periode ${bulan} ${tahun}, total bahan tembakau blend yang diproses mencapai ${fmtKg(totBahan)} Kg dengan realisasi susut proses rata-rata sebesar ${avgSusut.toFixed(2).replace('.', ',')}% (${fmtKg(totSusut)} Kg). Mengacu pada standar referensi "${standarLabel}" sebesar ${avgAcuan.toFixed(2).replace('.', ',')}%, operasional bulan ini membukukan selisih deviasi sebesar ${deltaAvg >= 0 ? '+' : ''}${deltaAvg.toFixed(2).replace('.', ',')}% (${deltaKgTotal >= 0 ? '+' : ''}${fmtKg(deltaKgTotal)} Kg).`;
 
   let paragraf2 = '';
   if (topDeviasi && topDeviasi.deviasiKg > 0) {
-    paragraf2 = `Kontributor deviasi susut terbesar secara kuantitatif disumbang oleh varian ${topDeviasi.merk} dengan selisih susut sebesar +${topDeviasi.deviasiKg.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} Kg (kontribusi ${topDeviasi.kontribusiDeviasiPct.toFixed(1).replace('.', ',')}% terhadap total deviasi susut pabrik). Sementara deviasi persentase tertinggi terjadi pada varian ${topDeltaPct.merk} yang mencatat susut ${topDeltaPct.susutRiilPct.toFixed(2).replace('.', ',')}% (deviasi ${topDeltaPct.deviasiPct >= 0 ? '+' : ''}${topDeltaPct.deviasiPct.toFixed(2).replace('.', ',')}% dari standar acuan ${topDeltaPct.susutAcuanPct.toFixed(2).replace('.', ',')}%).`;
+    paragraf2 = `Kontributor deviasi susut terbesar secara kuantitatif disumbang oleh varian ${topDeviasi.merk} dengan selisih susut sebesar +${fmtKg(topDeviasi.deviasiKg)} Kg (kontribusi ${topDeviasi.kontribusiDeviasiPct.toFixed(1).replace('.', ',')}% terhadap total deviasi susut pabrik). Sementara deviasi persentase tertinggi terjadi pada varian ${topDeltaPct.merk} yang mencatat susut ${topDeltaPct.susutRiilPct.toFixed(2).replace('.', ',')}% (deviasi ${topDeltaPct.deviasiPct >= 0 ? '+' : ''}${topDeltaPct.deviasiPct.toFixed(2).replace('.', ',')}% dari standar acuan ${topDeltaPct.susutAcuanPct.toFixed(2).replace('.', ',')}%).`;
   } else {
     paragraf2 = `Seluruh varian formula tembakau blend berada dalam rentang toleransi terkendali (≤ ±0,05%) tanpa adanya lonjakan deviasi susut yang signifikan di lantai produksi.`;
   }
@@ -1579,21 +1658,33 @@ export function generateExecutiveNaratifDeviasi(
   return `${paragraf1}\n\n${paragraf2}\n\n${paragraf3}`;
 }
 
-/** Ambil Batch Tags Mandor Lapangan */
+let _cachedBatchTags: Record<string, QuickBatchTag> | null = null;
+
+/** Ambil Batch Tags Mandor Lapangan (dengan in-memory cache) */
 export function getSavedBatchTags(): Record<string, QuickBatchTag> {
+  if (_cachedBatchTags !== null) return _cachedBatchTags;
   if (typeof window === 'undefined') return {};
   try {
     const raw = localStorage.getItem(LOCAL_STORAGE_BATCH_TAGS_KEY);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') {
+        const nextTags = parsed as Record<string, QuickBatchTag>;
+        _cachedBatchTags = nextTags;
+        return nextTags;
+      }
+    }
   } catch (err) {}
-  return {};
+  const emptyTags: Record<string, QuickBatchTag> = {};
+  _cachedBatchTags = emptyTags;
+  return emptyTags;
 }
 
 /** Simpan Batch Tag Mandor */
 export function saveBatchTag(batchId: string, tag: QuickBatchTag): void {
+  const current = { ...getSavedBatchTags(), [batchId]: tag };
+  _cachedBatchTags = current;
   if (typeof window !== 'undefined') {
-    const current = getSavedBatchTags();
-    current[batchId] = tag;
     localStorage.setItem(LOCAL_STORAGE_BATCH_TAGS_KEY, JSON.stringify(current));
   }
 }

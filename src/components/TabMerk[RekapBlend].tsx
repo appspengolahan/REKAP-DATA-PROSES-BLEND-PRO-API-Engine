@@ -185,7 +185,7 @@ export const TabMerkRekapBlend: React.FC<TabMerkProps> = ({
           <div className="flex items-center gap-2 ml-auto">
             <button
               onClick={onExportPdf}
-              className="flex items-center gap-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg text-xs font-bold border border-blue-200 transition cursor-pointer"
+              className="min-h-[44px] sm:min-h-[36px] flex items-center gap-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg text-xs font-bold border border-blue-200 transition cursor-pointer"
             >
               <FileText className="w-3.5 h-3.5 text-blue-600" />
               <span>📄 Export Tab Ini (PDF)</span>
@@ -206,7 +206,7 @@ export const TabMerkRekapBlend: React.FC<TabMerkProps> = ({
             <select
               value={bulanAwal}
               onChange={(e) => setBulanAwal(e.target.value)}
-              className="bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer"
+              className="min-h-[44px] sm:min-h-[36px] bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer"
             >
               {MONTH_ORDER.map((m) => (
                 <option key={`awal-${m}`} value={m}>
@@ -224,7 +224,7 @@ export const TabMerkRekapBlend: React.FC<TabMerkProps> = ({
             <select
               value={bulanAkhir}
               onChange={(e) => setBulanAkhir(e.target.value)}
-              className="bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer"
+              className="min-h-[44px] sm:min-h-[36px] bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer"
             >
               {MONTH_ORDER.map((m) => (
                 <option key={`akhir-${m}`} value={m}>
@@ -240,7 +240,7 @@ export const TabMerkRekapBlend: React.FC<TabMerkProps> = ({
             <select
               value={tahunFilter}
               onChange={(e) => setTahunFilter(e.target.value)}
-              className="bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer"
+              className="min-h-[44px] sm:min-h-[36px] bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer"
             >
               {availableYears.map((y) => (
                 <option key={y} value={y}>
@@ -253,7 +253,7 @@ export const TabMerkRekapBlend: React.FC<TabMerkProps> = ({
           {/* Tombol Reset Default (2026) */}
           <button
             onClick={handleResetFilter}
-            className={`flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-lg border transition cursor-pointer ${
+            className={`min-h-[44px] sm:min-h-[36px] flex items-center gap-1 text-[11px] font-semibold px-3 py-1 rounded-lg border transition cursor-pointer ${
               tahunFilter === '2026' && bulanAwal === 'Januari' && bulanAkhir === 'Oktober'
                 ? 'text-slate-500 bg-slate-100 border-slate-200 hover:text-slate-700'
                 : 'text-amber-800 bg-amber-50 border-amber-300 hover:bg-amber-100 font-bold shadow-xs'
@@ -444,6 +444,11 @@ export const TabMerkRekapBlend: React.FC<TabMerkProps> = ({
                     <g
                       key={m.label}
                       onMouseEnter={() => setHoveredBarIdx(idx)}
+                      onTouchStart={(e) => {
+                        e.stopPropagation();
+                        setBarMousePos(null);
+                        setHoveredBarIdx(idx);
+                      }}
                       className="cursor-pointer transition-opacity"
                     >
                       {/* Transparent hit area for easy hover */}
@@ -497,30 +502,39 @@ export const TabMerkRekapBlend: React.FC<TabMerkProps> = ({
               })()}
             </svg>
 
-            {/* Interactive Floating Dark Tooltip (Diposisikan Dinamis di Atas atau di Bawah Kursor) */}
-            {activeBar && barMousePos && (() => {
+            {/* Interactive Floating Dark Tooltip (Diposisikan Dinamis di Atas atau di Bawah Kursor/Sentuhan) */}
+            {activeBar && (() => {
               const containerW = chart1Ref.current?.clientWidth || 500;
               const containerH = chart1Ref.current?.clientHeight || chartHeight;
-              const placeAbove = barMousePos.relativeY > 0.46;
+              const usableW = 500 - paddingLeft - paddingRight;
+              const colW = usableW / Math.max(displayMerkList.length, 1);
+              const fallbackX = ((paddingLeft + activeBar.index * colW + colW / 2) / 500) * containerW;
+              const posX = barMousePos ? barMousePos.x : fallbackX;
+              const posY = barMousePos ? barMousePos.y : containerH * 0.5;
+              const relativeY = barMousePos ? barMousePos.relativeY : 0.5;
+              const placeAbove = relativeY > 0.46;
+              const xRatio = containerW > 0 ? posX / containerW : 0.5;
+              const hAlignClass =
+                xRatio <= 0.34
+                  ? 'translate-x-0'
+                  : xRatio >= 0.66
+                  ? '-translate-x-full'
+                  : '-translate-x-1/2';
               const badge = getPctBadgeClass(activeBar.item.susutRataPct);
 
               return (
                 <div
-                  className={`absolute z-30 pointer-events-none transition-transform duration-75 ease-out ${
-                    activeBar.index <= 1
-                      ? 'translate-x-0'
-                      : activeBar.index >= displayMerkList.length - 2
-                      ? '-translate-x-full'
-                      : '-translate-x-1/2'
-                  } ${placeAbove ? '-translate-y-full mb-3' : 'translate-y-0 mt-3'}`}
+                  className={`absolute z-30 pointer-events-none transition-transform duration-75 ease-out ${hAlignClass} ${
+                    placeAbove ? '-translate-y-full mb-3' : 'translate-y-0 mt-3'
+                  }`}
                   style={{
-                    left: `${Math.max(12, Math.min(barMousePos.x, containerW - 12))}px`,
+                    left: `${Math.max(12, Math.min(posX, containerW - 12))}px`,
                     top: placeAbove
-                      ? `${Math.max(10, barMousePos.y - 14)}px`
-                      : `${Math.min(containerH - 10, barMousePos.y + 14)}px`,
+                      ? `${Math.max(10, posY - 14)}px`
+                      : `${Math.min(containerH - 10, posY + 14)}px`,
                   }}
                 >
-                  <div className="bg-slate-900/95 backdrop-blur-md text-white border border-slate-700/80 shadow-2xl rounded-xl p-3 min-w-[220px] text-xs">
+                  <div className="bg-slate-900/98 lg:backdrop-blur-md text-white border border-slate-700/80 shadow-2xl rounded-xl p-3 min-w-[200px] sm:min-w-[220px] max-w-[calc(100vw-2.5rem)] text-xs">
                     <div className="flex items-center justify-between border-b border-slate-700/70 pb-1.5 mb-2">
                       <span className="font-bold text-slate-100 flex items-center gap-1.5">
                         🏷️ {activeBar.item.label}
@@ -606,7 +620,7 @@ export const TabMerkRekapBlend: React.FC<TabMerkProps> = ({
               <select
                 value={selectedTrendMerk}
                 onChange={(e) => onSelectTrendMerk(e.target.value)}
-                className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer"
+                className="min-h-[44px] sm:min-h-[36px] max-w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer"
               >
                 {activeAvailableMerks.map((m) => (
                   <option key={m} value={m}>
@@ -615,7 +629,7 @@ export const TabMerkRekapBlend: React.FC<TabMerkProps> = ({
                 ))}
               </select>
 
-              <div className="p-1.5 rounded-lg text-slate-400 group-hover:text-amber-600 group-hover:bg-amber-50 transition">
+              <div className="min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center p-1.5 rounded-lg text-slate-400 group-hover:text-amber-600 group-hover:bg-amber-50 transition">
                 <Maximize2 className="w-4 h-4" />
               </div>
             </div>
@@ -676,6 +690,11 @@ export const TabMerkRekapBlend: React.FC<TabMerkProps> = ({
                           <g
                             key={d.label}
                             onMouseEnter={() => setHoveredPointIdx(i)}
+                            onTouchStart={(e) => {
+                              e.stopPropagation();
+                              setPointMousePos(null);
+                              setHoveredPointIdx(i);
+                            }}
                             className="cursor-pointer"
                           >
                             {/* Hit Area vertikal */}
@@ -742,29 +761,38 @@ export const TabMerkRekapBlend: React.FC<TabMerkProps> = ({
               </svg>
             )}
 
-            {/* Interactive Floating Dark Tooltip (Diposisikan Dinamis di Atas atau di Bawah Kursor) */}
-            {activePoint && pointMousePos && (() => {
+            {/* Interactive Floating Dark Tooltip (Diposisikan Dinamis di Atas atau di Bawah Kursor/Sentuhan) */}
+            {activePoint && (() => {
               const containerW = chart2Ref.current?.clientWidth || 500;
               const containerH = chart2Ref.current?.clientHeight || chartHeight;
-              const placeAbove = pointMousePos.relativeY > 0.46;
+              const usableW = 500 - paddingLeft - paddingRight;
+              const step = usableW / Math.max(trendPoints.length - 1, 1);
+              const fallbackX = ((paddingLeft + activePoint.index * step) / 500) * containerW;
+              const posX = pointMousePos ? pointMousePos.x : fallbackX;
+              const posY = pointMousePos ? pointMousePos.y : containerH * 0.5;
+              const relativeY = pointMousePos ? pointMousePos.relativeY : 0.5;
+              const placeAbove = relativeY > 0.46;
+              const xRatio = containerW > 0 ? posX / containerW : 0.5;
+              const hAlignClass =
+                xRatio <= 0.34
+                  ? 'translate-x-0'
+                  : xRatio >= 0.66
+                  ? '-translate-x-full'
+                  : '-translate-x-1/2';
 
               return (
                 <div
-                  className={`absolute z-30 pointer-events-none transition-transform duration-75 ease-out ${
-                    activePoint.index <= 1
-                      ? 'translate-x-0'
-                      : activePoint.index >= trendPoints.length - 2
-                      ? '-translate-x-full'
-                      : '-translate-x-1/2'
-                  } ${placeAbove ? '-translate-y-full mb-3' : 'translate-y-0 mt-3'}`}
+                  className={`absolute z-30 pointer-events-none transition-transform duration-75 ease-out ${hAlignClass} ${
+                    placeAbove ? '-translate-y-full mb-3' : 'translate-y-0 mt-3'
+                  }`}
                   style={{
-                    left: `${Math.max(12, Math.min(pointMousePos.x, containerW - 12))}px`,
+                    left: `${Math.max(12, Math.min(posX, containerW - 12))}px`,
                     top: placeAbove
-                      ? `${Math.max(10, pointMousePos.y - 14)}px`
-                      : `${Math.min(containerH - 10, pointMousePos.y + 14)}px`,
+                      ? `${Math.max(10, posY - 14)}px`
+                      : `${Math.min(containerH - 10, posY + 14)}px`,
                   }}
                 >
-                  <div className="bg-slate-900/95 backdrop-blur-md text-white border border-slate-700/80 shadow-2xl rounded-xl p-3 min-w-[210px] text-xs">
+                  <div className="bg-slate-900/98 lg:backdrop-blur-md text-white border border-slate-700/80 shadow-2xl rounded-xl p-3 min-w-[195px] sm:min-w-[210px] max-w-[calc(100vw-2.5rem)] text-xs">
                     <div className="flex items-center justify-between border-b border-slate-700/70 pb-1.5 mb-2">
                       <span className="font-bold text-slate-100">
                         📅 {activePoint.data.bulan} {activePoint.data.tahun || tahunFilter}
@@ -818,14 +846,14 @@ export const TabMerkRekapBlend: React.FC<TabMerkProps> = ({
             </span>
           </div>
 
-          <div className="relative no-print">
+          <div className="relative w-full sm:w-auto no-print">
             <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
               placeholder="Cari merk / formula..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-8 pr-3 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-amber-500 w-40 sm:w-52"
+              className="min-h-[44px] sm:min-h-[36px] pl-8 pr-3 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-amber-500 w-full sm:w-52"
             />
           </div>
         </div>

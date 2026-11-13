@@ -31,29 +31,35 @@ export const DEFAULT_WEEKLY_PLAN_DATA: WeeklyBlendPlanData = {
   dailyTotals: { senin: 8, selasa: 8, rabu: 9, kamis: 9, jumat: 10, sabtu: 0, minggu: 0, total: 44 },
 };
 
+let _inMemoryWeeklyPlanCache: WeeklyBlendPlanData | null = null;
+
 /**
- * Mengambil data perencanaan blend mingguan ter-cache dari localStorage
+ * Mengambil data perencanaan blend mingguan ter-cache dari memori / localStorage
  */
 export function getCachedWeeklyBlendPlan(): WeeklyBlendPlanData {
+  if (_inMemoryWeeklyPlanCache !== null) return _inMemoryWeeklyPlanCache;
   if (typeof window === 'undefined') return DEFAULT_WEEKLY_PLAN_DATA;
   try {
     const raw = localStorage.getItem(CACHE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
       if (parsed && parsed.schedules && parsed.dailyTotals) {
+        _inMemoryWeeklyPlanCache = parsed;
         return parsed;
       }
     }
   } catch (err) {
     console.warn('Gagal membaca cache jadwal alokasi blend:', err);
   }
+  _inMemoryWeeklyPlanCache = DEFAULT_WEEKLY_PLAN_DATA;
   return DEFAULT_WEEKLY_PLAN_DATA;
 }
 
 /**
- * Menyimpan data perencanaan blend mingguan ke localStorage
+ * Menyimpan data perencanaan blend mingguan ke memori & localStorage
  */
 export function saveCachedWeeklyBlendPlan(data: WeeklyBlendPlanData): void {
+  _inMemoryWeeklyPlanCache = data;
   if (typeof window !== 'undefined') {
     try {
       localStorage.setItem(CACHE_KEY, JSON.stringify(data));

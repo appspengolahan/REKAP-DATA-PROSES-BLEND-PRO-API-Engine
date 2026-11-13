@@ -30,8 +30,6 @@ export const GasCenterModalRekapBlend: React.FC<GasCenterModalProps> = ({
   onClose,
   onResetCache,
 }) => {
-  if (!isOpen) return null;
-
   const [gasUrl, setGasUrl] = useState(getSavedGasUrl());
   const [testing, setTesting] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -41,6 +39,8 @@ export const GasCenterModalRekapBlend: React.FC<GasCenterModalProps> = ({
     message: string;
     rowCount?: number;
   } | null>(null);
+
+  if (!isOpen) return null;
 
   const scriptSnippet = `/**
  * Tambahkan penanganan parameter REST JSON pada fungsi doGet(e)
@@ -98,26 +98,27 @@ function doGet(e) {
 
   return (
     <div
-      className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-200"
+      className="fixed inset-0 bg-slate-950/60 md:backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 z-50 animate-in fade-in duration-200"
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-slate-200/90 relative max-h-[90vh] overflow-y-auto"
+        className="bg-white rounded-2xl max-w-xl w-full p-5 sm:p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-2xl border border-slate-200/90 relative max-h-[90dvh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition"
+          className="absolute top-3 right-3 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+          title="Tutup"
         >
           <X className="w-5 h-5" />
         </button>
 
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 font-bold">
+        <div className="flex items-center gap-3 mb-4 pr-10">
+          <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 font-bold shrink-0">
             <Settings className="w-5 h-5" />
           </div>
-          <div>
-            <h2 className="text-base font-bold text-slate-900">⚙️ Headless GAS Center & Sumber Data</h2>
+          <div className="min-w-0">
+            <h2 className="text-sm sm:text-base font-bold text-slate-900">⚙️ Headless GAS Center & Sumber Data</h2>
             <p className="text-xs text-slate-500">
               Integrasi langsung ke Spreadsheet DATAMASTER PT Batu Karang PP1
             </p>
@@ -134,7 +135,7 @@ function doGet(e) {
               type="text"
               value={gasUrl}
               onChange={(e) => setGasUrl(e.target.value)}
-              className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg text-xs font-mono text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              className="w-full min-h-[44px] sm:min-h-[38px] p-2.5 bg-slate-50 border border-slate-300 rounded-lg text-xs font-mono text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
               placeholder="https://script.google.com/macros/s/.../exec"
             />
           </div>
@@ -142,14 +143,14 @@ function doGet(e) {
           <div className="flex items-center gap-2 flex-wrap">
             <button
               onClick={handleSave}
-              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-3.5 py-1.5 rounded-lg text-xs transition shadow-sm"
+              className="min-h-[44px] sm:min-h-[36px] bg-blue-600 hover:bg-blue-700 text-white font-semibold px-3.5 py-2 rounded-lg text-xs transition shadow-sm cursor-pointer"
             >
               Simpan URL
             </button>
             <button
               onClick={handleTest}
               disabled={testing}
-              className="bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold px-3 py-1.5 rounded-lg text-xs transition flex items-center gap-1.5 border border-slate-300"
+              className="min-h-[44px] sm:min-h-[36px] bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold px-3 py-2 rounded-lg text-xs transition flex items-center gap-1.5 border border-slate-300 cursor-pointer"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${testing ? 'animate-spin text-blue-600' : ''}`} />
               <span>{testing ? 'Menguji...' : 'Uji Koneksi Langsung'}</span>
@@ -159,7 +160,7 @@ function doGet(e) {
                 setGasUrl(DEFAULT_GAS_URL);
                 saveGasUrl(DEFAULT_GAS_URL);
               }}
-              className="text-xs text-slate-500 hover:text-slate-800 ml-auto"
+              className="min-h-[44px] sm:min-h-[36px] px-2.5 text-xs text-slate-500 hover:text-slate-800 ml-auto cursor-pointer"
             >
               Reset Default
             </button>
@@ -225,7 +226,7 @@ function doGet(e) {
               </span>
               <button
                 onClick={() => setShowCode(!showCode)}
-                className="text-xs text-blue-600 hover:underline font-semibold"
+                className="min-h-[44px] sm:min-h-[32px] px-2 text-xs text-blue-600 hover:underline font-semibold cursor-pointer shrink-0"
               >
                 {showCode ? 'Sembunyikan' : 'Lihat Kode'}
               </button>
@@ -244,7 +245,7 @@ function doGet(e) {
                   </pre>
                   <button
                     onClick={handleCopySnippet}
-                    className="absolute top-2 right-2 flex items-center gap-1 bg-slate-800 hover:bg-slate-700 text-white px-2 py-1 rounded text-[10px] font-semibold border border-slate-700"
+                    className="absolute top-2 right-2 min-h-[36px] flex items-center gap-1 bg-slate-800 hover:bg-slate-700 text-white px-2.5 py-1 rounded text-[10px] font-semibold border border-slate-700 cursor-pointer"
                   >
                     {copied ? <CheckCheck className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
                     <span>{copied ? 'Tersalin' : 'Salin'}</span>
@@ -255,11 +256,11 @@ function doGet(e) {
           </div>
 
           {/* Reset Cache */}
-          <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+          <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2 flex-wrap">
             <span className="text-slate-500">Bersihkan cache lokal di peramban:</span>
             <button
               onClick={onResetCache}
-              className="text-rose-600 hover:text-rose-700 font-semibold px-2.5 py-1 rounded bg-rose-50 border border-rose-200 transition"
+              className="min-h-[44px] sm:min-h-[36px] text-rose-600 hover:text-rose-700 font-semibold px-3 py-1.5 rounded-lg bg-rose-50 border border-rose-200 transition cursor-pointer"
             >
               Hapus Cache & Muat Ulang
             </button>

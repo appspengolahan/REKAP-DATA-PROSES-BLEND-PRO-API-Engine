@@ -12,28 +12,29 @@ export const HelpModalRekapBlend: React.FC<HelpModalProps> = ({ isOpen, onClose 
 
   return (
     <div
-      className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-200"
+      className="fixed inset-0 bg-slate-950/60 md:backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 z-50 animate-in fade-in duration-200"
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-slate-200/90 relative max-h-[90vh] overflow-y-auto"
+        className="bg-white rounded-2xl max-w-xl w-full p-5 sm:p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-2xl border border-slate-200/90 relative max-h-[90dvh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition"
+          className="absolute top-3 right-3 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+          title="Tutup"
         >
           <X className="w-5 h-5" />
         </button>
 
         {/* Header */}
-        <div className="flex items-center gap-3 mb-2">
-          <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 font-bold">
+        <div className="flex items-center gap-3 mb-2 pr-10">
+          <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 font-bold shrink-0">
             <HelpCircle className="w-5 h-5" />
           </div>
-          <div>
-            <h2 className="text-base font-bold text-slate-900">
+          <div className="min-w-0">
+            <h2 className="text-sm sm:text-base font-bold text-slate-900">
               📊 Monitoring Board — Rekap Data Proses Blend
             </h2>
             <div className="text-xs text-slate-500 font-medium">
@@ -92,13 +93,21 @@ export const HelpModalRekapBlend: React.FC<HelpModalProps> = ({ isOpen, onClose 
         </div>
 
         {/* Footer Note sesuai ketentuan */}
-        <div className="mt-6 pt-4 border-t border-slate-200 text-center text-[11px] text-slate-500 space-y-1">
+        <div className="mt-6 pt-4 border-t border-slate-200 text-center text-[11px] text-slate-500 space-y-2">
           <div className="font-semibold text-slate-700">
             Monitoring Board — Rekap Data Proses Blend All Rights Reserved . Divisi Produksi I .
             Developed by Lalu Mahendra
           </div>
           <div className="text-slate-400">
             Jika menemukan bug atau kendala teknis, silahkan hubungi Developer [Lalu Mahendra]
+          </div>
+          <div className="pt-1 sm:hidden">
+            <button
+              onClick={onClose}
+              className="w-full min-h-[44px] bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition cursor-pointer"
+            >
+              Tutup Panduan
+            </button>
           </div>
         </div>
       </div>

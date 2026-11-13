@@ -47,16 +47,17 @@ export const PWAInstallButtonRekapBlend: React.FC<PWAInstallButtonProps> = ({
 
   const renderGuideModal = () => (
     <div
-      className="fixed inset-0 bg-slate-950/75 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-200"
+      className="fixed inset-0 bg-slate-950/75 md:backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 z-50 animate-in fade-in duration-200"
       onClick={() => setShowGuideModal(false)}
     >
       <div
-        className="bg-white rounded-2xl max-w-sm w-full p-5 shadow-2xl border border-slate-200 text-slate-800 relative"
+        className="bg-white rounded-2xl max-w-sm w-full max-h-[90dvh] overflow-y-auto p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl border border-slate-200 text-slate-800 relative"
         onClick={(e) => e.stopPropagation()}
       >
         <button
           onClick={() => setShowGuideModal(false)}
-          className="absolute top-4 right-4 p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
+          className="absolute top-3 right-3 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
+          title="Tutup"
         >
           <X className="w-4 h-4" />
         </button>
@@ -129,7 +130,7 @@ export const PWAInstallButtonRekapBlend: React.FC<PWAInstallButtonProps> = ({
 
         <button
           onClick={() => setShowGuideModal(false)}
-          className="mt-4 w-full bg-slate-900 hover:bg-slate-800 text-white py-2 rounded-xl text-xs font-bold transition cursor-pointer"
+          className="mt-4 w-full min-h-[44px] bg-slate-900 hover:bg-slate-800 text-white py-2.5 rounded-xl text-xs font-bold transition cursor-pointer"
         >
           Mengerti & Tutup
         </button>
@@ -139,11 +140,11 @@ export const PWAInstallButtonRekapBlend: React.FC<PWAInstallButtonProps> = ({
 
   return (
     <>
-      {/* 1. Floating Action Card (Pojok Kanan Bawah, 0px overhead di atas dashboard) */}
+      {/* 1. Floating Action Card (Di atas BottomNavBar pada mobile/tablet, pojok kanan bawah di desktop) */}
       {variant === 'floating' && !isDismissed && (
         <aside
           aria-label="Notifikasi Instalasi PWA"
-          className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-40 max-w-sm w-[calc(100vw-2rem)] bg-slate-900/95 backdrop-blur-md text-white p-3.5 rounded-2xl shadow-2xl border border-slate-700/80 animate-in fade-in slide-in-from-bottom-5 duration-300 no-print"
+          className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] right-3 sm:right-6 lg:bottom-6 z-40 max-w-sm w-[calc(100vw-1.5rem)] sm:w-[calc(100vw-2rem)] bg-slate-900/98 lg:backdrop-blur-md text-white p-3.5 rounded-2xl shadow-2xl border border-slate-700/80 animate-in fade-in slide-in-from-bottom-5 duration-300 no-print"
         >
           <div className="flex items-start gap-3">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shrink-0 shadow-inner mt-0.5">
@@ -159,7 +160,7 @@ export const PWAInstallButtonRekapBlend: React.FC<PWAInstallButtonProps> = ({
                 </div>
                 <button
                   onClick={handleDismiss}
-                  className="p-1 -mr-1 -mt-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition cursor-pointer"
+                  className="min-h-[44px] min-w-[44px] flex items-center justify-center -mr-2 -mt-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition cursor-pointer"
                   title="Tutup & Jangan Tampilkan Lagi"
                 >
                   <X className="w-4 h-4" />
@@ -171,14 +172,14 @@ export const PWAInstallButtonRekapBlend: React.FC<PWAInstallButtonProps> = ({
               <div className="flex items-center gap-2 mt-2.5">
                 <button
                   onClick={handleInstallClick}
-                  className="flex-1 flex items-center justify-center gap-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold px-3 py-1.5 rounded-xl text-xs shadow-md transition active:scale-95 cursor-pointer"
+                  className="flex-1 min-h-[44px] flex items-center justify-center gap-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold px-3 py-2 rounded-xl text-xs shadow-md transition active:scale-95 cursor-pointer"
                 >
                   <Download className="w-3.5 h-3.5 text-amber-300" />
                   <span>Install Sekarang</span>
                 </button>
                 <button
                   onClick={handleDismiss}
-                  className="text-[11px] text-slate-400 hover:text-slate-200 px-2 py-1.5 rounded-lg hover:bg-slate-800/80 transition cursor-pointer font-medium"
+                  className="min-h-[44px] text-xs text-slate-400 hover:text-slate-200 px-3 py-2 rounded-lg hover:bg-slate-800/80 transition cursor-pointer font-medium"
                 >
                   Nanti
                 </button>
@@ -192,7 +193,7 @@ export const PWAInstallButtonRekapBlend: React.FC<PWAInstallButtonProps> = ({
       {variant === 'header' && (
         <button
           onClick={handleInstallClick}
-          className="hidden sm:flex items-center gap-1.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold px-2.5 py-1.5 rounded-lg text-xs shadow-xs transition active:scale-95 cursor-pointer"
+          className="hidden sm:flex items-center justify-center gap-1.5 min-h-[44px] sm:min-h-[36px] bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold px-2.5 py-1.5 rounded-lg text-xs shadow-xs transition active:scale-95 cursor-pointer"
           title="Install aplikasi ke Layar Utama Handphone atau Desktop (PWA)"
         >
           <Download className="w-3.5 h-3.5 text-slate-950" />
@@ -207,7 +208,7 @@ export const PWAInstallButtonRekapBlend: React.FC<PWAInstallButtonProps> = ({
       {variant === 'dropdown' && (
         <button
           onClick={handleInstallClick}
-          className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition cursor-pointer group"
+          className="w-full min-h-[44px] flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition cursor-pointer group"
         >
           <div className="flex items-center gap-2.5">
             <Smartphone className="w-4 h-4 text-amber-400 group-hover:scale-110 transition" />
@@ -223,7 +224,7 @@ export const PWAInstallButtonRekapBlend: React.FC<PWAInstallButtonProps> = ({
       {variant === 'sidebar' && (
         <button
           onClick={handleInstallClick}
-          className="w-full flex items-center gap-2 py-1.5 px-2 bg-blue-900/40 hover:bg-blue-800/60 text-blue-300 hover:text-white rounded-lg text-[11px] font-semibold border border-blue-500/30 transition cursor-pointer"
+          className="w-full min-h-[44px] flex items-center gap-2 py-2 px-2 bg-blue-900/40 hover:bg-blue-800/60 text-blue-300 hover:text-white rounded-lg text-[11px] font-semibold border border-blue-500/30 transition cursor-pointer"
           title="Pasang Aplikasi (PWA)"
         >
           <Smartphone className="w-3.5 h-3.5 text-amber-400 shrink-0" />

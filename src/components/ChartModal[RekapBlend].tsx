@@ -40,38 +40,39 @@ export const ChartModalRekapBlend: React.FC<ChartModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 z-50 animate-in fade-in duration-200"
+      className="fixed inset-0 bg-slate-950/80 md:backdrop-blur-md flex items-center justify-center p-2.5 sm:p-6 z-50 animate-in fade-in duration-200"
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-3xl max-w-5xl w-full p-5 sm:p-7 shadow-2xl border border-slate-200/90 relative max-h-[95vh] flex flex-col overflow-hidden"
+        className="bg-white rounded-2xl sm:rounded-3xl max-w-5xl w-full p-4 sm:p-7 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-2xl border border-slate-200/90 relative max-h-[92dvh] flex flex-col overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header Bar */}
-        <div className="flex items-center justify-between pb-4 border-b border-slate-100 shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200 text-blue-600 flex items-center justify-center font-bold">
-              <Maximize2 className="w-5 h-5" />
+        <div className="flex flex-wrap items-center justify-between gap-2 pb-3 sm:pb-4 border-b border-slate-100 shrink-0">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-blue-50 border border-blue-200 text-blue-600 flex items-center justify-center font-bold shrink-0">
+              <Maximize2 className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
-            <div>
+            <div className="min-w-0">
               <div className="text-[10px] font-bold uppercase tracking-wider text-blue-600">
                 Mode Presentasi & Zoom Grafik
               </div>
-              <h3 className="text-base sm:text-lg font-extrabold text-slate-900">{title}</h3>
+              <h3 className="text-sm sm:text-lg font-extrabold text-slate-900 truncate">{title}</h3>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 shrink-0">
             <button
               onClick={onClose}
-              className="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-3 py-1.5 rounded-xl text-xs transition cursor-pointer"
+              className="min-h-[44px] sm:min-h-[36px] flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-3 py-1.5 rounded-xl text-xs transition cursor-pointer"
             >
               <Minimize2 className="w-3.5 h-3.5" />
-              <span>Tutup (ESC)</span>
+              <span>Tutup</span>
             </button>
             <button
               onClick={onClose}
-              className="p-1.5 rounded-xl text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition cursor-pointer"
+              className="min-h-[44px] min-w-[44px] sm:min-h-[36px] sm:min-w-[36px] flex items-center justify-center rounded-xl text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition cursor-pointer"
+              title="Tutup"
             >
               <X className="w-5 h-5" />
             </button>
@@ -79,7 +80,7 @@ export const ChartModalRekapBlend: React.FC<ChartModalProps> = ({
         </div>
 
         {/* Big Chart Presentation Canvas */}
-        <div className="w-full flex-1 min-h-[380px] sm:min-h-[440px] select-none bg-slate-50/70 p-4 sm:p-6 rounded-2xl border border-slate-200/80 mt-4 relative overflow-hidden flex flex-col justify-center">
+        <div className="w-full flex-1 min-h-[260px] sm:min-h-[400px] select-none bg-slate-50/70 p-2.5 sm:p-6 rounded-2xl border border-slate-200/80 mt-3 sm:mt-4 relative overflow-x-auto flex flex-col justify-center">
           {/* 1. LINE CHART SUSUT BULAN (Model Grafik Garis Sesuai Gambar Referensi) */}
           {chartType === 'line_susut' && (
             <div className="w-full flex-1 flex flex-col justify-center">

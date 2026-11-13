@@ -155,24 +155,24 @@ export const DataExplorerRekapBlend: React.FC<DataExplorerProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             {/* Tombol Pembalik Urutan Data */}
             <button
               onClick={toggleSortOrder}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition cursor-pointer ${
+              className={`min-h-[44px] sm:min-h-[36px] flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition cursor-pointer ${
                 sortOrder === 'desc'
                   ? 'bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200'
                   : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-200'
               }`}
               title="Klik untuk membalik posisi urutan data"
             >
-              <ArrowUpDown className="w-3.5 h-3.5" />
+              <ArrowUpDown className="w-3.5 h-3.5 shrink-0" />
               <span>{sortOrder === 'desc' ? 'Urutan: Terbaru di Atas ⬇️' : 'Urutan: Terlama di Atas ⬆️'}</span>
             </button>
 
             <button
               onClick={onExportCsv}
-              className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold shadow-sm transition cursor-pointer"
+              className="min-h-[44px] sm:min-h-[36px] flex items-center justify-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold shadow-sm transition cursor-pointer"
             >
               <Download className="w-3.5 h-3.5 text-amber-400" />
               <span>Unduh CSV Raw</span>
@@ -193,7 +193,7 @@ export const DataExplorerRekapBlend: React.FC<DataExplorerProps> = ({
                 setSearchTerm(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full min-h-[44px] sm:min-h-[36px] pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
           </div>
 
@@ -205,7 +205,7 @@ export const DataExplorerRekapBlend: React.FC<DataExplorerProps> = ({
                 setSelectedMerk(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 font-medium cursor-pointer"
+              className="w-full min-h-[44px] sm:min-h-[36px] bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 font-medium cursor-pointer"
             >
               <option value="Semua">Semua Merk</option>
               {merks.map((m) => (
@@ -224,7 +224,7 @@ export const DataExplorerRekapBlend: React.FC<DataExplorerProps> = ({
                 setSelectedMolen(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 font-medium cursor-pointer"
+              className="w-full min-h-[44px] sm:min-h-[36px] bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 font-medium cursor-pointer"
             >
               <option value="Semua">Semua Molen</option>
               {molens.map((mo) => (
@@ -251,11 +251,11 @@ export const DataExplorerRekapBlend: React.FC<DataExplorerProps> = ({
           </div>
 
           {/* Pagination buttons */}
-          <div className="flex items-center gap-1 no-print">
+          <div className="flex flex-wrap items-center gap-1.5 no-print">
             <button
               onClick={() => setCurrentPage(1)}
               disabled={currentPage <= 1}
-              className="px-2 py-1 rounded bg-white border border-slate-200 disabled:opacity-40 hover:bg-slate-100 text-[11px] font-semibold cursor-pointer disabled:cursor-not-allowed"
+              className="min-h-[44px] sm:min-h-[34px] px-3 sm:px-2.5 py-1 rounded-lg bg-white border border-slate-200 disabled:opacity-40 hover:bg-slate-100 text-[11px] font-semibold cursor-pointer disabled:cursor-not-allowed"
               title="Ke Halaman Pertama"
             >
               Awal
@@ -263,9 +263,10 @@ export const DataExplorerRekapBlend: React.FC<DataExplorerProps> = ({
             <button
               onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
               disabled={currentPage <= 1}
-              className="p-1 rounded bg-white border border-slate-200 disabled:opacity-40 hover:bg-slate-100 cursor-pointer disabled:cursor-not-allowed"
+              className="min-h-[44px] min-w-[44px] sm:min-h-[34px] sm:min-w-[34px] flex items-center justify-center p-1 rounded-lg bg-white border border-slate-200 disabled:opacity-40 hover:bg-slate-100 cursor-pointer disabled:cursor-not-allowed"
+              aria-label="Halaman Sebelumnya"
             >
-              <ChevronLeft className="w-3.5 h-3.5" />
+              <ChevronLeft className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
             </button>
             <span className="px-2 font-semibold text-slate-700">
               {currentPage} / {totalPages}
@@ -273,14 +274,15 @@ export const DataExplorerRekapBlend: React.FC<DataExplorerProps> = ({
             <button
               onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
               disabled={currentPage >= totalPages}
-              className="p-1 rounded bg-white border border-slate-200 disabled:opacity-40 hover:bg-slate-100 cursor-pointer disabled:cursor-not-allowed"
+              className="min-h-[44px] min-w-[44px] sm:min-h-[34px] sm:min-w-[34px] flex items-center justify-center p-1 rounded-lg bg-white border border-slate-200 disabled:opacity-40 hover:bg-slate-100 cursor-pointer disabled:cursor-not-allowed"
+              aria-label="Halaman Berikutnya"
             >
-              <ChevronRight className="w-3.5 h-3.5" />
+              <ChevronRight className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
             </button>
             <button
               onClick={() => setCurrentPage(totalPages)}
               disabled={currentPage >= totalPages}
-              className="px-2 py-1 rounded bg-white border border-slate-200 disabled:opacity-40 hover:bg-slate-100 text-[11px] font-semibold cursor-pointer disabled:cursor-not-allowed"
+              className="min-h-[44px] sm:min-h-[34px] px-3 sm:px-2.5 py-1 rounded-lg bg-white border border-slate-200 disabled:opacity-40 hover:bg-slate-100 text-[11px] font-semibold cursor-pointer disabled:cursor-not-allowed"
               title="Ke Halaman Terakhir"
             >
               Akhir

@@ -257,12 +257,12 @@ export const SummaryCardsRekapBlend: React.FC<SummaryCardsProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <label className="text-xs font-semibold text-slate-600">Tahun:</label>
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <label className="text-xs font-semibold text-slate-600 shrink-0">Tahun:</label>
           <select
             value={tahunGlobal}
             onChange={(e) => onTahunGlobalChange(e.target.value)}
-            className="bg-slate-50 hover:bg-slate-100 border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
+            className="w-full sm:w-auto min-h-[44px] sm:min-h-[36px] bg-slate-50 hover:bg-slate-100 border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
           >
             <option value="Semua">Semua Tahun</option>
             {availableTahun
@@ -288,14 +288,14 @@ export const SummaryCardsRekapBlend: React.FC<SummaryCardsProps> = ({
               <h2 className="text-sm sm:text-base font-bold text-slate-900">Rekap Tahunan</h2>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs font-bold text-blue-700 bg-blue-50 border border-blue-200/80 px-3 py-1 rounded-full">
                 {ringkasanTahunan.periodeLabel}
               </span>
               <select
                 value={tahunGlobal}
                 onChange={(e) => onTahunGlobalChange(e.target.value)}
-                className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-semibold text-slate-800 focus:outline-none cursor-pointer no-print"
+                className="min-h-[44px] sm:min-h-[36px] bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-semibold text-slate-800 focus:outline-none cursor-pointer no-print"
               >
                 <option value="Semua">Semua Tahun</option>
                 {availableTahun
@@ -330,7 +330,7 @@ export const SummaryCardsRekapBlend: React.FC<SummaryCardsProps> = ({
               <select
                 value={bulanRingkasan}
                 onChange={(e) => onBulanRingkasanChange(e.target.value)}
-                className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-semibold text-slate-800 focus:outline-none cursor-pointer no-print"
+                className="min-h-[44px] sm:min-h-[36px] bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-semibold text-slate-800 focus:outline-none cursor-pointer no-print"
               >
                 <option value="Semua">Semua Bulan</option>
                 {MONTH_ORDER.map((m) => (
@@ -373,12 +373,12 @@ export const SummaryCardsRekapBlend: React.FC<SummaryCardsProps> = ({
           </div>
 
           {/* Period Range Picker Controls */}
-          <div className="flex items-center gap-2 flex-wrap no-print">
+          <div className="flex items-center gap-2 flex-wrap w-full lg:w-auto no-print">
             <span className="text-xs text-slate-500 font-medium">Dari</span>
             <select
               value={periodeAwal.bulan}
               onChange={(e) => onPeriodeAwalChange({ ...periodeAwal, bulan: e.target.value })}
-              className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-semibold text-slate-800"
+              className="min-h-[44px] sm:min-h-[36px] bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-semibold text-slate-800 cursor-pointer"
             >
               {MONTH_ORDER.map((m) => (
                 <option key={m} value={m}>
@@ -389,7 +389,7 @@ export const SummaryCardsRekapBlend: React.FC<SummaryCardsProps> = ({
             <select
               value={periodeAwal.tahun}
               onChange={(e) => onPeriodeAwalChange({ ...periodeAwal, tahun: e.target.value })}
-              className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-semibold text-slate-800"
+              className="min-h-[44px] sm:min-h-[36px] bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-semibold text-slate-800 cursor-pointer"
             >
               {availableTahun.map((t) => (
                 <option key={t} value={t}>
@@ -398,13 +398,13 @@ export const SummaryCardsRekapBlend: React.FC<SummaryCardsProps> = ({
               ))}
             </select>
 
-            <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
+            <ArrowRight className="w-3.5 h-3.5 text-slate-400 hidden sm:inline-block" />
 
             <span className="text-xs text-slate-500 font-medium">Sampai</span>
             <select
               value={periodeAkhir.bulan}
               onChange={(e) => onPeriodeAkhirChange({ ...periodeAkhir, bulan: e.target.value })}
-              className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-semibold text-slate-800"
+              className="min-h-[44px] sm:min-h-[36px] bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-semibold text-slate-800 cursor-pointer"
             >
               {MONTH_ORDER.map((m) => (
                 <option key={m} value={m}>
@@ -415,7 +415,7 @@ export const SummaryCardsRekapBlend: React.FC<SummaryCardsProps> = ({
             <select
               value={periodeAkhir.tahun}
               onChange={(e) => onPeriodeAkhirChange({ ...periodeAkhir, tahun: e.target.value })}
-              className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-semibold text-slate-800"
+              className="min-h-[44px] sm:min-h-[36px] bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-semibold text-slate-800 cursor-pointer"
             >
               {availableTahun.map((t) => (
                 <option key={t} value={t}>

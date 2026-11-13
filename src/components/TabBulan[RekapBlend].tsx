@@ -152,7 +152,7 @@ export const TabBulanRekapBlend: React.FC<TabBulanProps> = ({
               <Calendar className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
+              <h3 className="text-sm sm:text-base font-bold text-slate-900 flex flex-wrap items-center gap-2">
                 <span>Kinerja Deret Waktu Bulanan ({headerPeriodeLabel})</span>
                 <span className="text-[11px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">
                   {periodFilteredData.length} Bulan
@@ -167,7 +167,7 @@ export const TabBulanRekapBlend: React.FC<TabBulanProps> = ({
           <div className="flex items-center gap-2 ml-auto">
             <button
               onClick={onExportPdf}
-              className="flex items-center gap-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg text-xs font-bold border border-blue-200 transition cursor-pointer"
+              className="min-h-[44px] sm:min-h-[36px] flex items-center gap-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg text-xs font-bold border border-blue-200 transition cursor-pointer"
             >
               <FileText className="w-3.5 h-3.5 text-blue-600" />
               <span>📄 Export Tab Ini (PDF)</span>
@@ -188,7 +188,7 @@ export const TabBulanRekapBlend: React.FC<TabBulanProps> = ({
             <select
               value={bulanAwal}
               onChange={(e) => setBulanAwal(e.target.value)}
-              className="bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
+              className="min-h-[44px] sm:min-h-[36px] bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
             >
               {MONTH_ORDER.map((m) => (
                 <option key={`awal-${m}`} value={m}>
@@ -206,7 +206,7 @@ export const TabBulanRekapBlend: React.FC<TabBulanProps> = ({
             <select
               value={bulanAkhir}
               onChange={(e) => setBulanAkhir(e.target.value)}
-              className="bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
+              className="min-h-[44px] sm:min-h-[36px] bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
             >
               {MONTH_ORDER.map((m) => (
                 <option key={`akhir-${m}`} value={m}>
@@ -222,7 +222,7 @@ export const TabBulanRekapBlend: React.FC<TabBulanProps> = ({
             <select
               value={tahunFilter}
               onChange={(e) => setTahunFilter(e.target.value)}
-              className="bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
+              className="min-h-[44px] sm:min-h-[36px] bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
             >
               {availableYears.map((y) => (
                 <option key={y} value={y}>
@@ -236,7 +236,7 @@ export const TabBulanRekapBlend: React.FC<TabBulanProps> = ({
           {(tahunFilter !== '2026' || bulanAwal !== 'Januari' || bulanAkhir !== 'Desember') && (
             <button
               onClick={handleResetFilter}
-              className="flex items-center gap-1 text-[11px] font-semibold text-slate-500 hover:text-blue-600 bg-slate-100 hover:bg-blue-50 px-2.5 py-1 rounded-lg border border-slate-200 transition cursor-pointer"
+              className="min-h-[44px] sm:min-h-[36px] flex items-center gap-1 text-[11px] font-semibold text-slate-500 hover:text-blue-600 bg-slate-100 hover:bg-blue-50 px-3 py-1 rounded-lg border border-slate-200 transition cursor-pointer"
               title="Kembalikan ke periode default (Januari – Desember 2026)"
             >
               <RotateCcw className="w-3 h-3" />
@@ -370,16 +370,16 @@ export const TabBulanRekapBlend: React.FC<TabBulanProps> = ({
             </span>
           </div>
 
-          <div className="flex items-center gap-2 no-print">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto no-print">
             {/* Search Input */}
-            <div className="relative">
+            <div className="relative flex-1 sm:flex-initial min-w-[140px]">
               <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
                 placeholder="Cari bulan..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-8 pr-3 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500 w-36 sm:w-48"
+                className="min-h-[44px] sm:min-h-[36px] pl-8 pr-3 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500 w-full sm:w-48"
               />
             </div>
 
@@ -387,7 +387,7 @@ export const TabBulanRekapBlend: React.FC<TabBulanProps> = ({
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as any)}
-              className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs text-slate-700 font-medium cursor-pointer"
+              className="min-h-[44px] sm:min-h-[36px] w-full sm:w-auto bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs text-slate-700 font-medium cursor-pointer"
             >
               <option value="bulan_desc">Urutan Bulan (Terbaru di Atas)</option>
               <option value="bulan_asc">Urutan Bulan (Terlama di Atas)</option>

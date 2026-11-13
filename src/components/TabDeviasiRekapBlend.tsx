@@ -180,7 +180,7 @@ export const TabDeviasiRekapBlend: React.FC<TabDeviasiProps> = ({
 
       const periodeLabel = `${calcBulanMulai} - ${calcBulanSampai} ${calcTahun}`;
       const keterangan = g.baku > 0
-        ? `Dihitung otomatis dari ${g.count} batch (Total olah ${g.baku.toLocaleString('id-ID', { maximumFractionDigits: 1 })} Kg) periode ${periodeLabel}`
+        ? `Dihitung otomatis dari ${g.count} batch (Total olah ${fmtKg(g.baku)} Kg) periode ${periodeLabel}`
         : `Belum ada data olah di rentang ini. Menggunakan acuan standar formula (${(DEFAULT_STANDAR_ACUAN[merk] ?? 0.28).toFixed(2)}%)`;
 
       return {
@@ -369,7 +369,7 @@ export const TabDeviasiRekapBlend: React.FC<TabDeviasiProps> = ({
           <div className="flex items-center gap-2 self-start lg:self-center shrink-0 no-print">
             <button
               onClick={() => setIsPdfModalOpen(true)}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl flex items-center gap-2 transition cursor-pointer shadow-md shadow-blue-900/30"
+              className="min-h-[44px] sm:min-h-[38px] px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl flex items-center gap-2 transition cursor-pointer shadow-md shadow-blue-900/30"
               title="Export Laporan Evaluasi Bulanan (PDF)"
             >
               <Printer className="w-4 h-4" />
@@ -379,29 +379,29 @@ export const TabDeviasiRekapBlend: React.FC<TabDeviasiProps> = ({
         </div>
       </div>
 
-      {/* 2. Sub-tab Navigation (Exact match with reference image) */}
-      <div className="flex items-center gap-2 p-1.5 bg-slate-100 rounded-2xl w-fit border border-slate-200 no-print">
+      {/* 2. Sub-tab Navigation (Responsive mobile stack -> horizontal sm+) */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-1.5 sm:gap-2 p-1.5 bg-slate-100 rounded-2xl w-full sm:w-fit border border-slate-200 no-print">
         <button
           onClick={() => setSubTab('evaluasi')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+          className={`min-h-[44px] flex items-center justify-center sm:justify-start gap-2 px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer text-left ${
             subTab === 'evaluasi'
               ? 'bg-white text-blue-700 shadow-xs'
               : 'text-slate-600 hover:text-slate-900'
           }`}
         >
-          <TrendingUp className="w-4 h-4" />
+          <TrendingUp className="w-4 h-4 shrink-0" />
           <span>Evaluasi Bulanan Komparasi Seluruh Bahan</span>
         </button>
 
         <button
           onClick={() => setSubTab('manajemen')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+          className={`min-h-[44px] flex items-center justify-center sm:justify-start gap-2 px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer text-left ${
             subTab === 'manajemen'
               ? 'bg-blue-600 text-white shadow-xs'
               : 'text-slate-600 hover:text-slate-900'
           }`}
         >
-          <Sliders className="w-4 h-4" />
+          <Sliders className="w-4 h-4 shrink-0" />
           <span>Manajemen Standar Acuan Susut (6 Varian Terhitung)</span>
         </button>
       </div>
@@ -440,7 +440,7 @@ export const TabDeviasiRekapBlend: React.FC<TabDeviasiProps> = ({
               <div className="flex items-center gap-2 shrink-0">
                 <button
                   onClick={handleApplyPeriodStandards}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs ${
+                  className={`min-h-[44px] sm:min-h-[38px] px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs ${
                     isPeriodActive
                       ? 'bg-emerald-600 text-white hover:bg-emerald-700'
                       : 'bg-blue-600 text-white hover:bg-blue-700'
@@ -455,14 +455,14 @@ export const TabDeviasiRekapBlend: React.FC<TabDeviasiProps> = ({
             </div>
 
             {/* Selector Rentang Bulan & Tahun Acuan */}
-            <div className="p-4 bg-slate-50/80 rounded-xl border border-slate-200/90 flex flex-wrap items-center justify-between gap-3">
-              <div className="flex flex-wrap items-center gap-3 text-xs font-medium text-slate-700">
+            <div className="p-3.5 sm:p-4 bg-slate-50/80 rounded-xl border border-slate-200/90 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 text-xs font-medium text-slate-700">
                 <div className="flex items-center gap-2">
                   <span className="font-semibold text-slate-600">Bulan Mulai:</span>
                   <select
                     value={calcBulanMulai}
                     onChange={(e) => setCalcBulanMulai(e.target.value)}
-                    className="bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                    className="min-h-[44px] sm:min-h-[36px] bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
                   >
                     {MONTH_ORDER.map((m) => (
                       <option key={m} value={m}>
@@ -477,7 +477,7 @@ export const TabDeviasiRekapBlend: React.FC<TabDeviasiProps> = ({
                   <select
                     value={calcBulanSampai}
                     onChange={(e) => setCalcBulanSampai(e.target.value)}
-                    className="bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                    className="min-h-[44px] sm:min-h-[36px] bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
                   >
                     {MONTH_ORDER.map((m) => (
                       <option key={m} value={m}>
@@ -492,7 +492,7 @@ export const TabDeviasiRekapBlend: React.FC<TabDeviasiProps> = ({
                   <select
                     value={calcTahun}
                     onChange={(e) => setCalcTahun(e.target.value)}
-                    className="bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                    className="min-h-[44px] sm:min-h-[36px] bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
                   >
                     <option value="2026">2026</option>
                     <option value="2025">2025</option>
@@ -574,10 +574,10 @@ export const TabDeviasiRekapBlend: React.FC<TabDeviasiProps> = ({
           <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden">
             <div className="p-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 bg-slate-50/60">
               {/* Toggles View Mode */}
-              <div className="flex items-center gap-1.5 bg-slate-200/80 p-1 rounded-xl">
+              <div className="flex flex-wrap items-center gap-1.5 bg-slate-200/80 p-1 rounded-xl w-full sm:w-auto">
                 <button
                   onClick={() => setViewTableMode('periode')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                  className={`min-h-[44px] sm:min-h-[34px] flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
                     viewTableMode === 'periode'
                       ? 'bg-white text-slate-900 shadow-2xs'
                       : 'text-slate-600 hover:text-slate-900'
@@ -587,7 +587,7 @@ export const TabDeviasiRekapBlend: React.FC<TabDeviasiProps> = ({
                 </button>
                 <button
                   onClick={() => setViewTableMode('aktif')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                  className={`min-h-[44px] sm:min-h-[34px] flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
                     viewTableMode === 'aktif'
                       ? 'bg-white text-blue-700 shadow-2xs'
                       : 'text-slate-600 hover:text-slate-900'
@@ -598,15 +598,15 @@ export const TabDeviasiRekapBlend: React.FC<TabDeviasiProps> = ({
               </div>
 
               {/* Search & Filters */}
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="relative">
+              <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                <div className="relative flex-1 sm:flex-initial min-w-[160px]">
                   <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Cari jenis tembakau..."
-                    className="pl-8 pr-3 py-1.5 bg-white border border-slate-300 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 w-44 sm:w-52"
+                    className="min-h-[44px] sm:min-h-[36px] pl-8 pr-3 py-1.5 bg-white border border-slate-300 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 w-full sm:w-52"
                   />
                 </div>
 
@@ -615,7 +615,7 @@ export const TabDeviasiRekapBlend: React.FC<TabDeviasiProps> = ({
                     <button
                       key={j}
                       onClick={() => setFilterJalur(j)}
-                      className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
+                      className={`min-h-[44px] sm:min-h-[32px] px-3 sm:px-2.5 py-1 rounded-lg transition cursor-pointer ${
                         filterJalur === j ? 'bg-slate-900 text-white' : 'text-slate-600 hover:text-slate-900'
                       }`}
                     >
@@ -626,7 +626,7 @@ export const TabDeviasiRekapBlend: React.FC<TabDeviasiProps> = ({
 
                 <button
                   onClick={handleResetDefaultStandards}
-                  className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1"
+                  className="min-h-[44px] sm:min-h-[36px] px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1"
                   title="Kembalikan standar acuan ke default pabrik"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
@@ -697,7 +697,7 @@ export const TabDeviasiRekapBlend: React.FC<TabDeviasiProps> = ({
                             setEditTargetInput(item.standarSusutPct);
                             setEditTolInput(item.toleransiPct);
                           }}
-                          className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold transition cursor-pointer"
+                          className="min-h-[44px] sm:min-h-[32px] px-3 sm:px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold transition cursor-pointer whitespace-nowrap"
                         >
                           Ubah Standar
                         </button>
@@ -730,11 +730,11 @@ export const TabDeviasiRekapBlend: React.FC<TabDeviasiProps> = ({
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
               <select
                 value={selectedBulan}
                 onChange={(e) => setSelectedBulan(e.target.value)}
-                className="bg-slate-50 border border-slate-300 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                className="min-h-[44px] sm:min-h-[36px] flex-1 sm:flex-initial bg-slate-50 border border-slate-300 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
               >
                 {MONTH_ORDER.map((m) => (
                   <option key={m} value={m}>
@@ -745,7 +745,7 @@ export const TabDeviasiRekapBlend: React.FC<TabDeviasiProps> = ({
               <select
                 value={selectedTahun}
                 onChange={(e) => setSelectedTahun(e.target.value)}
-                className="bg-slate-50 border border-slate-300 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                className="min-h-[44px] sm:min-h-[36px] bg-slate-50 border border-slate-300 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
               >
                 <option value="2026">2026</option>
                 <option value="2025">2025</option>
@@ -775,7 +775,7 @@ export const TabDeviasiRekapBlend: React.FC<TabDeviasiProps> = ({
                 <span className="text-slate-400">Target Weighted Avg</span>
                 <button
                   onClick={() => setSubTab('manajemen')}
-                  className="text-blue-600 font-bold hover:text-blue-800 cursor-pointer"
+                  className="min-h-[44px] sm:min-h-0 inline-flex items-center text-blue-600 font-bold hover:text-blue-800 cursor-pointer"
                 >
                   Kelola Acuan
                 </button>
@@ -913,8 +913,8 @@ export const TabDeviasiRekapBlend: React.FC<TabDeviasiProps> = ({
                     <div key={item.merk} className="flex-1 flex flex-col items-center justify-end h-full group">
                       <div className="flex items-end gap-1.5 w-full justify-center">
                         {/* Acuan Bar */}
-                        <div className="flex flex-col items-center w-5 sm:w-7">
-                          <span className="text-[10px] font-mono text-emerald-700 font-bold mb-1 opacity-0 group-hover:opacity-100 transition">
+                        <div className="flex flex-col items-center w-6 sm:w-7">
+                          <span className="text-[10px] font-mono text-emerald-700 font-bold mb-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition">
                             {item.susutAcuanPct.toFixed(2)}%
                           </span>
                           <div
@@ -925,8 +925,8 @@ export const TabDeviasiRekapBlend: React.FC<TabDeviasiProps> = ({
                         </div>
 
                         {/* Riil Bar */}
-                        <div className="flex flex-col items-center w-5 sm:w-7">
-                          <span className="text-[10px] font-mono text-blue-700 font-bold mb-1 opacity-0 group-hover:opacity-100 transition">
+                        <div className="flex flex-col items-center w-6 sm:w-7">
+                          <span className="text-[10px] font-mono text-blue-700 font-bold mb-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition">
                             {item.susutRiilPct.toFixed(2)}%
                           </span>
                           <div
@@ -960,9 +960,9 @@ export const TabDeviasiRekapBlend: React.FC<TabDeviasiProps> = ({
 
           {/* Deviation Matrix Table */}
           <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden">
-            <div className="p-4 border-b border-slate-200 bg-slate-50/80 flex items-center justify-between">
+            <div className="p-4 border-b border-slate-200 bg-slate-50/80 flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <FileText className="w-5 h-5 text-blue-600" />
+                <FileText className="w-5 h-5 text-blue-600 shrink-0" />
                 <h3 className="text-sm font-bold text-slate-900">
                   Matriks Evaluasi Deviasi Susut Multi-Varian ({selectedBulan} {selectedTahun})
                 </h3>
@@ -1038,10 +1038,10 @@ export const TabDeviasiRekapBlend: React.FC<TabDeviasiProps> = ({
           </div>
 
           {/* Executive Summary Narrative Memo */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+          <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-xs space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-100">
               <div className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-amber-500" />
+                <Sparkles className="w-5 h-5 text-amber-500 shrink-0" />
                 <h3 className="text-sm font-bold text-slate-900">
                   Executive Summary Naratif (Otomatis untuk Laporan Evaluasi Bulanan)
                 </h3>
@@ -1049,7 +1049,7 @@ export const TabDeviasiRekapBlend: React.FC<TabDeviasiProps> = ({
               <div className="flex items-center gap-2">
                 <button
                   onClick={handleCopyNarasi}
-                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+                  className="min-h-[44px] sm:min-h-[36px] px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
                 >
                   {copiedNarasi ? <CheckCheck className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
                   <span>{copiedNarasi ? 'Tersalin!' : 'Salin Narasi'}</span>
@@ -1067,16 +1067,16 @@ export const TabDeviasiRekapBlend: React.FC<TabDeviasiProps> = ({
       {/* MODAL 1: UBAH STANDAR PER VARIAN */}
       {editingVariant && (
         <div
-          className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in"
+          className="fixed inset-0 bg-slate-950/70 md:backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 z-50 animate-in fade-in"
           onClick={() => setEditingVariant(null)}
         >
           <div
-            className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-200 overflow-hidden"
+            className="bg-white rounded-2xl max-w-md w-full max-h-[90dvh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
+            <div className="p-4 bg-slate-900 text-white flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
-                <Sliders className="w-5 h-5 text-blue-400" />
+                <Sliders className="w-5 h-5 text-blue-400 shrink-0" />
                 <div>
                   <h3 className="text-sm font-bold">Ubah Standar Susut Referensi</h3>
                   <p className="text-[11px] text-slate-300">{editingVariant.merk} ({editingVariant.jalur})</p>
@@ -1084,13 +1084,14 @@ export const TabDeviasiRekapBlend: React.FC<TabDeviasiProps> = ({
               </div>
               <button
                 onClick={() => setEditingVariant(null)}
-                className="text-slate-400 hover:text-white p-1"
+                className="min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-400 hover:text-white p-1.5 rounded-lg cursor-pointer"
+                aria-label="Tutup"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="p-5 space-y-4 text-xs">
+            <div className="p-4 sm:p-5 space-y-4 text-xs overflow-y-auto pb-[calc(1rem+env(safe-area-inset-bottom))]">
               <div>
                 <label className="block text-slate-700 font-bold mb-1">
                   Target Standar Susut (%)
@@ -1101,7 +1102,7 @@ export const TabDeviasiRekapBlend: React.FC<TabDeviasiProps> = ({
                     step="0.01"
                     value={editTargetInput}
                     onChange={(e) => setEditTargetInput(parseFloat(e.target.value) || 0)}
-                    className="w-full p-2 border border-slate-300 rounded-xl font-bold text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="min-h-[44px] w-full p-2.5 border border-slate-300 rounded-xl font-bold text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                   <span className="font-bold text-slate-500 text-sm">%</span>
                 </div>
@@ -1120,7 +1121,7 @@ export const TabDeviasiRekapBlend: React.FC<TabDeviasiProps> = ({
                     step="0.01"
                     value={editTolInput}
                     onChange={(e) => setEditTolInput(parseFloat(e.target.value) || 0.05)}
-                    className="w-full p-2 border border-slate-300 rounded-xl font-bold text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="min-h-[44px] w-full p-2.5 border border-slate-300 rounded-xl font-bold text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                   <span className="font-bold text-slate-500 text-sm">%</span>
                 </div>
@@ -1136,13 +1137,13 @@ export const TabDeviasiRekapBlend: React.FC<TabDeviasiProps> = ({
               <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100">
                 <button
                   onClick={() => setEditingVariant(null)}
-                  className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-semibold transition cursor-pointer"
+                  className="min-h-[44px] px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-semibold transition cursor-pointer"
                 >
                   Batal
                 </button>
                 <button
                   onClick={handleSaveVariantEdit}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+                  className="min-h-[44px] px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
                 >
                   <Check className="w-4 h-4" />
                   <span>Simpan Perubahan</span>
@@ -1156,32 +1157,33 @@ export const TabDeviasiRekapBlend: React.FC<TabDeviasiProps> = ({
       {/* MODAL 2: PRATINJAU CETAK / PDF LAPORAN EVALUASI BULANAN */}
       {isPdfModalOpen && (
         <div
-          className="fixed inset-0 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 z-50 animate-in fade-in"
+          className="fixed inset-0 bg-slate-950/80 md:backdrop-blur-xs flex items-center justify-center p-2.5 sm:p-6 z-50 animate-in fade-in"
           onClick={() => setIsPdfModalOpen(false)}
         >
           <div
-            className="bg-white rounded-2xl max-w-4xl w-full max-h-[92vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden"
+            className="bg-white rounded-2xl max-w-4xl w-full max-h-[92dvh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
-            <div className="p-4 bg-slate-900 text-white flex items-center justify-between shrink-0 no-print">
-              <div className="flex items-center gap-2">
-                <Printer className="w-5 h-5 text-amber-400" />
-                <h3 className="text-sm font-bold">
+            <div className="p-3.5 sm:p-4 bg-slate-900 text-white flex flex-wrap items-center justify-between gap-2 shrink-0 no-print">
+              <div className="flex items-center gap-2 min-w-0">
+                <Printer className="w-5 h-5 text-amber-400 shrink-0" />
+                <h3 className="text-xs sm:text-sm font-bold truncate">
                   Pratinjau Dokumen Cetak Evaluasi Deviasi Bulanan (.PDF)
                 </h3>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 ml-auto">
                 <button
                   onClick={() => window.print()}
-                  className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+                  className="min-h-[44px] sm:min-h-[36px] px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
                 >
                   <Printer className="w-3.5 h-3.5" />
                   <span>Cetak / Simpan PDF</span>
                 </button>
                 <button
                   onClick={() => setIsPdfModalOpen(false)}
-                  className="text-slate-400 hover:text-white p-1"
+                  className="min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-400 hover:text-white p-1.5 rounded-lg cursor-pointer"
+                  aria-label="Tutup"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -1189,11 +1191,11 @@ export const TabDeviasiRekapBlend: React.FC<TabDeviasiProps> = ({
             </div>
 
             {/* Document Body (Formatted like an Official Factory Audit Memo) */}
-            <div className="p-6 sm:p-8 overflow-y-auto space-y-6 text-slate-800 bg-white">
+            <div className="p-4 sm:p-8 overflow-y-auto space-y-6 text-slate-800 bg-white pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
               {/* Kop Surat */}
-              <div className="border-b-2 border-slate-900 pb-4 flex items-center justify-between">
+              <div className="border-b-2 border-slate-900 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <h1 className="text-lg font-black tracking-wider text-slate-900">
+                  <h1 className="text-base sm:text-lg font-black tracking-wider text-slate-900">
                     PT BATU KARANG — DIVISI PRODUKSI I
                   </h1>
                   <h2 className="text-xs font-bold text-slate-600 uppercase tracking-widest mt-0.5">
@@ -1203,7 +1205,7 @@ export const TabDeviasiRekapBlend: React.FC<TabDeviasiProps> = ({
                     Departemen Pengolahan Tembakau · Sistem Terpadu Rekap Blend
                   </p>
                 </div>
-                <div className="text-right text-[11px] text-slate-600">
+                <div className="text-left sm:text-right text-[11px] text-slate-600">
                   <div><strong>Periode Audit:</strong> {selectedBulan} {selectedTahun}</div>
                   <div><strong>Acuan Standar:</strong> {activeLabel}</div>
                   <div><strong>Dicetak Pada:</strong> {formatWibDateLongNow()}</div>
@@ -1215,52 +1217,54 @@ export const TabDeviasiRekapBlend: React.FC<TabDeviasiProps> = ({
                 <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">
                   I. Matriks Komparasi Volume & Susut Multi-Varian
                 </h4>
-                <table className="w-full text-left text-xs border border-slate-300">
-                  <thead className="bg-slate-100 text-slate-700 font-bold border-b border-slate-300">
-                    <tr>
-                      <th className="p-2">Jenis Tbk Blend</th>
-                      <th className="p-2 text-right">Baku (Kg)</th>
-                      <th className="p-2 text-right">Hasil (Kg)</th>
-                      <th className="p-2 text-right">Susut (Kg)</th>
-                      <th className="p-2 text-right">% Riil</th>
-                      <th className="p-2 text-right">Acuan %</th>
-                      <th className="p-2 text-right">Deviasi %</th>
-                      <th className="p-2 text-center">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200">
-                    {deviasiList.map((it) => (
-                      <tr key={it.merk}>
-                        <td className="p-2 font-bold">{it.merk}</td>
-                        <td className="p-2 text-right">{fmtKg(it.bobotRiilKg)}</td>
-                        <td className="p-2 text-right">{fmtKg(it.hasilRiilKg)}</td>
-                        <td className="p-2 text-right font-medium">{fmtKg(it.susutRiilKg)}</td>
-                        <td className="p-2 text-right font-bold">{fmtPct(it.susutRiilPct)}%</td>
-                        <td className="p-2 text-right text-emerald-700 font-semibold">{fmtPct(it.susutAcuanPct)}%</td>
-                        <td className="p-2 text-right font-bold">
-                          {it.deviasiPct >= 0 ? '+' : ''}{fmtPct(it.deviasiPct)}%
-                        </td>
-                        <td className="p-2 text-center font-bold text-[10px] uppercase">
-                          {it.status}
-                        </td>
+                <div className="overflow-x-auto scrollbar-thin">
+                  <table className="w-full min-w-[620px] text-left text-xs border border-slate-300">
+                    <thead className="bg-slate-100 text-slate-700 font-bold border-b border-slate-300">
+                      <tr>
+                        <th className="p-2">Jenis Tbk Blend</th>
+                        <th className="p-2 text-right">Baku (Kg)</th>
+                        <th className="p-2 text-right">Hasil (Kg)</th>
+                        <th className="p-2 text-right">Susut (Kg)</th>
+                        <th className="p-2 text-right">% Riil</th>
+                        <th className="p-2 text-right">Acuan %</th>
+                        <th className="p-2 text-right">Deviasi %</th>
+                        <th className="p-2 text-center">Status</th>
                       </tr>
-                    ))}
-                  </tbody>
-                  <tfoot className="bg-slate-100 font-bold border-t border-slate-300">
-                    <tr>
-                      <td className="p-2">TOTAL AGREGAT:</td>
-                      <td className="p-2 text-right">{fmtKg(summaryMetrics.totBahan)}</td>
-                      <td className="p-2 text-right">{fmtKg(summaryMetrics.totHasil)}</td>
-                      <td className="p-2 text-right">{fmtKg(summaryMetrics.totSusut)}</td>
-                      <td className="p-2 text-right text-blue-900">{fmtPct(summaryMetrics.avgSusut)}%</td>
-                      <td className="p-2 text-right text-emerald-800">{fmtPct(summaryMetrics.avgAcuan)}%</td>
-                      <td className="p-2 text-right">
-                        {summaryMetrics.deltaAvg >= 0 ? '+' : ''}{fmtPct(summaryMetrics.deltaAvg)}%
-                      </td>
-                      <td className="p-2 text-center uppercase">{summaryMetrics.overallStatus}</td>
-                    </tr>
-                  </tfoot>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200">
+                      {deviasiList.map((it) => (
+                        <tr key={it.merk}>
+                          <td className="p-2 font-bold">{it.merk}</td>
+                          <td className="p-2 text-right">{fmtKg(it.bobotRiilKg)}</td>
+                          <td className="p-2 text-right">{fmtKg(it.hasilRiilKg)}</td>
+                          <td className="p-2 text-right font-medium">{fmtKg(it.susutRiilKg)}</td>
+                          <td className="p-2 text-right font-bold">{fmtPct(it.susutRiilPct)}%</td>
+                          <td className="p-2 text-right text-emerald-700 font-semibold">{fmtPct(it.susutAcuanPct)}%</td>
+                          <td className="p-2 text-right font-bold">
+                            {it.deviasiPct >= 0 ? '+' : ''}{fmtPct(it.deviasiPct)}%
+                          </td>
+                          <td className="p-2 text-center font-bold text-[10px] uppercase">
+                            {it.status}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot className="bg-slate-100 font-bold border-t border-slate-300">
+                      <tr>
+                        <td className="p-2">TOTAL AGREGAT:</td>
+                        <td className="p-2 text-right">{fmtKg(summaryMetrics.totBahan)}</td>
+                        <td className="p-2 text-right">{fmtKg(summaryMetrics.totHasil)}</td>
+                        <td className="p-2 text-right">{fmtKg(summaryMetrics.totSusut)}</td>
+                        <td className="p-2 text-right text-blue-900">{fmtPct(summaryMetrics.avgSusut)}%</td>
+                        <td className="p-2 text-right text-emerald-800">{fmtPct(summaryMetrics.avgAcuan)}%</td>
+                        <td className="p-2 text-right">
+                          {summaryMetrics.deltaAvg >= 0 ? '+' : ''}{fmtPct(summaryMetrics.deltaAvg)}%
+                        </td>
+                        <td className="p-2 text-center uppercase">{summaryMetrics.overallStatus}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
               </div>
 
               {/* Ringkasan Naratif */}
@@ -1274,7 +1278,7 @@ export const TabDeviasiRekapBlend: React.FC<TabDeviasiProps> = ({
               </div>
 
               {/* 3 Kolom Tanda Tangan Resmi */}
-              <div className="pt-6 border-t border-slate-200 grid grid-cols-3 gap-6 text-center text-xs">
+              <div className="pt-6 border-t border-slate-200 grid grid-cols-1 sm:grid-cols-3 gap-6 text-center text-xs">
                 <div>
                   <div className="text-slate-500 text-[11px] mb-12">Disiapkan Oleh:</div>
                   <div className="font-bold border-b border-slate-400 pb-1 mx-4">Mandor Operasional Blend</div>

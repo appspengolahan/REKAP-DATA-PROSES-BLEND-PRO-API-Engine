@@ -157,6 +157,18 @@ export const IntegrasiDhpModalRekapBlend: React.FC<IntegrasiDhpModalProps> = ({
   const [hoveredDiagBatch, setHoveredDiagBatch] = useState<string | null>(null);
   const [activeStandards, setActiveStandards] = useState<Record<string, number>>({});
   const [mobileViewMode, setMobileViewMode] = useState<'cards' | 'table'>('cards');
+  const [dhpPage, setDhpPage] = useState<number>(1);
+  const DHP_PAGE_SIZE = 25;
+
+  const dhpTotalPages = Math.max(1, Math.ceil(dhpItems.length / DHP_PAGE_SIZE));
+  const paginatedDhpItems = useMemo(() => {
+    const start = (dhpPage - 1) * DHP_PAGE_SIZE;
+    return dhpItems.slice(start, start + DHP_PAGE_SIZE);
+  }, [dhpItems, dhpPage]);
+
+  useEffect(() => {
+    setDhpPage((p) => (p > dhpTotalPages ? 1 : p));
+  }, [dhpTotalPages]);
 
   // State Live Satelit Iklim & Higroskopis Lingkungan Pabrik (PT Batu Karang Wagir Malang)
   const [liveWeather, setLiveWeather] = useState<{
@@ -1980,20 +1992,20 @@ function doGet(e) {
 
   return (
     <div
-      className="fixed inset-0 bg-slate-950/75 backdrop-blur-xs flex items-center justify-center p-1.5 sm:p-4 z-50 animate-in fade-in duration-200"
+      className="fixed inset-0 bg-slate-950/75 md:backdrop-blur-xs flex items-center justify-center p-1.5 sm:p-4 z-50 animate-in fade-in duration-200"
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-2xl max-w-7xl xl:max-w-[1440px] 2xl:max-w-[1520px] w-full max-h-[96vh] sm:max-h-[94vh] flex flex-col shadow-2xl border border-slate-200/90 relative overflow-hidden"
+        className="bg-white rounded-2xl max-w-7xl xl:max-w-[1440px] 2xl:max-w-[1520px] w-full max-h-[94dvh] sm:max-h-[92dvh] flex flex-col shadow-2xl border border-slate-200/90 relative overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* 1. Header Modal */}
-        <div className="p-3 sm:p-4 md:p-5 border-b border-slate-200 bg-slate-900 text-white flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-2.5 sm:gap-3">
+        <div className="p-3 sm:p-4 md:p-5 border-b border-slate-200 bg-slate-900 text-white flex items-center justify-between gap-2 shrink-0">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
             <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-blue-500/20 border border-blue-400/40 flex items-center justify-center text-blue-400 font-bold shadow-xs shrink-0">
               <ArrowLeftRight className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
                 <h2 className="text-sm sm:text-base md:text-lg font-bold text-white flex items-center gap-1.5">
                   Integrasi &amp; Sinkronisasi DHP BLEND
@@ -2011,7 +2023,7 @@ function doGet(e) {
 
           <button
             onClick={onClose}
-            className="p-1 sm:p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer shrink-0"
+            className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer shrink-0"
             title="Tutup"
           >
             <X className="w-5 h-5" />
@@ -2023,9 +2035,9 @@ function doGet(e) {
         {/* - SISI KIRI: STATUS SUMBER DHP & DUA TOGGLE UTAMA OPERASIONAL            */}
         {/* - SISI KANAN: DROPDOWN DINAMIS TEKNIS & OTOMASI, AUTO-TARIK, TARIK ULANG  */}
         {/* ========================================================================= */}
-        <div className="px-3 sm:px-4 py-2 sm:py-2.5 bg-slate-100/90 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2.5 text-xs shrink-0">
+        <div className="px-3 sm:px-4 py-2 sm:py-2.5 bg-slate-100/90 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs shrink-0">
           {/* SISI KIRI: STATUS SUMBER & TOGGLE UTAMA OPERASIONAL */}
-          <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap">
+          <div className="flex items-center gap-1.5 sm:gap-2.5 flex-wrap">
             {/* Status Sumber DHP -> Target DATAMASTER */}
             <div className="hidden lg:flex items-center gap-1.5 bg-white px-2 py-1 rounded-lg border border-slate-200 text-[11px] shadow-2xs">
               <span className="flex items-center gap-1 font-semibold text-slate-700">
@@ -2047,7 +2059,7 @@ function doGet(e) {
                 setActiveTab('transaksi');
                 setOpenTechDropdown(false);
               }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs whitespace-nowrap ${
+              className={`min-h-[44px] sm:min-h-[36px] px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs whitespace-nowrap ${
                 activeTab === 'transaksi'
                   ? 'bg-blue-600 text-white shadow-blue-500/20'
                   : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200 hover:bg-slate-50'
@@ -2063,7 +2075,7 @@ function doGet(e) {
                 setActiveTab('analisis');
                 setOpenTechDropdown(false);
               }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs whitespace-nowrap ${
+              className={`min-h-[44px] sm:min-h-[36px] px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs whitespace-nowrap ${
                 activeTab === 'analisis'
                   ? 'bg-amber-500 text-slate-950 shadow-amber-500/20'
                   : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200 hover:bg-slate-50'
@@ -2072,7 +2084,7 @@ function doGet(e) {
               <TrendingUp className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'analisis' ? 'text-slate-950' : 'text-amber-600'}`} />
               <span>Laporan Analisis Harian</span>
               <span
-                className={`px-1.5 py-0.2 text-[10px] rounded-full font-bold ${
+                className={`px-1.5 py-0.5 text-[10px] rounded-full font-bold ${
                   activeTab === 'analisis'
                     ? 'bg-slate-950 text-amber-300'
                     : 'bg-amber-100 text-amber-800 border border-amber-300'
@@ -2088,7 +2100,7 @@ function doGet(e) {
                 setActiveTab('jadwal');
                 setOpenTechDropdown(false);
               }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs whitespace-nowrap ${
+              className={`min-h-[44px] sm:min-h-[36px] px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs whitespace-nowrap ${
                 activeTab === 'jadwal'
                   ? 'bg-indigo-600 text-white shadow-indigo-500/20'
                   : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200 hover:bg-slate-50'
@@ -2097,7 +2109,7 @@ function doGet(e) {
               <Calendar className="w-3.5 h-3.5 shrink-0" />
               <span>Jadwal Alokasi Mingguan</span>
               <span
-                className={`px-1.5 py-0.2 text-[10px] rounded-full font-bold ${
+                className={`px-1.5 py-0.5 text-[10px] rounded-full font-bold ${
                   activeTab === 'jadwal'
                     ? 'bg-indigo-900 text-indigo-200'
                     : 'bg-indigo-50 text-indigo-700 border border-indigo-200'
@@ -2114,7 +2126,7 @@ function doGet(e) {
             <div className="relative">
               <button
                 onClick={() => setOpenTechDropdown((prev) => !prev)}
-                className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold border transition flex items-center gap-1.5 cursor-pointer shadow-xs whitespace-nowrap ${
+                className={`min-h-[44px] sm:min-h-[36px] px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold border transition flex items-center gap-1.5 cursor-pointer shadow-xs whitespace-nowrap ${
                   activeTab === 'pemetaan' || activeTab === 'gas'
                     ? 'bg-purple-100 border-purple-300 text-purple-900 font-bold'
                     : 'bg-white border-slate-200 text-slate-700 hover:text-slate-900 hover:bg-slate-50'
@@ -2139,7 +2151,7 @@ function doGet(e) {
                     className="fixed inset-0 z-40"
                     onClick={() => setOpenTechDropdown(false)}
                   />
-                  <div className="absolute right-0 top-full mt-1 w-56 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-50 text-xs animate-in fade-in zoom-in-95 duration-150">
+                  <div className="absolute right-0 top-full mt-1 w-60 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-50 text-xs animate-in fade-in zoom-in-95 duration-150">
                     <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100">
                       Konfigurasi &amp; Proteksi Sistem
                     </div>
@@ -2149,7 +2161,7 @@ function doGet(e) {
                         setActiveTab('pemetaan');
                         setOpenTechDropdown(false);
                       }}
-                      className={`w-full px-3 py-2 text-left flex items-center justify-between transition cursor-pointer ${
+                      className={`w-full min-h-[44px] px-3 py-2 text-left flex items-center justify-between transition cursor-pointer ${
                         activeTab === 'pemetaan'
                           ? 'bg-purple-50 text-purple-900 font-bold'
                           : 'text-slate-700 hover:bg-slate-50'
@@ -2167,7 +2179,7 @@ function doGet(e) {
                         setActiveTab('gas');
                         setOpenTechDropdown(false);
                       }}
-                      className={`w-full px-3 py-2 text-left flex items-center justify-between transition cursor-pointer ${
+                      className={`w-full min-h-[44px] px-3 py-2 text-left flex items-center justify-between transition cursor-pointer ${
                         activeTab === 'gas'
                           ? 'bg-purple-50 text-purple-900 font-bold'
                           : 'text-slate-700 hover:bg-slate-50'
@@ -2191,7 +2203,7 @@ function doGet(e) {
                         setOpenTechDropdown(false);
                       }}
                       disabled={isSyncing || isReconciling}
-                      className="w-full px-3 py-2 text-left flex items-center justify-between transition cursor-pointer text-amber-900 hover:bg-amber-50 disabled:opacity-50"
+                      className="w-full min-h-[44px] px-3 py-2 text-left flex items-center justify-between transition cursor-pointer text-amber-900 hover:bg-amber-50 disabled:opacity-50"
                       title="Rekonsiliasi & bersihkan batch rencana yang tidak diproduksi (Hasil 0 Kg)"
                     >
                       <span className="flex items-center gap-2">
@@ -2207,7 +2219,7 @@ function doGet(e) {
                         setOpenTechDropdown(false);
                       }}
                       disabled={isCleaningBakuNol || isSyncing || isReconciling}
-                      className="w-full px-3 py-2 text-left flex items-center justify-between transition cursor-pointer text-rose-700 hover:bg-rose-50 border-t border-slate-100 disabled:opacity-50"
+                      className="w-full min-h-[44px] px-3 py-2 text-left flex items-center justify-between transition cursor-pointer text-rose-700 hover:bg-rose-50 border-t border-slate-100 disabled:opacity-50"
                       title="Hapus baris yang memiliki Bobot Baku 0 Kg di DATAMASTER"
                     >
                       <span className="flex items-center gap-2">
@@ -2223,7 +2235,7 @@ function doGet(e) {
                         setOpenTechDropdown(false);
                       }}
                       disabled={isFixing10Nov || isCleaningBakuNol || isSyncing || isReconciling}
-                      className="w-full px-3 py-2 text-left flex items-center justify-between transition cursor-pointer text-indigo-700 hover:bg-indigo-50 border-t border-slate-100 disabled:opacity-50"
+                      className="w-full min-h-[44px] px-3 py-2 text-left flex items-center justify-between transition cursor-pointer text-indigo-700 hover:bg-indigo-50 border-t border-slate-100 disabled:opacity-50"
                       title="Perbaiki 10 November 2026: Lengkapi 8 batch (TIS - KBT24) & Hapus 51 baris kosong anomali (4816-4866)"
                     >
                       <span className="flex items-center gap-2">
@@ -2251,7 +2263,7 @@ function doGet(e) {
                 setCountdown(15);
               }}
               disabled={isLoading}
-              className="flex items-center gap-1 px-2.5 sm:px-3 py-1.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-lg text-[11px] sm:text-xs font-semibold transition cursor-pointer shadow-xs disabled:opacity-50 whitespace-nowrap"
+              className="min-h-[44px] sm:min-h-[36px] flex items-center gap-1 px-2.5 sm:px-3 py-1.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-lg text-[11px] sm:text-xs font-semibold transition cursor-pointer shadow-xs disabled:opacity-50 whitespace-nowrap"
             >
               <RefreshCw className={`w-3 h-3 ${isLoading ? 'animate-spin' : ''}`} />
               <span className="hidden xs:inline">{isLoading ? 'Menarik...' : 'Tarik Ulang'}</span>
@@ -2343,29 +2355,29 @@ function doGet(e) {
 
                   {/* Switcher Tampilan Khusus Mobile / Tablet */}
                   <div className="flex items-center gap-2">
-                    <div className="flex items-center bg-slate-200/90 p-0.5 rounded-lg md:hidden">
+                    <div className="flex items-center bg-slate-200/90 p-1 rounded-lg md:hidden">
                       <button
                         type="button"
                         onClick={() => setMobileViewMode('cards')}
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold transition flex items-center gap-1 cursor-pointer ${
+                        className={`min-h-[44px] px-3 py-1.5 rounded text-xs font-bold transition flex items-center gap-1 cursor-pointer ${
                           mobileViewMode === 'cards'
                             ? 'bg-white text-blue-700 shadow-xs'
                             : 'text-slate-600 hover:text-slate-900'
                         }`}
                       >
-                        <LayoutGrid className="w-3 h-3" />
+                        <LayoutGrid className="w-3.5 h-3.5" />
                         <span>Kartu</span>
                       </button>
                       <button
                         type="button"
                         onClick={() => setMobileViewMode('table')}
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold transition flex items-center gap-1 cursor-pointer ${
+                        className={`min-h-[44px] px-3 py-1.5 rounded text-xs font-bold transition flex items-center gap-1 cursor-pointer ${
                           mobileViewMode === 'table'
                             ? 'bg-white text-blue-700 shadow-xs'
                             : 'text-slate-600 hover:text-slate-900'
                         }`}
                       >
-                        <List className="w-3 h-3" />
+                        <List className="w-3.5 h-3.5" />
                         <span>Tabel</span>
                       </button>
                     </div>
@@ -2379,7 +2391,7 @@ function doGet(e) {
                 {/* 1. Tampilan Kartu Ringkas di Layar Ponsel (Jika mode cards dipilih) */}
                 {mobileViewMode === 'cards' && (
                   <div className="p-2 sm:p-3 space-y-2.5 md:hidden bg-slate-50/50">
-                    {dhpItems.map((item) => {
+                    {paginatedDhpItems.map((item) => {
                       const targetPct = activeStandards[item.merk] ?? 0.28;
                       const susutPctNum = item.baku > 0 ? (item.susutKg / item.baku) * 100 : 0;
                       const deltaPct = susutPctNum - targetPct;
@@ -2550,7 +2562,7 @@ function doGet(e) {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {dhpItems.map((item) => {
+                      {paginatedDhpItems.map((item) => {
                         const targetPct = activeStandards[item.merk] ?? 0.28;
                         const susutPctNum = item.baku > 0 ? (item.susutKg / item.baku) * 100 : 0;
                         const deltaPct = susutPctNum - targetPct;
@@ -2614,21 +2626,26 @@ function doGet(e) {
                                 className="inline-block relative"
                                 onMouseEnter={() => setHoveredDiagBatch(item.batchCode)}
                                 onMouseLeave={() => setHoveredDiagBatch(null)}
+                                onClick={() =>
+                                  setHoveredDiagBatch((prev) =>
+                                    prev === item.batchCode ? null : item.batchCode
+                                  )
+                                }
                               >
                                 {devStatus === 'normal' && (
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-bold cursor-help">
+                                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-bold cursor-pointer">
                                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                                     <span>Normal ({deltaPct >= 0 ? '+' : ''}{deltaPct.toFixed(2)}%)</span>
                                   </span>
                                 )}
                                 {devStatus === 'waspada' && (
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-[11px] font-bold cursor-help">
+                                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-[11px] font-bold cursor-pointer">
                                     <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
                                     <span>Waspada ({deltaPct >= 0 ? '+' : ''}{deltaPct.toFixed(2)}%)</span>
                                   </span>
                                 )}
                                 {devStatus === 'oos' && (
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 text-[11px] font-bold cursor-help animate-pulse">
+                                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200 text-[11px] font-bold cursor-pointer animate-pulse">
                                     <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
                                     <span>OOS ({deltaPct >= 0 ? '+' : ''}{deltaPct.toFixed(2)}%)</span>
                                   </span>
@@ -2636,7 +2653,7 @@ function doGet(e) {
 
                                 {/* Tooltip Diagnosa Kilat */}
                                 {hoveredDiagBatch === item.batchCode && (
-                                  <div className="absolute z-50 left-1/2 -translate-x-1/2 bottom-full mb-1.5 w-64 bg-slate-900 text-white rounded-xl p-3 shadow-xl border border-slate-700 text-left pointer-events-none">
+                                  <div className="absolute z-50 right-0 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 bottom-full mb-1.5 w-64 max-w-[85vw] bg-slate-900 text-white rounded-xl p-3 shadow-xl border border-slate-700 text-left pointer-events-none">
                                     <div className="flex items-center justify-between border-b border-slate-800 pb-1.5 mb-1.5">
                                       <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                                         Diagnosa Kilat Deviasi
@@ -2732,6 +2749,38 @@ function doGet(e) {
                     </tfoot>
                   </table>
                 </div>
+
+                {/* Pagination Bar untuk Transaksi DHP (> 25 baris) */}
+                {dhpItems.length > DHP_PAGE_SIZE && (
+                  <div className="px-3 py-2.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-2 flex-wrap text-xs text-slate-600">
+                    <span className="font-medium">
+                      Menampilkan <strong>{(dhpPage - 1) * DHP_PAGE_SIZE + 1}</strong>–
+                      <strong>{Math.min(dhpPage * DHP_PAGE_SIZE, dhpItems.length)}</strong> dari{' '}
+                      <strong>{dhpItems.length}</strong> batch
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setDhpPage((p) => Math.max(1, p - 1))}
+                        disabled={dhpPage === 1}
+                        className="min-h-[44px] sm:min-h-[34px] px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 disabled:opacity-40 font-semibold transition cursor-pointer"
+                      >
+                        Sebelumnya
+                      </button>
+                      <span className="px-2 font-bold text-slate-700 tabular-nums">
+                        {dhpPage} / {dhpTotalPages}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setDhpPage((p) => Math.min(dhpTotalPages, p + 1))}
+                        disabled={dhpPage >= dhpTotalPages}
+                        className="min-h-[44px] sm:min-h-[34px] px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 disabled:opacity-40 font-semibold transition cursor-pointer"
+                      >
+                        Berikutnya
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Status Alert & Dual-Action Control Panel */}
@@ -2757,7 +2806,7 @@ function doGet(e) {
                     <button
                       onClick={handleExecuteSync}
                       disabled={isSyncing || isReconciling}
-                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-lg font-bold text-xs shadow-xs transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                      className="min-h-[44px] sm:min-h-[38px] px-4 py-2 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-lg font-bold text-xs shadow-xs transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
                       title="Memperbarui data yang ada di DHP ke DATAMASTER tanpa menghapus antrean rencana shift hari ini dan kebal timpa nol"
                     >
                       <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
@@ -2809,16 +2858,16 @@ function doGet(e) {
               {/* MODAL DIALOG: KONFIRMASI REKONSILIASI & PEMBERSIHAN BATCH BATAL */}
               {showReconcileModal && (
                 <div
-                  className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-3 animate-in fade-in duration-150"
+                  className="fixed inset-0 z-50 bg-slate-950/70 md:backdrop-blur-xs flex items-center justify-center p-3 animate-in fade-in duration-150"
                   onClick={() => !isReconciling && setShowReconcileModal(false)}
                 >
                   <div
-                    className="bg-white rounded-2xl max-w-lg w-full p-5 shadow-2xl border border-slate-200 space-y-4 text-left animate-in zoom-in-95 duration-150"
+                    className="bg-white rounded-2xl max-w-lg w-full max-h-[90dvh] overflow-y-auto p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl border border-slate-200 space-y-4 text-left animate-in zoom-in-95 duration-150"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                       <div className="flex items-center gap-2.5">
-                        <div className="w-9 h-9 rounded-xl bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center font-bold">
+                        <div className="w-9 h-9 rounded-xl bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center font-bold shrink-0">
                           <Trash2 className="w-5 h-5" />
                         </div>
                         <div>
@@ -2832,7 +2881,8 @@ function doGet(e) {
                       </div>
                       <button
                         onClick={() => !isReconciling && setShowReconcileModal(false)}
-                        className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+                        className="min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 cursor-pointer shrink-0"
+                        title="Tutup"
                       >
                         <X className="w-5 h-5" />
                       </button>
@@ -2879,18 +2929,18 @@ function doGet(e) {
                       </p>
                     </div>
 
-                    <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                    <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 flex-wrap">
                       <button
                         onClick={() => setShowReconcileModal(false)}
                         disabled={isReconciling}
-                        className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-semibold text-xs transition cursor-pointer"
+                        className="min-h-[44px] sm:min-h-[36px] px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-semibold text-xs transition cursor-pointer"
                       >
                         Batal
                       </button>
                       <button
                         onClick={handleExecuteReconciliation}
                         disabled={isReconciling}
-                        className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-bold text-xs shadow-xs transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                        className="min-h-[44px] sm:min-h-[36px] px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-bold text-xs shadow-xs transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                       >
                         {isReconciling ? (
                           <>
@@ -3923,16 +3973,16 @@ function doGet(e) {
         </div>
 
         {/* 5. Footer Modal */}
-        <div className="p-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs shrink-0">
-          <div className="flex items-center gap-2 text-slate-500 text-[11px]">
-            <ShieldCheck className="w-4 h-4 text-emerald-600" />
-            <span>Koneksi aman, anti-duplikasi aktif &amp; pemetaan kolom terverifikasi</span>
+        <div className="p-3.5 pb-[calc(0.875rem+env(safe-area-inset-bottom))] bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-2 text-xs shrink-0">
+          <div className="flex items-center gap-2 text-slate-500 text-[11px] min-w-0">
+            <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span className="truncate sm:whitespace-normal">Koneksi aman, anti-duplikasi aktif &amp; pemetaan kolom terverifikasi</span>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={onClose}
-              className="px-4 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-xs font-semibold transition cursor-pointer"
+              className="min-h-[44px] sm:min-h-[36px] px-4 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-xs font-semibold transition cursor-pointer"
             >
               Tutup
             </button>

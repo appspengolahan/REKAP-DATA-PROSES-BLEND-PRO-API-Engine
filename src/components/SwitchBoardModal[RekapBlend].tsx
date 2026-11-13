@@ -304,29 +304,29 @@ export const SwitchBoardModalRekapBlend: React.FC<SwitchBoardModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 z-50 animate-in fade-in duration-200"
+      className="fixed inset-0 bg-slate-950/70 md:backdrop-blur-xs flex items-center justify-center p-2.5 sm:p-4 z-50 animate-in fade-in duration-200"
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-2xl max-w-lg w-full max-h-[92vh] flex flex-col shadow-2xl border border-slate-200/90 relative overflow-hidden"
+        className="bg-white rounded-2xl max-w-lg w-full max-h-[90dvh] flex flex-col shadow-2xl border border-slate-200/90 relative overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header Modal */}
-        <div className="p-4 sm:p-5 border-b border-slate-200/80 bg-slate-50/80 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-600 font-bold shadow-xs">
+        <div className="p-3.5 sm:p-5 border-b border-slate-200/80 bg-slate-50/80 flex items-center justify-between gap-2 shrink-0">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-600 font-bold shadow-xs shrink-0">
               <Layers className="w-5 h-5" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-1.5">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-sm sm:text-lg font-bold text-slate-900 flex items-center gap-1.5">
                   🔀 Switchboard Susut
                 </h2>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200">
                   PP1 Ekosistem
                 </span>
               </div>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <p className="text-[11px] sm:text-xs text-slate-500 mt-0.5 truncate">
                 Pindah cepat antar aplikasi operasional Divisi Produksi I
               </p>
             </div>
@@ -334,7 +334,7 @@ export const SwitchBoardModalRekapBlend: React.FC<SwitchBoardModalProps> = ({
 
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition cursor-pointer"
+            className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition cursor-pointer shrink-0"
             title="Tutup"
           >
             <X className="w-5 h-5" />
@@ -342,15 +342,15 @@ export const SwitchBoardModalRekapBlend: React.FC<SwitchBoardModalProps> = ({
         </div>
 
         {/* Action Toolbar */}
-        <div className="px-4 py-2 bg-slate-100/70 border-b border-slate-200/70 flex items-center justify-between gap-2 shrink-0 text-xs">
-          <div className="flex items-center gap-1.5">
+        <div className="px-3.5 sm:px-4 py-2 bg-slate-100/70 border-b border-slate-200/70 flex flex-wrap items-center justify-between gap-2 shrink-0 text-xs">
+          <div className="flex items-center gap-1.5 flex-wrap">
             <button
               onClick={() => {
                 setIsEditingMode(!isEditingMode);
                 setEditingItem(null);
                 setIsAddingNew(false);
               }}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg font-semibold transition cursor-pointer ${
+              className={`min-h-[44px] sm:min-h-[34px] flex items-center gap-1 px-3 py-1.5 rounded-lg font-semibold transition cursor-pointer ${
                 isEditingMode
                   ? 'bg-amber-600 text-white shadow-xs'
                   : 'bg-white text-slate-700 hover:bg-slate-200/80 border border-slate-200'
@@ -362,7 +362,7 @@ export const SwitchBoardModalRekapBlend: React.FC<SwitchBoardModalProps> = ({
 
             <button
               onClick={handleStartAdd}
-              className="flex items-center gap-1 px-2.5 py-1 rounded-lg font-semibold bg-blue-600 hover:bg-blue-700 text-white transition shadow-xs cursor-pointer"
+              className="min-h-[44px] sm:min-h-[34px] flex items-center gap-1 px-3 py-1.5 rounded-lg font-semibold bg-blue-600 hover:bg-blue-700 text-white transition shadow-xs cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>+ Tambah Modul</span>
@@ -371,7 +371,7 @@ export const SwitchBoardModalRekapBlend: React.FC<SwitchBoardModalProps> = ({
 
           <button
             onClick={handleResetDefault}
-            className="flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-slate-500 hover:text-slate-800 hover:bg-white rounded-md transition cursor-pointer"
+            className="min-h-[44px] sm:min-h-[34px] flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium text-slate-500 hover:text-slate-800 hover:bg-white rounded-md transition cursor-pointer"
             title="Reset semua URL ke pengaturan standar"
           >
             <RotateCcw className="w-3 h-3" />
@@ -472,13 +472,13 @@ export const SwitchBoardModalRekapBlend: React.FC<SwitchBoardModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsAddingNew(false)}
-                  className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-200 transition"
+                  className="min-h-[44px] sm:min-h-[36px] px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-200 transition cursor-pointer"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
-                  className="px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white transition shadow-sm"
+                  className="min-h-[44px] sm:min-h-[36px] px-3.5 py-1.5 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white transition shadow-sm cursor-pointer"
                 >
                   Simpan Modul Baru
                 </button>
@@ -566,13 +566,13 @@ export const SwitchBoardModalRekapBlend: React.FC<SwitchBoardModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setEditingItem(null)}
-                  className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-200 transition"
+                  className="min-h-[44px] sm:min-h-[36px] px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-200 transition cursor-pointer"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
-                  className="px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white transition shadow-sm"
+                  className="min-h-[44px] sm:min-h-[36px] px-3.5 py-1.5 rounded-lg text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white transition shadow-sm cursor-pointer"
                 >
                   Simpan Perubahan
                 </button>
@@ -626,7 +626,7 @@ export const SwitchBoardModalRekapBlend: React.FC<SwitchBoardModalProps> = ({
                       {isEditingMode && (
                         <button
                           onClick={() => handleStartEdit(app)}
-                          className="p-1.5 rounded-lg text-amber-600 hover:bg-amber-100 transition cursor-pointer"
+                          className="min-h-[44px] min-w-[44px] sm:min-h-[34px] sm:min-w-[34px] flex items-center justify-center rounded-lg text-amber-600 hover:bg-amber-100 transition cursor-pointer"
                           title="Edit Modul & URL"
                         >
                           <Edit2 className="w-3.5 h-3.5" />
@@ -636,7 +636,7 @@ export const SwitchBoardModalRekapBlend: React.FC<SwitchBoardModalProps> = ({
                       {isEditingMode && !app.isCurrent && (
                         <button
                           onClick={() => handleDeleteItem(app.id, app.name)}
-                          className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-100 transition cursor-pointer"
+                          className="min-h-[44px] min-w-[44px] sm:min-h-[34px] sm:min-w-[34px] flex items-center justify-center rounded-lg text-rose-500 hover:bg-rose-100 transition cursor-pointer"
                           title="Hapus Modul"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -648,7 +648,7 @@ export const SwitchBoardModalRekapBlend: React.FC<SwitchBoardModalProps> = ({
                           href={app.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition shadow-xs cursor-pointer ml-1"
+                          className="min-h-[44px] sm:min-h-[34px] flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition shadow-xs cursor-pointer ml-1"
                         >
                           <span>Buka</span>
                           <ExternalLink className="w-3 h-3" />
@@ -694,7 +694,7 @@ export const SwitchBoardModalRekapBlend: React.FC<SwitchBoardModalProps> = ({
                       {isEditingMode && (
                         <button
                           onClick={() => handleStartEdit(app)}
-                          className="p-1.5 rounded-lg text-amber-700 hover:bg-amber-100 transition cursor-pointer"
+                          className="min-h-[44px] min-w-[44px] sm:min-h-[34px] sm:min-w-[34px] flex items-center justify-center rounded-lg text-amber-700 hover:bg-amber-100 transition cursor-pointer"
                           title="Edit Modul & URL"
                         >
                           <Edit2 className="w-3.5 h-3.5" />
@@ -704,7 +704,7 @@ export const SwitchBoardModalRekapBlend: React.FC<SwitchBoardModalProps> = ({
                       {isEditingMode && (
                         <button
                           onClick={() => handleDeleteItem(app.id, app.name)}
-                          className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-100 transition cursor-pointer"
+                          className="min-h-[44px] min-w-[44px] sm:min-h-[34px] sm:min-w-[34px] flex items-center justify-center rounded-lg text-rose-500 hover:bg-rose-100 transition cursor-pointer"
                           title="Hapus Modul"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -715,7 +715,7 @@ export const SwitchBoardModalRekapBlend: React.FC<SwitchBoardModalProps> = ({
                         href={app.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold transition shadow-xs cursor-pointer ml-1"
+                        className="min-h-[44px] sm:min-h-[34px] flex items-center gap-1 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold transition shadow-xs cursor-pointer ml-1"
                       >
                         <span>Buka</span>
                         <ExternalLink className="w-3 h-3" />
@@ -756,7 +756,7 @@ export const SwitchBoardModalRekapBlend: React.FC<SwitchBoardModalProps> = ({
                         {isEditingMode && (
                           <button
                             onClick={() => handleStartEdit(app)}
-                            className="p-1.5 rounded-lg text-amber-600 hover:bg-amber-100 transition cursor-pointer"
+                            className="min-h-[44px] min-w-[44px] sm:min-h-[34px] sm:min-w-[34px] flex items-center justify-center rounded-lg text-amber-600 hover:bg-amber-100 transition cursor-pointer"
                             title="Edit Modul & URL"
                           >
                             <Edit2 className="w-3.5 h-3.5" />
@@ -765,7 +765,7 @@ export const SwitchBoardModalRekapBlend: React.FC<SwitchBoardModalProps> = ({
 
                         <button
                           onClick={() => handleDeleteItem(app.id, app.name)}
-                          className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-100 transition cursor-pointer"
+                          className="min-h-[44px] min-w-[44px] sm:min-h-[34px] sm:min-w-[34px] flex items-center justify-center rounded-lg text-rose-500 hover:bg-rose-100 transition cursor-pointer"
                           title="Hapus Modul"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -775,7 +775,7 @@ export const SwitchBoardModalRekapBlend: React.FC<SwitchBoardModalProps> = ({
                           href={app.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold transition shadow-xs cursor-pointer ml-1"
+                          className="min-h-[44px] sm:min-h-[34px] flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold transition shadow-xs cursor-pointer ml-1"
                         >
                           <span>Buka</span>
                           <ExternalLink className="w-3 h-3" />
@@ -790,7 +790,7 @@ export const SwitchBoardModalRekapBlend: React.FC<SwitchBoardModalProps> = ({
         </div>
 
         {/* Footer Modal */}
-        <div className="p-3 bg-slate-50 border-t border-slate-200/80 text-center text-[10px] text-slate-500 shrink-0">
+        <div className="p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] bg-slate-50 border-t border-slate-200/80 text-center text-[10px] text-slate-500 shrink-0">
           PT Batu Karang — Divisi Produksi I (PP1) Master Workspace OS
         </div>
       </div>

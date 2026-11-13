@@ -106,9 +106,9 @@ export const HeaderRekapBlend: React.FC<HeaderProps> = ({
   return (
     <header className="bg-slate-900 border-b border-slate-800 text-white sticky top-0 z-40 shadow-md select-none w-full no-print">
       {/* Full-Width Global Topbar / Header Layout: Membentang penuh 100% selebar layar */}
-      <div className="w-full px-3 sm:px-5 lg:px-6 h-14 sm:h-16 flex items-center justify-between gap-2 sm:gap-4">
-        {/* Left: Branding & Judul Sejajar Pinggir / Sidebar tapi Tetap Terbaca Penuh Saat Sidebar Ciut */}
-        <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
+      <div className="w-full px-2.5 sm:px-5 lg:px-6 min-h-14 sm:min-h-16 py-1 flex items-center justify-between gap-2 sm:gap-4">
+        {/* Left: Branding & Judul dengan min-w-0 flex-1 agar tidak mendorong tombol kanan keluar layar di HP */}
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
           {onToggleCollapse && (
             <button
               onClick={onToggleCollapse}
@@ -123,13 +123,13 @@ export const HeaderRekapBlend: React.FC<HeaderProps> = ({
             </button>
           )}
 
-          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 font-black text-sm sm:text-base shrink-0 shadow-inner">
+          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 font-black text-xs sm:text-base shrink-0 shadow-inner">
             PP1
           </div>
 
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5 leading-none">
-              <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 whitespace-nowrap">
+              <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 truncate max-w-full">
                 PT Batu Karang · PP1
               </span>
               <span className="hidden md:inline-flex items-center gap-1 text-[11px] text-slate-400 whitespace-nowrap">
@@ -142,16 +142,16 @@ export const HeaderRekapBlend: React.FC<HeaderProps> = ({
                 {isAutoSync && ' · Auto'}
               </span>
             </div>
-            <h1 className="text-xs sm:text-sm md:text-base font-bold tracking-tight text-white flex items-center gap-1.5 mt-0.5 whitespace-nowrap">
-              <span>Monitoring Board Rekap Blend</span>
+            <h1 className="text-xs sm:text-sm md:text-base font-bold tracking-tight text-white mt-0.5 truncate">
+              Monitoring Board Rekap Blend
             </h1>
           </div>
         </div>
 
         {/* Right: Actions Bar (Sleek, Single-Row & Uncrowded) */}
-        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0 no-print">
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0 no-print">
           {/* Badge Entri Data Terkini */}
-          <div className="flex items-center gap-1.5 bg-amber-500/15 border border-amber-500/30 text-amber-300 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-semibold shadow-xs whitespace-nowrap">
+          <div className="hidden xs:flex sm:flex items-center gap-1.5 bg-amber-500/15 border border-amber-500/30 text-amber-300 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-semibold shadow-xs whitespace-nowrap">
             <Calendar className="w-3.5 h-3.5 text-amber-400 shrink-0" />
             <span className="text-amber-200/80 font-normal hidden lg:inline">Entri Data Terkini:</span>
             <span className="font-bold">{dataset.entriTerkini || '5 Oktober 2026'}</span>
@@ -160,7 +160,7 @@ export const HeaderRekapBlend: React.FC<HeaderProps> = ({
           {/* Toggle Tarik Dari Datasheet (Shortcut Pill) */}
           <button
             onClick={onToggleDataSourceMode}
-            className={`hidden sm:flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-bold border transition cursor-pointer shadow-xs ${
+            className={`hidden sm:flex items-center justify-center gap-1.5 min-h-[44px] sm:min-h-[36px] px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-bold border transition cursor-pointer shadow-xs ${
               dataSourceMode === 'direct_sheet'
                 ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 hover:bg-amber-500/30'
                 : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white hover:bg-slate-750'
@@ -190,10 +190,10 @@ export const HeaderRekapBlend: React.FC<HeaderProps> = ({
           {onOpenIntegrasiDhp && (
             <button
               onClick={onOpenIntegrasiDhp}
-              className="flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-bold border transition cursor-pointer shadow-xs bg-blue-600/20 text-blue-300 border-blue-500/40 hover:bg-blue-600/30"
+              className="flex items-center justify-center gap-1.5 min-h-[44px] sm:min-h-[36px] min-w-[44px] sm:min-w-0 px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-bold border transition cursor-pointer shadow-xs bg-blue-600/20 text-blue-300 border-blue-500/40 hover:bg-blue-600/30"
               title="Integrasi & Sinkronisasi Data DHP Blend"
             >
-              <ArrowLeftRight className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+              <ArrowLeftRight className="w-4 h-4 sm:w-3.5 sm:h-3.5 text-blue-400 shrink-0" />
               <span className="hidden md:inline">DHP Blend</span>
             </button>
           )}
@@ -202,10 +202,10 @@ export const HeaderRekapBlend: React.FC<HeaderProps> = ({
           {onOpenJadwalAlokasi && (
             <button
               onClick={onOpenJadwalAlokasi}
-              className="flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-bold border transition cursor-pointer shadow-xs bg-indigo-600/20 text-indigo-300 border-indigo-500/40 hover:bg-indigo-600/30"
+              className="flex items-center justify-center gap-1.5 min-h-[44px] sm:min-h-[36px] min-w-[44px] sm:min-w-0 px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-bold border transition cursor-pointer shadow-xs bg-indigo-600/20 text-indigo-300 border-indigo-500/40 hover:bg-indigo-600/30"
               title="Jadwal Alokasi Campuran Mingguan PP1 (Senin – Minggu)"
             >
-              <Calendar className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+              <Calendar className="w-4 h-4 sm:w-3.5 sm:h-3.5 text-indigo-400 shrink-0" />
               <span className="hidden md:inline">Jadwal PP1</span>
             </button>
           )}
@@ -214,7 +214,7 @@ export const HeaderRekapBlend: React.FC<HeaderProps> = ({
           <button
             onClick={onRefresh}
             disabled={isRefreshing}
-            className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition shadow-xs cursor-pointer ${
+            className={`flex items-center justify-center gap-1.5 min-h-[44px] sm:min-h-[36px] min-w-[44px] sm:min-w-0 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition shadow-xs cursor-pointer ${
               isAutoSync
                 ? 'bg-emerald-600/90 hover:bg-emerald-500 text-white border border-emerald-400/30'
                 : 'bg-blue-600 hover:bg-blue-500 text-white'
@@ -226,7 +226,7 @@ export const HeaderRekapBlend: React.FC<HeaderProps> = ({
             }
           >
             <RefreshCw
-              className={`w-3.5 h-3.5 ${
+              className={`w-4 h-4 sm:w-3.5 sm:h-3.5 ${
                 isRefreshing
                   ? 'animate-spin'
                   : isAutoSync
@@ -243,7 +243,7 @@ export const HeaderRekapBlend: React.FC<HeaderProps> = ({
           {/* Tombol Export Ringkasan PDF (Desktop/Tablet) */}
           <button
             onClick={onExportSummaryPdf}
-            className="hidden md:flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-slate-200 hover:text-white px-2.5 py-1.5 rounded-lg text-xs font-semibold border border-slate-700 transition cursor-pointer"
+            className="hidden md:flex items-center justify-center gap-1.5 min-h-[44px] sm:min-h-[36px] bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-slate-200 hover:text-white px-2.5 py-1.5 rounded-lg text-xs font-semibold border border-slate-700 transition cursor-pointer"
             title="Cetak Ringkasan Eksekutif ke PDF"
           >
             <FileText className="w-3.5 h-3.5 text-emerald-400" />
@@ -257,15 +257,15 @@ export const HeaderRekapBlend: React.FC<HeaderProps> = ({
           <div className="relative" ref={menuRef}>
             <button
               onClick={() => setIsMenuOpen((prev) => !prev)}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold border transition cursor-pointer shadow-xs ${
+              className={`flex items-center justify-center gap-1.5 min-h-[44px] sm:min-h-[36px] px-2.5 py-1.5 rounded-lg text-xs font-bold border transition cursor-pointer shadow-xs ${
                 isMenuOpen
                   ? 'bg-slate-800 text-white border-blue-500 ring-2 ring-blue-500/20'
                   : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700 hover:border-slate-600'
               }`}
               title="Menu Profil, Hak Akses & Pengaturan Sinkronisasi"
             >
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-              <span className="max-w-[85px] sm:max-w-[120px] truncate">{shortRoleLabel}</span>
+              <ShieldCheck className="w-4 h-4 sm:w-3.5 sm:h-3.5 text-emerald-400 shrink-0" />
+              <span className="max-w-[70px] sm:max-w-[120px] truncate">{shortRoleLabel}</span>
               <ChevronDown
                 className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${
                   isMenuOpen ? 'rotate-180 text-white' : ''
@@ -275,7 +275,7 @@ export const HeaderRekapBlend: React.FC<HeaderProps> = ({
 
             {/* Dropdown Menu Popup */}
             {isMenuOpen && (
-              <div className="absolute right-0 mt-2 w-72 sm:w-84 bg-slate-900 border border-slate-700/90 rounded-2xl shadow-2xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-150">
+              <div className="absolute right-0 mt-2 w-[min(18.5rem,calc(100vw-1rem))] sm:w-84 max-h-[calc(100dvh-5rem)] overflow-y-auto bg-slate-900 border border-slate-700/90 rounded-2xl shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-150">
                 {/* Header Profile Info */}
                 <div className="p-3.5 bg-slate-800/80 border-b border-slate-700/80 flex items-center gap-3">
                   <div className="w-9 h-9 rounded-xl bg-blue-600/20 border border-blue-500/30 text-blue-400 flex items-center justify-center font-bold text-sm shrink-0">
@@ -294,7 +294,12 @@ export const HeaderRekapBlend: React.FC<HeaderProps> = ({
                   </div>
 
                   {/* Toggle Auto Sync / Auto Refresh */}
-                  <div className="flex items-center justify-between p-2 rounded-xl bg-slate-900/90 border border-slate-800">
+                  <button
+                    type="button"
+                    onClick={onToggleAutoSync}
+                    className="w-full min-h-[44px] flex items-center justify-between p-2 rounded-xl bg-slate-900/90 border border-slate-800 hover:bg-slate-800/80 transition cursor-pointer text-left"
+                    title={isAutoSync ? 'Matikan Auto Sync' : 'Aktifkan Auto Sync'}
+                  >
                     <div className="flex items-center gap-2">
                       <RefreshCw
                         className={`w-4 h-4 ${
@@ -317,23 +322,30 @@ export const HeaderRekapBlend: React.FC<HeaderProps> = ({
                         </div>
                       </div>
                     </div>
-                    <button
-                      onClick={onToggleAutoSync}
-                      className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                    <span
+                      className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
                         isAutoSync ? 'bg-emerald-600' : 'bg-slate-700'
                       }`}
-                      title={isAutoSync ? 'Matikan Auto Sync' : 'Aktifkan Auto Sync'}
                     >
                       <span
                         className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
                           isAutoSync ? 'translate-x-4' : 'translate-x-0'
                         }`}
                       />
-                    </button>
-                  </div>
+                    </span>
+                  </button>
 
                   {/* Toggle Tarik Dari Datasheet */}
-                  <div className="flex items-center justify-between p-2 rounded-xl bg-slate-900/90 border border-slate-800">
+                  <button
+                    type="button"
+                    onClick={onToggleDataSourceMode}
+                    className="w-full min-h-[44px] flex items-center justify-between p-2 rounded-xl bg-slate-900/90 border border-slate-800 hover:bg-slate-800/80 transition cursor-pointer text-left"
+                    title={
+                      dataSourceMode === 'direct_sheet'
+                        ? 'Kembali ke jalur GAS API'
+                        : 'Tarik langsung dari Datasheet'
+                    }
+                  >
                     <div className="flex items-center gap-2">
                       <Database
                         className={`w-4 h-4 ${
@@ -356,24 +368,18 @@ export const HeaderRekapBlend: React.FC<HeaderProps> = ({
                         </div>
                       </div>
                     </div>
-                    <button
-                      onClick={onToggleDataSourceMode}
-                      className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                    <span
+                      className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
                         dataSourceMode === 'direct_sheet' ? 'bg-amber-600' : 'bg-slate-700'
                       }`}
-                      title={
-                        dataSourceMode === 'direct_sheet'
-                          ? 'Kembali ke jalur GAS API'
-                          : 'Tarik langsung dari Datasheet'
-                      }
                     >
                       <span
                         className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
                           dataSourceMode === 'direct_sheet' ? 'translate-x-4' : 'translate-x-0'
                         }`}
                       />
-                    </button>
-                  </div>
+                    </span>
+                  </button>
                 </div>
 
                 {/* Section 1: Ganti Peran (RBAC) */}
@@ -391,7 +397,7 @@ export const HeaderRekapBlend: React.FC<HeaderProps> = ({
                             onRoleChange(role.id);
                             setIsMenuOpen(false);
                           }}
-                          className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-left transition cursor-pointer text-xs ${
+                          className={`w-full min-h-[44px] flex items-center justify-between px-2.5 py-2 rounded-lg text-left transition cursor-pointer text-xs ${
                             isSelected
                               ? 'bg-blue-600/20 text-blue-300 font-bold border border-blue-500/30'
                               : 'text-slate-300 hover:bg-slate-800 hover:text-white'
@@ -411,14 +417,14 @@ export const HeaderRekapBlend: React.FC<HeaderProps> = ({
                 </div>
 
                 {/* Section 2: Alat, Integrasi & Bantuan */}
-                <div className="p-2 space-y-0.5 bg-slate-900/60">
+                <div className="p-2 space-y-1 bg-slate-900/60">
                   {/* Export PDF (Mobile fallback) */}
                   <button
                     onClick={() => {
                       setIsMenuOpen(false);
                       onExportSummaryPdf();
                     }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition cursor-pointer"
+                    className="w-full min-h-[44px] flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition cursor-pointer"
                   >
                     <FileText className="w-4 h-4 text-emerald-400" />
                     <span>Export Ringkasan (PDF)</span>
@@ -431,7 +437,7 @@ export const HeaderRekapBlend: React.FC<HeaderProps> = ({
                         setIsMenuOpen(false);
                         onOpenIntegrasiDhp();
                       }}
-                      className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition cursor-pointer group"
+                      className="w-full min-h-[44px] flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition cursor-pointer group"
                       title="Buka Integrasi & Sinkronisasi DHP BLEND"
                     >
                       <div className="flex items-center gap-2.5">
@@ -451,7 +457,7 @@ export const HeaderRekapBlend: React.FC<HeaderProps> = ({
                         setIsMenuOpen(false);
                         onOpenJadwalAlokasi();
                       }}
-                      className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition cursor-pointer group"
+                      className="w-full min-h-[44px] flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition cursor-pointer group"
                       title="Buka Jadwal Alokasi Campuran Mingguan PP1"
                     >
                       <div className="flex items-center gap-2.5">
@@ -470,7 +476,7 @@ export const HeaderRekapBlend: React.FC<HeaderProps> = ({
                       setIsMenuOpen(false);
                       onOpenSwitchApp();
                     }}
-                    className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition cursor-pointer group"
+                    className="w-full min-h-[44px] flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition cursor-pointer group"
                     title="Buka Switchboard Susut (Portal Aplikasi PP1)"
                   >
                     <div className="flex items-center gap-2.5">
@@ -490,7 +496,7 @@ export const HeaderRekapBlend: React.FC<HeaderProps> = ({
                         setIsMenuOpen(false);
                         onOpenGasCenter();
                       }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition cursor-pointer"
+                      className="w-full min-h-[44px] flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition cursor-pointer"
                     >
                       <Settings className="w-4 h-4 text-blue-400" />
                       <span>Headless GAS Center (API)</span>
@@ -508,7 +514,7 @@ export const HeaderRekapBlend: React.FC<HeaderProps> = ({
                       setIsMenuOpen(false);
                       onOpenHelp();
                     }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition cursor-pointer"
+                    className="w-full min-h-[44px] flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition cursor-pointer"
                   >
                     <HelpCircle className="w-4 h-4 text-purple-400" />
                     <span>Pusat Bantuan & SOP Blend</span>

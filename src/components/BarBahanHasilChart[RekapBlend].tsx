@@ -1,6 +1,6 @@
 import React, { useState, useId, useRef } from 'react';
 import { RekapBulanItem } from '../types[RekapBlend]';
-import { fmtKg, fmtPct, fmtInt, fmtSuhu } from '../api[RekapBlend]';
+import { fmtKg, fmtTon, fmtPct, fmtInt, fmtSuhu } from '../api[RekapBlend]';
 import { BarChart2, Maximize2, Scale, ArrowUpRight, TrendingDown } from 'lucide-react';
 
 interface BarBahanHasilChartProps {
@@ -100,7 +100,7 @@ export const BarBahanHasilChartRekapBlend: React.FC<BarBahanHasilChartProps> = (
                   e.stopPropagation();
                   onExpand();
                 }}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition cursor-pointer"
+                className="min-h-[44px] min-w-[44px] sm:min-h-[36px] sm:min-w-[36px] flex items-center justify-center p-2 sm:p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition cursor-pointer"
                 title="Perbesar Grafik ke Tengah Layar"
               >
                 <Maximize2 className="w-4 h-4" />
@@ -209,14 +209,8 @@ export const BarBahanHasilChartRekapBlend: React.FC<BarBahanHasilChartProps> = (
             const xHasilCenter = xHasil + barW / 2;
             const xMonthCenter = xBase + colWidth * 0.5;
 
-            const textBahan = (d.bahanDiproses / 1000).toLocaleString('id-ID', {
-              minimumFractionDigits: 1,
-              maximumFractionDigits: 1,
-            });
-            const textHasil = (d.hasilProses / 1000).toLocaleString('id-ID', {
-              minimumFractionDigits: 1,
-              maximumFractionDigits: 1,
-            });
+            const textBahan = fmtTon(d.bahanDiproses);
+            const textHasil = fmtTon(d.hasilProses);
 
             return (
               <g key={d.label || d.bulan}>
@@ -293,7 +287,7 @@ export const BarBahanHasilChartRekapBlend: React.FC<BarBahanHasilChartProps> = (
                   {d.bulan.length > 3 ? d.bulan.substring(0, 3) : d.bulan}
                 </text>
 
-                {/* Interactive Transparent Column for Smooth Hover */}
+                {/* Interactive Transparent Column for Smooth Hover & Touch */}
                 <rect
                   x={xBase}
                   y={paddingTop}
@@ -302,6 +296,11 @@ export const BarBahanHasilChartRekapBlend: React.FC<BarBahanHasilChartProps> = (
                   fill="transparent"
                   className="cursor-pointer"
                   onMouseEnter={() => {
+                    setHoveredIdx(i);
+                  }}
+                  onTouchStart={(e) => {
+                    e.stopPropagation();
+                    setMousePos(null);
                     setHoveredIdx(i);
                   }}
                 />
@@ -323,6 +322,13 @@ export const BarBahanHasilChartRekapBlend: React.FC<BarBahanHasilChartProps> = (
           // When cursor is in the lower half (>0.46), place tooltip ABOVE cursor
           // When cursor is in the upper half (<=0.46), place tooltip BELOW cursor
           const placeAbove = relativeY > 0.46;
+          const xRatio = containerW > 0 ? posX / containerW : 0.5;
+          const hAlignClass =
+            xRatio <= 0.34
+              ? 'translate-x-0'
+              : xRatio >= 0.66
+              ? '-translate-x-full'
+              : '-translate-x-1/2';
 
           const yieldPct = activeItem.item.bahanDiproses > 0
             ? ((activeItem.item.hasilProses / activeItem.item.bahanDiproses) * 100).toFixed(2)
@@ -330,13 +336,9 @@ export const BarBahanHasilChartRekapBlend: React.FC<BarBahanHasilChartProps> = (
 
           return (
             <div
-              className={`absolute z-30 pointer-events-none transition-transform duration-75 ease-out ${
-                activeItem.index <= 1
-                  ? 'translate-x-0'
-                  : activeItem.index >= data.length - 2
-                  ? '-translate-x-full'
-                  : '-translate-x-1/2'
-              } ${placeAbove ? '-translate-y-full mb-4' : 'translate-y-0 mt-4'}`}
+              className={`absolute z-30 pointer-events-none transition-transform duration-75 ease-out ${hAlignClass} ${
+                placeAbove ? '-translate-y-full mb-4' : 'translate-y-0 mt-4'
+              }`}
               style={{
                 left: `${Math.max(12, Math.min(posX, containerW - 12))}px`,
                 top: placeAbove
@@ -344,7 +346,7 @@ export const BarBahanHasilChartRekapBlend: React.FC<BarBahanHasilChartProps> = (
                   : `${Math.min(containerH - 10, posY + 18)}px`,
               }}
             >
-              <div className="bg-slate-900/95 backdrop-blur-md text-white border border-slate-700/80 shadow-2xl rounded-xl p-3 min-w-[230px] text-xs">
+              <div className="bg-slate-900/98 lg:backdrop-blur-md text-white border border-slate-700/80 shadow-2xl rounded-xl p-3 min-w-[205px] sm:min-w-[230px] max-w-[calc(100vw-2.5rem)] text-xs">
                 {/* Header */}
                 <div className="flex items-center justify-between border-b border-slate-700/70 pb-1.5 mb-2">
                   <span className="font-bold text-slate-200">
@@ -433,7 +435,7 @@ export const BarBahanHasilChartRekapBlend: React.FC<BarBahanHasilChartProps> = (
             </span>
           </div>
           <span className="text-[10px] text-slate-400">
-            💡 Arahkan kursor ke balok untuk melihat rincian komparasi
+            💡 Arahkan kursor / sentuh balok untuk melihat rincian komparasi
           </span>
         </div>
       )}

@@ -159,7 +159,7 @@ export const TabMolenRekapBlend: React.FC<TabMolenProps> = ({
           <div className="flex items-center gap-2 ml-auto">
             <button
               onClick={onExportPdf}
-              className="flex items-center gap-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg text-xs font-bold border border-blue-200 transition cursor-pointer"
+              className="min-h-[44px] sm:min-h-[36px] flex items-center gap-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg text-xs font-bold border border-blue-200 transition cursor-pointer"
             >
               <FileText className="w-3.5 h-3.5 text-blue-600" />
               <span>📄 Export Tab Ini (PDF)</span>
@@ -180,7 +180,7 @@ export const TabMolenRekapBlend: React.FC<TabMolenProps> = ({
             <select
               value={bulanAwal}
               onChange={(e) => setBulanAwal(e.target.value)}
-              className="bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-purple-500 cursor-pointer"
+              className="min-h-[44px] sm:min-h-[36px] bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-purple-500 cursor-pointer"
             >
               {MONTH_ORDER.map((m) => (
                 <option key={`awal-${m}`} value={m}>
@@ -198,7 +198,7 @@ export const TabMolenRekapBlend: React.FC<TabMolenProps> = ({
             <select
               value={bulanAkhir}
               onChange={(e) => setBulanAkhir(e.target.value)}
-              className="bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-purple-500 cursor-pointer"
+              className="min-h-[44px] sm:min-h-[36px] bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-purple-500 cursor-pointer"
             >
               {MONTH_ORDER.map((m) => (
                 <option key={`akhir-${m}`} value={m}>
@@ -214,7 +214,7 @@ export const TabMolenRekapBlend: React.FC<TabMolenProps> = ({
             <select
               value={tahunFilter}
               onChange={(e) => setTahunFilter(e.target.value)}
-              className="bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-purple-500 cursor-pointer"
+              className="min-h-[44px] sm:min-h-[36px] bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-purple-500 cursor-pointer"
             >
               {availableYears.map((y) => (
                 <option key={y} value={y}>
@@ -227,7 +227,7 @@ export const TabMolenRekapBlend: React.FC<TabMolenProps> = ({
           {/* Tombol Reset Default (2026) */}
           <button
             onClick={handleResetFilter}
-            className={`flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-lg border transition cursor-pointer ${
+            className={`min-h-[44px] sm:min-h-[36px] flex items-center gap-1 text-[11px] font-semibold px-3 py-1 rounded-lg border transition cursor-pointer ${
               tahunFilter === '2026' && bulanAwal === 'Januari' && bulanAkhir === 'Oktober'
                 ? 'text-slate-500 bg-slate-100 border-slate-200 hover:text-slate-700'
                 : 'text-purple-800 bg-purple-50 border-purple-300 hover:bg-purple-100 font-bold shadow-xs'
@@ -442,6 +442,11 @@ export const TabMolenRekapBlend: React.FC<TabMolenProps> = ({
                     <g
                       key={m.label}
                       onMouseEnter={() => setHoveredMolenIdx(idx)}
+                      onTouchStart={(e) => {
+                        e.stopPropagation();
+                        setMolenMousePos(null);
+                        setHoveredMolenIdx(idx);
+                      }}
                       className="cursor-pointer transition-opacity"
                     >
                       {/* Transparent hit area */}
@@ -495,30 +500,39 @@ export const TabMolenRekapBlend: React.FC<TabMolenProps> = ({
               })()}
             </svg>
 
-            {/* Interactive Floating Dark Tooltip (Dinamis di Atas / Bawah Kursor) */}
-            {activeMolen && molenMousePos && (() => {
+            {/* Interactive Floating Dark Tooltip (Dinamis di Atas / Bawah Kursor/Sentuhan) */}
+            {activeMolen && (() => {
               const containerW = chart1Ref.current?.clientWidth || 500;
               const containerH = chart1Ref.current?.clientHeight || chartHeight;
-              const placeAbove = molenMousePos.relativeY > 0.46;
+              const usableW = 500 - paddingLeft - paddingRight;
+              const colW = usableW / Math.max(displayMolenList.length, 1);
+              const fallbackX = ((paddingLeft + activeMolen.index * colW + colW / 2) / 500) * containerW;
+              const posX = molenMousePos ? molenMousePos.x : fallbackX;
+              const posY = molenMousePos ? molenMousePos.y : containerH * 0.5;
+              const relativeY = molenMousePos ? molenMousePos.relativeY : 0.5;
+              const placeAbove = relativeY > 0.46;
+              const xRatio = containerW > 0 ? posX / containerW : 0.5;
+              const hAlignClass =
+                xRatio <= 0.34
+                  ? 'translate-x-0'
+                  : xRatio >= 0.66
+                  ? '-translate-x-full'
+                  : '-translate-x-1/2';
               const badge = getPctBadgeClass(activeMolen.item.susutRataPct);
 
               return (
                 <div
-                  className={`absolute z-30 pointer-events-none transition-transform duration-75 ease-out ${
-                    activeMolen.index <= 1
-                      ? 'translate-x-0'
-                      : activeMolen.index >= displayMolenList.length - 2
-                      ? '-translate-x-full'
-                      : '-translate-x-1/2'
-                  } ${placeAbove ? '-translate-y-full mb-3' : 'translate-y-0 mt-3'}`}
+                  className={`absolute z-30 pointer-events-none transition-transform duration-75 ease-out ${hAlignClass} ${
+                    placeAbove ? '-translate-y-full mb-3' : 'translate-y-0 mt-3'
+                  }`}
                   style={{
-                    left: `${Math.max(12, Math.min(molenMousePos.x, containerW - 12))}px`,
+                    left: `${Math.max(12, Math.min(posX, containerW - 12))}px`,
                     top: placeAbove
-                      ? `${Math.max(10, molenMousePos.y - 14)}px`
-                      : `${Math.min(containerH - 10, molenMousePos.y + 14)}px`,
+                      ? `${Math.max(10, posY - 14)}px`
+                      : `${Math.min(containerH - 10, posY + 14)}px`,
                   }}
                 >
-                  <div className="bg-slate-900/95 backdrop-blur-md text-white border border-slate-700/80 shadow-2xl rounded-xl p-3 min-w-[220px] text-xs">
+                  <div className="bg-slate-900/98 lg:backdrop-blur-md text-white border border-slate-700/80 shadow-2xl rounded-xl p-3 min-w-[200px] sm:min-w-[220px] max-w-[calc(100vw-2.5rem)] text-xs">
                     <div className="flex items-center justify-between border-b border-slate-700/70 pb-1.5 mb-2">
                       <span className="font-bold text-slate-100 flex items-center gap-1.5">
                         ⚙️ {activeMolen.item.label}
@@ -641,6 +655,11 @@ export const TabMolenRekapBlend: React.FC<TabMolenProps> = ({
                     <g
                       key={`vol-${m.label}`}
                       onMouseEnter={() => setHoveredVolIdx(idx)}
+                      onTouchStart={(e) => {
+                        e.stopPropagation();
+                        setVolMousePos(null);
+                        setHoveredVolIdx(idx);
+                      }}
                       className="cursor-pointer transition-opacity"
                     >
                       {/* Transparent hit area */}
@@ -694,29 +713,38 @@ export const TabMolenRekapBlend: React.FC<TabMolenProps> = ({
               })()}
             </svg>
 
-            {/* Interactive Floating Dark Tooltip (Dinamis di Atas / Bawah Kursor) */}
-            {activeVol && volMousePos && (() => {
+            {/* Interactive Floating Dark Tooltip (Dinamis di Atas / Bawah Kursor/Sentuhan) */}
+            {activeVol && (() => {
               const containerW = chart2Ref.current?.clientWidth || 500;
               const containerH = chart2Ref.current?.clientHeight || chartHeight;
-              const placeAbove = volMousePos.relativeY > 0.46;
+              const usableW = 500 - paddingLeft - paddingRight;
+              const colW = usableW / Math.max(displayMolenList.length, 1);
+              const fallbackX = ((paddingLeft + activeVol.index * colW + colW / 2) / 500) * containerW;
+              const posX = volMousePos ? volMousePos.x : fallbackX;
+              const posY = volMousePos ? volMousePos.y : containerH * 0.5;
+              const relativeY = volMousePos ? volMousePos.relativeY : 0.5;
+              const placeAbove = relativeY > 0.46;
+              const xRatio = containerW > 0 ? posX / containerW : 0.5;
+              const hAlignClass =
+                xRatio <= 0.34
+                  ? 'translate-x-0'
+                  : xRatio >= 0.66
+                  ? '-translate-x-full'
+                  : '-translate-x-1/2';
 
               return (
                 <div
-                  className={`absolute z-30 pointer-events-none transition-transform duration-75 ease-out ${
-                    activeVol.index <= 1
-                      ? 'translate-x-0'
-                      : activeVol.index >= displayMolenList.length - 2
-                      ? '-translate-x-full'
-                      : '-translate-x-1/2'
-                  } ${placeAbove ? '-translate-y-full mb-3' : 'translate-y-0 mt-3'}`}
+                  className={`absolute z-30 pointer-events-none transition-transform duration-75 ease-out ${hAlignClass} ${
+                    placeAbove ? '-translate-y-full mb-3' : 'translate-y-0 mt-3'
+                  }`}
                   style={{
-                    left: `${Math.max(12, Math.min(volMousePos.x, containerW - 12))}px`,
+                    left: `${Math.max(12, Math.min(posX, containerW - 12))}px`,
                     top: placeAbove
-                      ? `${Math.max(10, volMousePos.y - 14)}px`
-                      : `${Math.min(containerH - 10, volMousePos.y + 14)}px`,
+                      ? `${Math.max(10, posY - 14)}px`
+                      : `${Math.min(containerH - 10, posY + 14)}px`,
                   }}
                 >
-                  <div className="bg-slate-900/95 backdrop-blur-md text-white border border-slate-700/80 shadow-2xl rounded-xl p-3 min-w-[210px] text-xs">
+                  <div className="bg-slate-900/98 lg:backdrop-blur-md text-white border border-slate-700/80 shadow-2xl rounded-xl p-3 min-w-[195px] sm:min-w-[210px] max-w-[calc(100vw-2.5rem)] text-xs">
                     <div className="flex items-center justify-between border-b border-slate-700/70 pb-1.5 mb-2">
                       <span className="font-bold text-slate-100 flex items-center gap-1.5">
                         🏭 {activeVol.item.label}
@@ -768,14 +796,14 @@ export const TabMolenRekapBlend: React.FC<TabMolenProps> = ({
             </span>
           </div>
 
-          <div className="relative no-print">
+          <div className="relative w-full sm:w-auto no-print">
             <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
               placeholder="Cari molen..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-8 pr-3 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-purple-500 w-36 sm:w-48"
+              className="min-h-[44px] sm:min-h-[36px] pl-8 pr-3 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-purple-500 w-full sm:w-48"
             />
           </div>
         </div>

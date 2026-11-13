@@ -17,6 +17,7 @@ import {
   syncDirectFromSheet,
   getEntriTerkini,
   formatWibDateLongNow,
+  clearLocalDatasetCache,
 } from './api[RekapBlend]';
 import { HeaderRekapBlend } from './components/Header[RekapBlend]';
 import { SidebarRekapBlend } from './components/Sidebar[RekapBlend]';
@@ -265,7 +266,7 @@ export default function App() {
 
   const handleResetCache = () => {
     if (confirm('Bersihkan cache browser dan muat ulang data default?')) {
-      localStorage.removeItem('rekap_blend_cache_v2');
+      clearLocalDatasetCache();
       loadInitialDataset().then((d) => {
         setDataset(d);
         setIsGasCenterOpen(false);
@@ -345,7 +346,7 @@ export default function App() {
 
   if (!dataset) {
     return (
-      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center text-white">
+      <div className="min-h-[100dvh] bg-slate-900 flex flex-col items-center justify-center text-white px-4 text-center">
         <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500 flex items-center justify-center text-amber-400 font-bold mb-3 animate-pulse">
           PP1
         </div>
@@ -356,7 +357,7 @@ export default function App() {
   }
 
   return (
-    <div className="h-screen w-full bg-slate-50 flex flex-col text-slate-800 antialiased selection:bg-blue-600 selection:text-white overflow-hidden">
+    <div className="h-[100dvh] w-full bg-slate-50 flex flex-col text-slate-800 antialiased selection:bg-blue-600 selection:text-white overflow-hidden">
       {/* 1. Header Pengendali Eksekutif (Pinned at top) */}
       <HeaderRekapBlend
         currentRole={currentRole}
@@ -397,7 +398,7 @@ export default function App() {
         />
 
         {/* 3. Main Workspace Canvas (Scrolls independently) */}
-        <main className="flex-1 h-full overflow-y-auto p-3 sm:p-6 lg:p-8 pb-28 lg:pb-12 max-w-7xl mx-auto w-full">
+        <main className="flex-1 h-full overflow-y-auto overflow-x-hidden p-3 sm:p-6 lg:p-8 pb-[calc(6.5rem+env(safe-area-inset-bottom))] lg:pb-12 max-w-7xl mx-auto w-full">
           {/* Print Watermark / Header */}
           <div className="hidden print:block pb-4 mb-4 border-b border-slate-300">
             <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">
@@ -413,10 +414,10 @@ export default function App() {
           </div>
 
           {/* Quick Tab Selector for Mobile / Compact Devices */}
-          <div className="flex lg:hidden overflow-x-auto gap-1.5 p-1 bg-white border border-slate-200 rounded-xl mb-4 no-print scrollbar-none">
+          <div className="flex lg:hidden overflow-x-auto gap-1.5 p-1.5 bg-white border border-slate-200 rounded-xl mb-4 no-print scrollbar-none">
             <button
               onClick={() => setActiveTab('dashboard')}
-              className={`py-1.5 px-3 rounded-lg text-xs font-bold whitespace-nowrap transition ${
+              className={`min-h-[44px] flex items-center justify-center py-2 px-3.5 rounded-lg text-xs font-bold whitespace-nowrap transition ${
                 activeTab === 'dashboard' ? 'bg-blue-600 text-white' : 'text-slate-600'
               }`}
             >
@@ -424,7 +425,7 @@ export default function App() {
             </button>
             <button
               onClick={() => setActiveTab('bulan')}
-              className={`py-1.5 px-3 rounded-lg text-xs font-bold whitespace-nowrap transition ${
+              className={`min-h-[44px] flex items-center justify-center py-2 px-3.5 rounded-lg text-xs font-bold whitespace-nowrap transition ${
                 activeTab === 'bulan' ? 'bg-blue-600 text-white' : 'text-slate-600'
               }`}
             >
@@ -432,7 +433,7 @@ export default function App() {
             </button>
             <button
               onClick={() => setActiveTab('merk')}
-              className={`py-1.5 px-3 rounded-lg text-xs font-bold whitespace-nowrap transition ${
+              className={`min-h-[44px] flex items-center justify-center py-2 px-3.5 rounded-lg text-xs font-bold whitespace-nowrap transition ${
                 activeTab === 'merk' ? 'bg-blue-600 text-white' : 'text-slate-600'
               }`}
             >
@@ -440,7 +441,7 @@ export default function App() {
             </button>
             <button
               onClick={() => setActiveTab('molen')}
-              className={`py-1.5 px-3 rounded-lg text-xs font-bold whitespace-nowrap transition ${
+              className={`min-h-[44px] flex items-center justify-center py-2 px-3.5 rounded-lg text-xs font-bold whitespace-nowrap transition ${
                 activeTab === 'molen' ? 'bg-blue-600 text-white' : 'text-slate-600'
               }`}
             >
@@ -448,12 +449,12 @@ export default function App() {
             </button>
             <button
               onClick={() => setActiveTab('deviasi')}
-              className={`py-1.5 px-3 rounded-lg text-xs font-bold whitespace-nowrap transition flex items-center gap-1 ${
+              className={`min-h-[44px] py-2 px-3.5 rounded-lg text-xs font-bold whitespace-nowrap transition flex items-center gap-1 ${
                 activeTab === 'deviasi' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <span>Analisis Deviasi</span>
-              <span className={`text-[9px] px-1.5 py-0.2 rounded-full font-bold ${
+              <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ${
                 activeTab === 'deviasi' ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-800'
               }`}>
                 Acuan Ref
@@ -461,7 +462,7 @@ export default function App() {
             </button>
             <button
               onClick={() => setActiveTab('explorer')}
-              className={`py-1.5 px-3 rounded-lg text-xs font-bold whitespace-nowrap transition ${
+              className={`min-h-[44px] flex items-center justify-center py-2 px-3.5 rounded-lg text-xs font-bold whitespace-nowrap transition ${
                 activeTab === 'explorer' ? 'bg-blue-600 text-white' : 'text-slate-600'
               }`}
             >

@@ -66,7 +66,7 @@ export const TabDashboardRekapBlend: React.FC<TabDashboardProps> = ({
 
           {/* Quick Metrics Badge */}
           <div className="flex items-center gap-3 shrink-0 flex-wrap">
-            <div className="bg-white/10 backdrop-blur-xs border border-white/15 px-3.5 py-2 rounded-2xl">
+            <div className="bg-white/10 md:backdrop-blur-xs border border-white/15 px-3.5 py-2 rounded-2xl">
               <div className="text-[10px] text-slate-300 font-semibold uppercase">Status Mutu</div>
               <div className="text-sm font-black text-emerald-400 flex items-center gap-1.5 mt-0.5">
                 <CheckCircle2 className="w-4 h-4" />
@@ -74,7 +74,7 @@ export const TabDashboardRekapBlend: React.FC<TabDashboardProps> = ({
               </div>
             </div>
 
-            <div className="bg-white/10 backdrop-blur-xs border border-white/15 px-3.5 py-2 rounded-2xl">
+            <div className="bg-white/10 md:backdrop-blur-xs border border-white/15 px-3.5 py-2 rounded-2xl">
               <div className="text-[10px] text-slate-300 font-semibold uppercase">Total Bahan Masuk</div>
               <div className="text-sm font-black text-amber-300 mt-0.5">
                 {fmtKg(dataset.ringkasanTahunan.bahanDiproses)} Kg
@@ -87,7 +87,7 @@ export const TabDashboardRekapBlend: React.FC<TabDashboardProps> = ({
         <div className="mt-4 pt-4 border-t border-white/10 grid grid-cols-1 sm:grid-cols-3 gap-2.5 no-print">
           <button
             onClick={() => onNavigateTab('bulan')}
-            className="flex items-center justify-between p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition text-left text-xs group cursor-pointer"
+            className="min-h-[44px] flex items-center justify-between p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition text-left text-xs group cursor-pointer"
           >
             <div className="flex items-center gap-2">
               <CalendarDays className="w-4 h-4 text-blue-400" />
@@ -101,7 +101,7 @@ export const TabDashboardRekapBlend: React.FC<TabDashboardProps> = ({
 
           <button
             onClick={() => onNavigateTab('merk')}
-            className="flex items-center justify-between p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition text-left text-xs group cursor-pointer"
+            className="min-h-[44px] flex items-center justify-between p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition text-left text-xs group cursor-pointer"
           >
             <div className="flex items-center gap-2">
               <Layers className="w-4 h-4 text-amber-400" />
@@ -115,7 +115,7 @@ export const TabDashboardRekapBlend: React.FC<TabDashboardProps> = ({
 
           <button
             onClick={() => onNavigateTab('molen')}
-            className="flex items-center justify-between p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition text-left text-xs group cursor-pointer"
+            className="min-h-[44px] flex items-center justify-between p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition text-left text-xs group cursor-pointer"
           >
             <div className="flex items-center gap-2">
               <Cpu className="w-4 h-4 text-purple-400" />

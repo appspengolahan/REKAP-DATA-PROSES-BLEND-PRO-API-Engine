@@ -152,7 +152,7 @@ export const TrenSusutChartRekapBlend: React.FC<TrenSusutChartProps> = ({
                 e.stopPropagation();
                 onExpand();
               }}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition cursor-pointer"
+              className="min-h-[44px] min-w-[44px] sm:min-h-[36px] sm:min-w-[36px] flex items-center justify-center p-2 sm:p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition cursor-pointer"
               title="Perbesar Grafik ke Tengah Layar"
             >
               <Maximize2 className="w-4 h-4" />
@@ -389,7 +389,7 @@ export const TrenSusutChartRekapBlend: React.FC<TrenSusutChartProps> = ({
                   </text>
                 )}
 
-                {/* Transparent Mouse Target Column for smooth hover */}
+                {/* Transparent Mouse & Touch Target Column */}
                 <rect
                   x={pt.x - step / 2}
                   y={paddingTop}
@@ -398,6 +398,11 @@ export const TrenSusutChartRekapBlend: React.FC<TrenSusutChartProps> = ({
                   fill="transparent"
                   className="cursor-pointer"
                   onMouseEnter={() => {
+                    setHoveredIdx(pt.index);
+                  }}
+                  onTouchStart={(e) => {
+                    e.stopPropagation();
+                    setMousePos(null);
                     setHoveredIdx(pt.index);
                   }}
                 />
@@ -419,16 +424,19 @@ export const TrenSusutChartRekapBlend: React.FC<TrenSusutChartProps> = ({
           // When cursor/point is in the lower half (>0.46), place tooltip ABOVE (with extra margin so dot and badge are visible)
           // When cursor/point is in the upper half (<=0.46), place tooltip BELOW
           const placeAbove = relativeY > 0.46;
+          const xRatio = containerW > 0 ? posX / containerW : 0.5;
+          const hAlignClass =
+            xRatio <= 0.34
+              ? 'translate-x-0'
+              : xRatio >= 0.66
+              ? '-translate-x-full'
+              : '-translate-x-1/2';
 
           return (
             <div
-              className={`absolute z-30 pointer-events-none transition-transform duration-75 ease-out ${
-                activePoint.index <= 1
-                  ? 'translate-x-0'
-                  : activePoint.index >= points.length - 2
-                  ? '-translate-x-full'
-                  : '-translate-x-1/2'
-              } ${placeAbove ? '-translate-y-full mb-4' : 'translate-y-0 mt-4'}`}
+              className={`absolute z-30 pointer-events-none transition-transform duration-75 ease-out ${hAlignClass} ${
+                placeAbove ? '-translate-y-full mb-4' : 'translate-y-0 mt-4'
+              }`}
               style={{
                 left: `${Math.max(12, Math.min(posX, containerW - 12))}px`,
                 top: placeAbove
@@ -436,7 +444,7 @@ export const TrenSusutChartRekapBlend: React.FC<TrenSusutChartProps> = ({
                   : `${Math.min(containerH - 10, posY + 18)}px`,
               }}
             >
-            <div className="bg-slate-900/95 backdrop-blur-md text-white border border-slate-700/80 shadow-2xl rounded-xl p-3 min-w-[210px] text-xs">
+            <div className="bg-slate-900/98 lg:backdrop-blur-md text-white border border-slate-700/80 shadow-2xl rounded-xl p-3 min-w-[195px] sm:min-w-[210px] max-w-[calc(100vw-2.5rem)] text-xs">
               <div className="flex items-center justify-between border-b border-slate-700/70 pb-1.5 mb-2">
                 <span className="font-bold text-slate-200">
                   📅 {activePoint.data.bulan} {activePoint.data.tahun || '2026'}
