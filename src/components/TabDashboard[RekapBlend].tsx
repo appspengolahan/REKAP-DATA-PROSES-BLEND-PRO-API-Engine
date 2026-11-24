@@ -42,6 +42,8 @@ export const TabDashboardRekapBlend: React.FC<TabDashboardProps> = ({
   onNavigateTab,
 }) => {
   const isLossCompliant = dataset.ringkasanTahunan.susutRataPct <= 0.5;
+  const activeMonthsCount =
+    dataset.rekapBulan.filter((m) => m.tahun === '2026').length || dataset.rekapBulan.length;
 
   return (
     <div className="space-y-5">
@@ -93,7 +95,7 @@ export const TabDashboardRekapBlend: React.FC<TabDashboardProps> = ({
               <CalendarDays className="w-4 h-4 text-blue-400" />
               <div>
                 <div className="font-bold text-white group-hover:text-blue-300">Analisis Tren Waktu</div>
-                <div className="text-[10px] text-slate-400">10 Bulan Deret Waktu</div>
+                <div className="text-[10px] text-slate-400">{activeMonthsCount} Bulan Deret Waktu</div>
               </div>
             </div>
             <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:translate-x-1 group-hover:text-blue-300 transition" />

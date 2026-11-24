@@ -139,7 +139,7 @@ export const TabBulanRekapBlend: React.FC<TabBulanProps> = ({
   const handleResetFilter = () => {
     setTahunFilter('2026');
     setBulanAwal('Januari');
-    setBulanAkhir('Oktober');
+    setBulanAkhir('Desember');
   };
 
   return (

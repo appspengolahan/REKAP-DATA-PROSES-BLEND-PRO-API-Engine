@@ -278,10 +278,99 @@ export function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
+const MONTH_PREFIX_TO_CANONICAL: Array<[string, string]> = [
+  ['jan', 'Januari'],
+  ['feb', 'Februari'],
+  ['mar', 'Maret'],
+  ['apr', 'April'],
+  ['mei', 'Mei'],
+  ['may', 'Mei'],
+  ['jun', 'Juni'],
+  ['jul', 'Juli'],
+  ['agu', 'Agustus'],
+  ['aug', 'Agustus'],
+  ['sep', 'September'],
+  ['okt', 'Oktober'],
+  ['oct', 'Oktober'],
+  ['nov', 'November'],
+  ['des', 'Desember'],
+  ['dec', 'Desember'],
+];
+
+/** Normalisasi nama bulan dari GAS/CSV/tanggal ke nama baku MONTH_ORDER (Januari..Desember) */
+export function normalizeBulanName(
+  rawBulan: string | number | null | undefined,
+  fallbackTanggal?: string | null
+): string {
+  const tryParse = (val: string): string => {
+    const clean = val.trim();
+    if (!clean) return '';
+    // Jika numerik 1..12
+    if (/^\d{1,2}$/.test(clean)) {
+      const idx = parseInt(clean, 10) - 1;
+      if (idx >= 0 && idx < MONTH_ORDER.length) return MONTH_ORDER[idx];
+    }
+    const lower = clean.toLowerCase();
+    for (const [prefix, canonical] of MONTH_PREFIX_TO_CANONICAL) {
+      if (lower.startsWith(prefix) || lower.includes(canonical.toLowerCase())) {
+        return canonical;
+      }
+    }
+    return '';
+  };
+
+  if (rawBulan !== null && rawBulan !== undefined) {
+    const matched = tryParse(String(rawBulan));
+    if (matched) return matched;
+  }
+
+  if (fallbackTanggal) {
+    const tgl = String(fallbackTanggal).trim();
+    // Pola ISO: YYYY-MM-DD
+    const iso = tgl.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (iso) {
+      const idx = parseInt(iso[2], 10) - 1;
+      if (idx >= 0 && idx < MONTH_ORDER.length) return MONTH_ORDER[idx];
+    }
+    // Pola DD/MM/YYYY
+    const slash = tgl.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (slash) {
+      const idx = parseInt(slash[2], 10) - 1;
+      if (idx >= 0 && idx < MONTH_ORDER.length) return MONTH_ORDER[idx];
+    }
+    // Pola teks: "Selasa, 24 November 2026"
+    const lowerTgl = tgl.toLowerCase();
+    for (const [prefix, canonical] of MONTH_PREFIX_TO_CANONICAL) {
+      if (new RegExp(`\\b${prefix}[a-z]*\\b`, 'i').test(lowerTgl)) {
+        return canonical;
+      }
+    }
+  }
+
+  return rawBulan ? String(rawBulan).trim() : '';
+}
+
+/** Normalisasi tahun 4 digit (mis. '2025', '2026') dari kolom tahun atau teks tanggal */
+export function normalizeTahunValue(
+  rawTahun: string | number | null | undefined,
+  fallbackTanggal?: string | null
+): string {
+  if (rawTahun !== null && rawTahun !== undefined) {
+    const m = String(rawTahun).trim().match(/\b(20\d{2})\b/);
+    if (m) return m[1];
+  }
+  if (fallbackTanggal) {
+    const m = String(fallbackTanggal).trim().match(/\b(20\d{2})\b/);
+    if (m) return m[1];
+  }
+  return '2026';
+}
+
 /** monthKey: tahun * 12 + indeks bulan */
 function monthKey(tahun: string | number, bulan: string): number {
   const t = Number(tahun) || 2026;
-  const mIdx = MONTH_ORDER.indexOf(bulan);
+  const canonicalBulan = normalizeBulanName(bulan);
+  const mIdx = MONTH_ORDER.indexOf(canonicalBulan);
   return t * 12 + (mIdx !== -1 ? mIdx : 0);
 }
 
@@ -300,8 +389,9 @@ function filterByPeriode(
     endKey = tmp;
   }
   return rows.filter((r) => {
-    const rowTahun = r.tahun || '2026';
-    const k = monthKey(rowTahun, r.bulan);
+    const rowTahun = normalizeTahunValue(r.tahun, r.tanggal);
+    const rowBulan = normalizeBulanName(r.bulan, r.tanggal);
+    const k = monthKey(rowTahun, rowBulan);
     return k >= startKey && k <= endKey;
   });
 }
@@ -542,16 +632,28 @@ export function mergeWithHistoricalRows(liveRows: RawBlendRow[]): RawBlendRow[] 
   return liveRows;
 }
 
-/** Rekap Bulanan dari baris raw 100% data riil sheet DATAMASTER */
+/** Rekap Bulanan dari baris raw 100% data riil sheet DATAMASTER (mendukung seluruh 12 bulan & multi-tahun) */
 export function computeRekapBulan(rows: RawBlendRow[], tahun: string): RekapBulanItem[] {
-  // 1. Bentuk deret lengkap 10 Bulan tahun 2026 (Januari s/d Oktober 2026) dari baris riil DATAMASTER
-  const months2026: RekapBulanItem[] = VERIFIED_KPI_BENCHMARK.bulan2026.map((b) => {
-    const monthRows = rows.filter((r) => (r.tahun === '2026' || !r.tahun) && r.bulan === b.bulan);
+  const benchmark2026Map = new Map(
+    VERIFIED_KPI_BENCHMARK.bulan2026.map((b) => [b.bulan, b])
+  );
+
+  // 1. Bentuk deret bulan tahun 2026 secara dinamis untuk seluruh 12 bulan (Januari s/d Desember 2026)
+  // Termasuk bulan aktif terbaru (mis. November & Desember 2026) dari data live DATAMASTER
+  const months2026: RekapBulanItem[] = [];
+  for (const bulanName of MONTH_ORDER) {
+    const monthRows = rows.filter(
+      (r) =>
+        normalizeTahunValue(r.tahun, r.tanggal) === '2026' &&
+        normalizeBulanName(r.bulan, r.tanggal) === bulanName
+    );
+    const bench = benchmark2026Map.get(bulanName);
+
     if (monthRows.length > 0) {
       const s = summarizeRows(monthRows);
-      return {
-        label: `${b.bulan} 2026`,
-        bulan: b.bulan,
+      months2026.push({
+        label: `${bulanName} 2026`,
+        bulan: bulanName,
         tahun: '2026',
         jumlahData: s.jumlahData,
         bahanDiproses: s.bahanDiproses,
@@ -560,25 +662,26 @@ export function computeRekapBulan(rows: RawBlendRow[], tahun: string): RekapBula
         susutRataPct: s.susutRataPct,
         susutMinPct: s.susutMinPct,
         susutMaxPct: s.susutMaxPct,
-        suhuRata: s.suhuRata !== null ? s.suhuRata : b.suhuRata,
+        suhuRata: s.suhuRata !== null ? s.suhuRata : (bench ? bench.suhuRata : null),
         kapasitasPct: 0,
-      };
+      });
+    } else if (bench) {
+      months2026.push({
+        label: `${bulanName} 2026`,
+        bulan: bulanName,
+        tahun: '2026',
+        jumlahData: bench.jumlahData,
+        bahanDiproses: bench.bahanDiproses,
+        hasilProses: bench.hasilProses,
+        susutKg: bench.susutKg,
+        susutRataPct: bench.susutRataPct,
+        susutMinPct: bench.susutMinPct,
+        susutMaxPct: bench.susutMaxPct,
+        suhuRata: bench.suhuRata,
+        kapasitasPct: 0,
+      });
     }
-    return {
-      label: `${b.bulan} 2026`,
-      bulan: b.bulan,
-      tahun: '2026',
-      jumlahData: b.jumlahData,
-      bahanDiproses: b.bahanDiproses,
-      hasilProses: b.hasilProses,
-      susutKg: b.susutKg,
-      susutRataPct: b.susutRataPct,
-      susutMinPct: b.susutMinPct,
-      susutMaxPct: b.susutMaxPct,
-      suhuRata: b.suhuRata,
-      kapasitasPct: 0,
-    };
-  });
+  }
 
   const totBobot2026 = months2026.reduce((s, m) => s + m.bahanDiproses, 0);
   months2026.forEach((m) => {
@@ -586,7 +689,9 @@ export function computeRekapBulan(rows: RawBlendRow[], tahun: string): RekapBula
   });
 
   // 2. Bentuk deret pembanding tahun 2025 (12 bulan)
-  const months2025: RekapBulanItem[] = [
+  // Gunakan benchmark 2025 yang terverifikasi, kecuali jika sheet live benar-benar menyediakan baris riil 2025 (bukan 3 baris sampel snapshot srcRow 60..62)
+  const snapshot2025SampleRows = new Set([60, 61, 62]);
+  const benchmark2025Base = [
     { bulan: 'Januari', jumlahData: 220, bahanDiproses: 195200.0, hasilProses: 194550.0, susutKg: 650.0, susutRataPct: 0.33, susutMinPct: -0.15, susutMaxPct: 0.65, suhuRata: 29.8, kapasitasPct: 8.35 },
     { bulan: 'Februari', jumlahData: 215, bahanDiproses: 190400.0, hasilProses: 189760.0, susutKg: 640.0, susutRataPct: 0.34, susutMinPct: -0.12, susutMaxPct: 0.62, suhuRata: 29.5, kapasitasPct: 8.14 },
     { bulan: 'Maret', jumlahData: 230, bahanDiproses: 202800.0, hasilProses: 202130.0, susutKg: 670.0, susutRataPct: 0.33, susutMinPct: -0.10, susutMaxPct: 0.64, suhuRata: 29.6, kapasitasPct: 8.67 },
@@ -599,15 +704,90 @@ export function computeRekapBulan(rows: RawBlendRow[], tahun: string): RekapBula
     { bulan: 'Oktober', jumlahData: 218, bahanDiproses: 192500.0, hasilProses: 191870.0, susutKg: 630.0, susutRataPct: 0.33, susutMinPct: -0.10, susutMaxPct: 0.62, suhuRata: 29.8, kapasitasPct: 8.23 },
     { bulan: 'November', jumlahData: 206, bahanDiproses: 182100.0, hasilProses: 181510.0, susutKg: 590.0, susutRataPct: 0.32, susutMinPct: -0.14, susutMaxPct: 0.58, suhuRata: 29.5, kapasitasPct: 7.79 },
     { bulan: 'Desember', jumlahData: 200, bahanDiproses: 174797.4, hasilProses: 174211.4, susutKg: 586.0, susutRataPct: 0.34, susutMinPct: -0.12, susutMaxPct: 0.60, suhuRata: 29.7, kapasitasPct: 7.48 },
-  ].map((b) => ({
-    label: `${b.bulan} 2025`,
-    tahun: '2025',
-    ...b,
-  }));
+  ];
 
-  if (tahun === '2026') return months2026;
-  if (tahun === '2025') return months2025;
-  return [...months2026, ...months2025];
+  const months2025: RekapBulanItem[] = benchmark2025Base.map((b) => {
+    const live2025MonthRows = rows.filter(
+      (r) =>
+        normalizeTahunValue(r.tahun, r.tanggal) === '2025' &&
+        normalizeBulanName(r.bulan, r.tanggal) === b.bulan &&
+        !snapshot2025SampleRows.has(r.srcRow)
+    );
+    if (live2025MonthRows.length > 0) {
+      const s = summarizeRows(live2025MonthRows);
+      return {
+        label: `${b.bulan} 2025`,
+        bulan: b.bulan,
+        tahun: '2025',
+        jumlahData: s.jumlahData,
+        bahanDiproses: s.bahanDiproses,
+        hasilProses: s.hasilProses,
+        susutKg: s.susutKg,
+        susutRataPct: s.susutRataPct,
+        susutMinPct: s.susutMinPct,
+        susutMaxPct: s.susutMaxPct,
+        suhuRata: s.suhuRata !== null ? s.suhuRata : b.suhuRata,
+        kapasitasPct: 0,
+      };
+    }
+    return {
+      label: `${b.bulan} 2025`,
+      tahun: '2025',
+      ...b,
+    };
+  });
+
+  const totBobot2025 = months2025.reduce((s, m) => s + m.bahanDiproses, 0);
+  months2025.forEach((m) => {
+    m.kapasitasPct = round2(totBobot2025 ? (m.bahanDiproses / totBobot2025) * 100 : 0);
+  });
+
+  // 3. Dukungan dinamis jika di masa depan terdapat tahun lain (mis. 2027+) di sheet DATAMASTER
+  const extraYears = Array.from(
+    new Set(rows.map((r) => normalizeTahunValue(r.tahun, r.tanggal)))
+  )
+    .filter((y) => y !== '2026' && y !== '2025')
+    .sort((a, b) => Number(b) - Number(a));
+
+  const extraMonths: RekapBulanItem[] = [];
+  for (const yr of extraYears) {
+    const yrMonths: RekapBulanItem[] = [];
+    for (const bulanName of MONTH_ORDER) {
+      const mRows = rows.filter(
+        (r) =>
+          normalizeTahunValue(r.tahun, r.tanggal) === yr &&
+          normalizeBulanName(r.bulan, r.tanggal) === bulanName
+      );
+      if (mRows.length > 0) {
+        const s = summarizeRows(mRows);
+        yrMonths.push({
+          label: `${bulanName} ${yr}`,
+          bulan: bulanName,
+          tahun: yr,
+          jumlahData: s.jumlahData,
+          bahanDiproses: s.bahanDiproses,
+          hasilProses: s.hasilProses,
+          susutKg: s.susutKg,
+          susutRataPct: s.susutRataPct,
+          susutMinPct: s.susutMinPct,
+          susutMaxPct: s.susutMaxPct,
+          suhuRata: s.suhuRata,
+          kapasitasPct: 0,
+        });
+      }
+    }
+    const totYr = yrMonths.reduce((s, m) => s + m.bahanDiproses, 0);
+    yrMonths.forEach((m) => {
+      m.kapasitasPct = round2(totYr ? (m.bahanDiproses / totYr) * 100 : 0);
+    });
+    extraMonths.push(...yrMonths);
+  }
+
+  const allMonths = [...extraMonths, ...months2026, ...months2025];
+  if (tahun !== 'Semua') {
+    return allMonths.filter((m) => m.tahun === tahun);
+  }
+  return allMonths;
 }
 
 /** Rekap per Merk dengan Filter Periode Bebas dan Akurasi Multi-Bulan (100% Baris Riil DATAMASTER) */
@@ -708,8 +888,8 @@ export function computeTrendMerk(
   const data = filterMonths.map((m) => {
     const brandRows = rows.filter(
       (r) =>
-        r.bulan === m &&
-        (tahun === 'Semua' || r.tahun === targetYear || !r.tahun) &&
+        normalizeBulanName(r.bulan, r.tanggal) === m &&
+        (tahun === 'Semua' || normalizeTahunValue(r.tahun, r.tanggal) === targetYear) &&
         r.merk.trim().toUpperCase() === cleanTarget
     );
 
@@ -757,7 +937,7 @@ export function computeRekapMolen(
   const targetYear = tahun === 'Semua' ? '2026' : tahun;
 
   let minIdx = 0;
-  let maxIdx = 9; // default Jan - Okt untuk tahun 2026
+  let maxIdx = MONTH_ORDER.length - 1; // seluruh 12 bulan (Januari - Desember)
   if (isRange) {
     const idx1 = MONTH_ORDER.indexOf(bulan);
     const idx2 = MONTH_ORDER.indexOf(bulanAkhir!);
@@ -772,8 +952,10 @@ export function computeRekapMolen(
   const standardMolens = ['MOLEN AA', 'MOLEN AB', 'MOLEN AC', 'MOLEN AD', 'MOLEN AE', 'MOLEN AF'];
 
   const filteredRows = rows.filter((r) => {
-    if (tahun !== 'Semua' && r.tahun && r.tahun !== targetYear) return false;
-    const bIdx = MONTH_ORDER.indexOf(r.bulan);
+    const rowYear = normalizeTahunValue(r.tahun, r.tanggal);
+    if (tahun !== 'Semua' && rowYear !== targetYear) return false;
+    const rowBulan = normalizeBulanName(r.bulan, r.tanggal);
+    const bIdx = MONTH_ORDER.indexOf(rowBulan);
     if (bIdx === -1) return false;
     return bIdx >= minIdx && bIdx <= maxIdx;
   });
@@ -892,9 +1074,11 @@ export function buildDashboardDataset(
     return _dashboardMemo.result;
   }
 
-  // Pastikan setiap row memiliki noMolen dan molenDetail
+  // Pastikan setiap row memiliki bulan/tahun ternormalisasi, noMolen, dan molenDetail
   const safeRows: RawBlendRow[] = rows.map((r, idx) => ({
     ...r,
+    bulan: normalizeBulanName(r.bulan, r.tanggal) || r.bulan,
+    tahun: normalizeTahunValue(r.tahun, r.tanggal),
     noMolen:
       r.noMolen !== undefined && r.noMolen !== null && r.noMolen !== ''
         ? r.noMolen
@@ -904,34 +1088,39 @@ export function buildDashboardDataset(
       r.molenDetail || formatMolenWithCycle(r.molen, r.noMolen || (idx % 3) + 1),
   }));
 
-  // Filter Options (Mendukung semua varian riil di DATAMASTER)
+  // 1. Rekap Bulan Lengkap (Menyediakan seluruh bulan aktif tahun 2026, 2025, maupun tahun baru)
+  const rekapBulan = computeRekapBulan(safeRows, 'Semua');
+
+  // Filter Options (Mendukung semua varian riil di DATAMASTER & tahun dinamis)
   const defaultMerks = ['153 - BK', 'KARANG - BK', 'FR 153 HIJAU - BK', 'FR LN - AVE', 'SP 153 - BK', 'FR LA BOLD - BK', 'TIS - KBT24'];
   const extractedMerks = Array.from(new Set(safeRows.map((r) => r.merk ? r.merk.trim() : ''))).filter(Boolean);
   const allAvailableMerks = Array.from(new Set([...defaultMerks, ...extractedMerks]));
 
+  const yearSet = new Set<string>(['2026', '2025']);
+  rekapBulan.forEach((m) => {
+    if (m.tahun) yearSet.add(m.tahun);
+  });
+  const sortedYears = Array.from(yearSet).sort((a, b) => Number(b) - Number(a));
+
   const filterOptions = {
-    tahun: ['Semua', '2026', '2025'],
+    tahun: ['Semua', ...sortedYears],
     bulan: ['Semua', ...MONTH_ORDER],
     merk: allAvailableMerks,
     molen: ['MOLEN AA', 'MOLEN AB', 'MOLEN AC', 'MOLEN AD', 'MOLEN AE', 'MOLEN AF'],
   };
 
-  // 1. Rekap Bulan Lengkap (Menyediakan semua bulan aktif tahun 2026 & 2025)
-  const rekapBulan = computeRekapBulan(rows, 'Semua');
-
   // 2. KPI Tahunan Akurat
-  // Tahun 2026 = 1.820.330,1 Kg | 2.079 Camp | Susut 5.498,4 Kg (0,30 %) | Suhu 29,7 °C (Sesuai Row 3 DATAMASTER)
   const targetYearMonths = rekapBulan.filter((m) => tahun === 'Semua' || m.tahun === tahun);
   const totTahunanBahan = targetYearMonths.reduce((s, m) => s + m.bahanDiproses, 0);
   const totTahunanHasil = targetYearMonths.reduce((s, m) => s + m.hasilProses, 0);
   const totTahunanSusut = targetYearMonths.reduce((s, m) => s + m.susutKg, 0);
   const totTahunanCamp = targetYearMonths.reduce((s, m) => s + m.jumlahData, 0);
-  const minTahunanPct = targetYearMonths.length ? Math.min(...targetYearMonths.map((m) => m.susutMinPct)) : -2.05;
-  const maxTahunanPct = targetYearMonths.length ? Math.max(...targetYearMonths.map((m) => m.susutMaxPct)) : 0.75;
+  const minTahunanPct = targetYearMonths.length ? Math.min(...targetYearMonths.map((m) => m.susutMinPct)) : 0;
+  const maxTahunanPct = targetYearMonths.length ? Math.max(...targetYearMonths.map((m) => m.susutMaxPct)) : 0;
   const validSuhusTahunan = targetYearMonths.filter((m) => m.suhuRata !== null).map((m) => m.suhuRata as number);
   const avgSuhuTahunan = validSuhusTahunan.length
     ? validSuhusTahunan.reduce((a, b) => a + b, 0) / validSuhusTahunan.length
-    : 29.7;
+    : null;
 
   const kpiTahunan: RingkasanData = {
     mode: 'tahunan',
@@ -943,11 +1132,10 @@ export function buildDashboardDataset(
     susutRataPct: round2(totTahunanBahan ? (totTahunanSusut / totTahunanBahan) * 100 : 0),
     susutMinPct: round2(minTahunanPct),
     susutMaxPct: round2(maxTahunanPct),
-    suhuRata: round2(avgSuhuTahunan),
+    suhuRata: avgSuhuTahunan !== null ? round2(avgSuhuTahunan) : null,
   };
 
-  // 3. KPI Bulanan Akurat
-  // Jika bulanRingkasan dipilih (misal Agustus, September, Oktober), langsung ambil metrik bulan tersebut!
+  // 3. KPI Bulanan Akurat — PATUH KETAT terhadap Filter Tahun Global (tanpa fallback lintas tahun!)
   let kpiBulanan: RingkasanData;
   if (bulanRingkasan === 'Semua') {
     kpiBulanan = {
@@ -955,11 +1143,52 @@ export function buildDashboardDataset(
       mode: 'bulanan',
       periodeLabel: tahun === 'Semua' ? 'Semua Bulan Semua Tahun' : `Semua Bulan ${tahun}`,
     };
+  } else if (tahun === 'Semua') {
+    // Jika Tahun Global = "Semua Tahun" & bulan dipilih (mis. November), agregasikan bulan tersebut dari seluruh tahun
+    const matchingMonths = rekapBulan.filter((m) => m.bulan === bulanRingkasan);
+    if (matchingMonths.length > 0) {
+      const totBahan = matchingMonths.reduce((s, m) => s + m.bahanDiproses, 0);
+      const totHasil = matchingMonths.reduce((s, m) => s + m.hasilProses, 0);
+      const totSusut = matchingMonths.reduce((s, m) => s + m.susutKg, 0);
+      const totCamp = matchingMonths.reduce((s, m) => s + m.jumlahData, 0);
+      const minPct = Math.min(...matchingMonths.map((m) => m.susutMinPct));
+      const maxPct = Math.max(...matchingMonths.map((m) => m.susutMaxPct));
+      const validSuhus = matchingMonths.filter((m) => m.suhuRata !== null).map((m) => m.suhuRata as number);
+      const avgSuhu = validSuhus.length
+        ? round2(validSuhus.reduce((a, b) => a + b, 0) / validSuhus.length)
+        : null;
+
+      kpiBulanan = {
+        mode: 'bulanan',
+        periodeLabel: `${bulanRingkasan} (Semua Tahun)`,
+        jumlahData: totCamp,
+        bahanDiproses: round2(totBahan),
+        hasilProses: round2(totHasil),
+        susutKg: round2(totSusut),
+        susutRataPct: round2(totBahan ? (totSusut / totBahan) * 100 : 0),
+        susutMinPct: round2(minPct),
+        susutMaxPct: round2(maxPct),
+        suhuRata: avgSuhu,
+      };
+    } else {
+      kpiBulanan = {
+        mode: 'bulanan',
+        periodeLabel: `${bulanRingkasan} (Semua Tahun)`,
+        jumlahData: 0,
+        bahanDiproses: 0,
+        hasilProses: 0,
+        susutKg: 0,
+        susutRataPct: 0,
+        susutMinPct: 0,
+        susutMaxPct: 0,
+        suhuRata: null,
+      };
+    }
   } else {
-    const matchYear = tahun === 'Semua' ? '2026' : tahun;
-    const foundMonth =
-      rekapBulan.find((m) => m.bulan === bulanRingkasan && m.tahun === matchYear) ||
-      rekapBulan.find((m) => m.bulan === bulanRingkasan);
+    // Jika Tahun Global spesifik (mis. 2025 atau 2026), WAJIB cocok persis dengan tahun tersebut — JANGAN fallback ke tahun lain!
+    const foundMonth = rekapBulan.find(
+      (m) => m.bulan === bulanRingkasan && m.tahun === tahun
+    );
 
     if (foundMonth) {
       kpiBulanan = {
@@ -1049,21 +1278,21 @@ export function buildDashboardDataset(
   }
 
   const rekapMerkPeriode = computeRekapMerkPeriode(
-    rows,
+    safeRows,
     periodeAwal.tahun,
     periodeAwal.bulan,
     periodeAkhir.tahun,
     periodeAkhir.bulan
   );
 
-  const rekapMolen = computeRekapMolen(rows, tahun, 'Semua');
+  const rekapMolen = computeRekapMolen(safeRows, tahun, 'Semua');
 
   const defaultMerk = rekapMerkPeriode.list.length > 0 ? rekapMerkPeriode.list[0].label : '153 - BK';
-  const trendMerk = computeTrendMerk(rows, tahun, defaultMerk);
+  const trendMerk = computeTrendMerk(safeRows, tahun, defaultMerk);
 
   const datasetResult: DashboardDataset = {
     filterOptions,
-    entriTerkini: getEntriTerkini(rows),
+    entriTerkini: getEntriTerkini(safeRows),
     ringkasanTahunan: kpiTahunan,
     ringkasanBulanan: kpiBulanan,
     ringkasanPeriode: kpiPeriode,
@@ -1196,11 +1425,12 @@ export async function syncWithGasServer(gasUrl?: string): Promise<RawBlendRow[]>
           const cleanedRows: RawBlendRow[] = rowsList.map((r, idx) => {
             const rawMolen = r.molenRaw || r.molenDetail || r.molen || '';
             const noM = r.noMolen || r.nomerMolen || r.nomer || (r.col6 ? String(r.col6) : '');
+            const rawTanggal = String(r.tanggal || '').trim();
             return {
               srcRow: Number(r.srcRow) || idx + 14,
-              tanggal: String(r.tanggal || '').substring(0, 10),
-              bulan: String(r.bulan || ''),
-              tahun: String(r.tahun || ''),
+              tanggal: rawTanggal.substring(0, 10),
+              bulan: normalizeBulanName(r.bulan, rawTanggal),
+              tahun: normalizeTahunValue(r.tahun, rawTanggal),
               merk: String(r.merk || ''),
               noMolen: noM || String((idx % 7) + 1),
               bobot: Number(r.bobot) || 0,
@@ -1375,26 +1605,16 @@ function parseGvizCsv(csv: string): RawBlendRow[] {
       const suhu = cols[13] ? parseNum(cols[13]) : null;
 
       // Ekstrak bulan dan tahun secara akurat dari kolom atau teks tanggal
-      let cleanBulan = cols[2] ? cols[2].trim() : '';
-      let cleanTahun = cols[3] ? cols[3].trim() : '';
-      if (!cleanBulan || !cleanTahun) {
-        for (const m of MONTH_ORDER) {
-          if (tanggal.toLowerCase().includes(m.toLowerCase())) {
-            cleanBulan = cleanBulan || m;
-            break;
-          }
-        }
-        const yMatch = tanggal.match(/\b(202[0-9])\b/);
-        if (yMatch) cleanTahun = cleanTahun || yMatch[1];
-      }
+      const cleanBulan = normalizeBulanName(cols[2], tanggal) || 'Oktober';
+      const cleanTahun = normalizeTahunValue(cols[3], tanggal);
 
       if (!isNaN(bobot) && !isNaN(hasil) && bobot > 0 && hasil > 0 && tanggal && merk) {
         if (isNaN(susutKg)) susutKg = round2(bobot - hasil);
         rows.push({
           srcRow: i + 1,
           tanggal: tanggal,
-          bulan: cleanBulan || 'Oktober',
-          tahun: cleanTahun || '2026',
+          bulan: cleanBulan,
+          tahun: cleanTahun,
           merk: merk || '153 - BK',
           noMolen: noMolenRaw || String((i % 7) + 1),
           bobot,

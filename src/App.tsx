@@ -64,6 +64,19 @@ export default function App() {
   const [periodeAwal, setPeriodeAwal] = useState({ bulan: 'Januari', tahun: '2026' });
   const [periodeAkhir, setPeriodeAkhir] = useState({ bulan: 'Desember', tahun: '2026' });
 
+  const activeFiltersRef = useRef({
+    tahunGlobal,
+    bulanRingkasan,
+    periodeAwal,
+    periodeAkhir,
+  });
+  activeFiltersRef.current = {
+    tahunGlobal,
+    bulanRingkasan,
+    periodeAwal,
+    periodeAkhir,
+  };
+
   // Subfilters
   const [selectedTrendMerk, setSelectedTrendMerk] = useState<string>('153 - BK');
   const [selectedBulanMolen, setSelectedBulanMolen] = useState<string>('Semua');
@@ -124,14 +137,15 @@ export default function App() {
       fetchFn()
         .then((freshRows) => {
           if (freshRows && freshRows.length > 0) {
+            const f = activeFiltersRef.current;
             setDataset((prev) => {
               if (!prev) return prev;
               return buildDashboardDataset(
                 freshRows,
-                tahunGlobal,
-                bulanRingkasan,
-                periodeAwal,
-                periodeAkhir,
+                f.tahunGlobal,
+                f.bulanRingkasan,
+                f.periodeAwal,
+                f.periodeAkhir,
                 savedSourceMode === 'direct_sheet' ? 'direct_sheet' : 'gas_api'
               );
             });
@@ -409,6 +423,7 @@ export default function App() {
           currentRole={currentRole}
           onRoleChange={handleRoleChange}
           cachedRowsCount={dataset.allRows.length}
+          activeMonthsCount={dataset.rekapBulan.filter((m) => m.tahun === '2026').length}
           onOpenSwitchApp={() => setIsSwitchAppOpen(true)}
           onOpenIntegrasiDhp={() => setIsIntegrasiDhpOpen(true)}
           onOpenJadwalAlokasi={() => setIsJadwalAlokasiOpen(true)}

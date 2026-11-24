@@ -26,6 +26,7 @@ interface SidebarProps {
   currentRole: UserRole;
   onRoleChange?: (role: UserRole) => void;
   cachedRowsCount: number;
+  activeMonthsCount?: number;
   onOpenSwitchApp?: () => void;
   onOpenIntegrasiDhp?: () => void;
   onOpenJadwalAlokasi?: () => void;
@@ -41,6 +42,7 @@ export const SidebarRekapBlend: React.FC<SidebarProps> = ({
   currentRole,
   onRoleChange,
   cachedRowsCount,
+  activeMonthsCount,
   onOpenSwitchApp,
   onOpenIntegrasiDhp,
   onOpenJadwalAlokasi,
@@ -60,7 +62,7 @@ export const SidebarRekapBlend: React.FC<SidebarProps> = ({
       label: 'Rekap per Bulan',
       sublabel: 'Analisis Tren Waktu',
       icon: CalendarDays,
-      badge: '10 Bln',
+      badge: `${activeMonthsCount || 11} Bln`,
     },
     {
       id: 'merk' as ActiveTab,
