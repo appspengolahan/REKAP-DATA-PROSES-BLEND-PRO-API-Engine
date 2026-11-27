@@ -639,10 +639,11 @@ export function summarizeRows(filtered: RawBlendRow[]): Omit<RingkasanData, 'mod
  */
 export function mergeWithHistoricalRows(liveRows: RawBlendRow[]): RawBlendRow[] {
   if (!liveRows || liveRows.length === 0) return SNAPSHOT_BLEND_ROWS;
-  // Jika liveRows sudah memiliki data tahun 2026, gunakan seluruh baris riil 2026
-  // dan hanya tambahkan baris pembanding 2025 dari snapshot jika belum ada
+  // Jika liveRows sudah memiliki data tahun 2026 DAN 2025 secara penuh dari sheet DATAMASTER,
+  // gunakan 100% baris live tanpa menambah baris sampel snapshot.
   const hasLive2026 = liveRows.some((r) => r.tahun === '2026' || !r.tahun);
-  if (hasLive2026) {
+  const hasLive2025 = liveRows.some((r) => r.tahun === '2025');
+  if (hasLive2026 && !hasLive2025) {
     const hist2025 = SNAPSHOT_BLEND_ROWS.filter((r) => r.tahun === '2025');
     return [...liveRows, ...hist2025];
   }
@@ -1599,7 +1600,11 @@ export async function syncWithGasServer(gasUrl?: string): Promise<RawBlendRow[]>
           const mergedRows = mergeWithHistoricalRows(cleanedRows);
           _cachedRawRows = mergedRows;
           if (typeof window !== 'undefined') {
-            localStorage.setItem(LOCAL_STORAGE_CACHE_KEY, JSON.stringify(mergedRows));
+            try {
+              localStorage.setItem(LOCAL_STORAGE_CACHE_KEY, JSON.stringify(mergedRows));
+            } catch {
+              // Abaikan QuotaExceededError pada browser mobile dengan kuota storage ketat
+            }
           }
           return mergedRows;
         }
@@ -1609,10 +1614,10 @@ export async function syncWithGasServer(gasUrl?: string): Promise<RawBlendRow[]>
       clearTimeout(timeoutId);
       console.warn('Jalur GAS REST API dialihkan ke direct GViz CSV Query:', err.message);
 
-      // Jalur Cadangan (Direct Google Visualization Query CSV penuh dengan timeout 9s)
+      // Jalur Cadangan (Direct Google Visualization Query CSV penuh dengan timeout 12s)
       const csvUrl = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=DATAMASTER&tq=${encodeURIComponent('select *')}`;
       const csvController = new AbortController();
-      const csvTimeoutId = setTimeout(() => csvController.abort(), 9000);
+      const csvTimeoutId = setTimeout(() => csvController.abort(), 12000);
       try {
         const csvRes = await fetch(csvUrl, { method: 'GET', signal: csvController.signal });
         clearTimeout(csvTimeoutId);
@@ -1624,7 +1629,11 @@ export async function syncWithGasServer(gasUrl?: string): Promise<RawBlendRow[]>
               const mergedRows = mergeWithHistoricalRows(rows);
               _cachedRawRows = mergedRows;
               if (typeof window !== 'undefined') {
-                localStorage.setItem(LOCAL_STORAGE_CACHE_KEY, JSON.stringify(mergedRows));
+                try {
+                  localStorage.setItem(LOCAL_STORAGE_CACHE_KEY, JSON.stringify(mergedRows));
+                } catch {
+                  // Abaikan QuotaExceededError pada browser mobile
+                }
               }
               return mergedRows;
             }
@@ -1654,7 +1663,7 @@ export async function syncDirectFromSheet(): Promise<RawBlendRow[]> {
   _inFlightDirectSync = (async () => {
     const csvUrl = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=DATAMASTER&tq=${encodeURIComponent('select *')}&v=${Date.now()}`;
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 9000);
+    const timeoutId = setTimeout(() => controller.abort(), 12000);
 
     try {
       const res = await fetch(csvUrl, { method: 'GET', signal: controller.signal });
@@ -1673,7 +1682,11 @@ export async function syncDirectFromSheet(): Promise<RawBlendRow[]> {
       const mergedRows = mergeWithHistoricalRows(rows);
       _cachedRawRows = mergedRows;
       if (typeof window !== 'undefined') {
-        localStorage.setItem(LOCAL_STORAGE_CACHE_KEY, JSON.stringify(mergedRows));
+        try {
+          localStorage.setItem(LOCAL_STORAGE_CACHE_KEY, JSON.stringify(mergedRows));
+        } catch {
+          // Abaikan QuotaExceededError pada browser mobile
+        }
       }
       return mergedRows;
     } catch (err: any) {
@@ -1720,8 +1733,8 @@ function parseGvizCsv(csv: string): RawBlendRow[] {
     }
     cols.push(cur.trim().replace(/^"|"$/g, ''));
 
-    // Abaikan baris nyasar / melompat ke baris > 7000 (seperti baris 8215+)
-    if (i + 1 > 7000) continue;
+    // Batas pengaman tinggi agar siap menampung puluhan ribu baris transaksi lintas tahun
+    if (i + 1 > 50000) continue;
 
     if (cols.length >= 10) {
       let tanggal = cols[1] ? cols[1].trim() : '';
