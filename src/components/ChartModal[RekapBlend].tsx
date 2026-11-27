@@ -181,21 +181,30 @@ export const ChartModalRekapBlend: React.FC<ChartModalProps> = ({
               {(() => {
                 const trend = data as { merk: string; data: any[] };
                 const points = trend.data;
-                const maxVal = Math.max(...points.map((d) => d.susutRataPct), 0.45);
-                const minVal = Math.min(...points.map((d) => d.susutRataPct), -0.15);
+                const validPts = points.filter((d) => d.hasData !== false);
+                const maxVal = Math.max(
+                  ...(validPts.length ? validPts.map((d) => d.susutRataPct) : [0.45]),
+                  0.45
+                );
+                const minVal = Math.min(
+                  ...(validPts.length ? validPts.map((d) => d.susutRataPct) : [-0.15]),
+                  -0.15
+                );
                 const vRange = maxVal - minVal || 1;
                 const usableW = 900 - paddingLeft - paddingRight;
                 const step = usableW / Math.max(points.length - 1, 1);
 
-                const polyPoints = points
-                  .map((d, i) => {
-                    const x = paddingLeft + i * step;
-                    const y =
+                const validCoords = points
+                  .map((d, i) => ({
+                    d,
+                    x: paddingLeft + i * step,
+                    y:
                       paddingTop +
-                      ((maxVal - d.susutRataPct) / vRange) * (chartHeight - paddingTop - paddingBottom);
-                    return `${x},${y}`;
-                  })
-                  .join(' ');
+                      ((maxVal - d.susutRataPct) / vRange) * (chartHeight - paddingTop - paddingBottom),
+                  }))
+                  .filter((pt) => pt.d.hasData !== false);
+
+                const polyPoints = validCoords.map((pt) => `${pt.x},${pt.y}`).join(' ');
 
                 return (
                   <>
@@ -207,42 +216,67 @@ export const ChartModalRekapBlend: React.FC<ChartModalProps> = ({
                       stroke="#94a3b8"
                       strokeWidth="1.5"
                     />
-                    <polyline
-                      fill="none"
-                      stroke="#d97706"
-                      strokeWidth="4"
-                      points={polyPoints}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
+                    {validCoords.length >= 2 && (
+                      <polyline
+                        fill="none"
+                        stroke="#d97706"
+                        strokeWidth="4"
+                        points={polyPoints}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    )}
                     {points.map((d, i) => {
                       const x = paddingLeft + i * step;
+                      const hasData = d.hasData !== false;
                       const y =
                         paddingTop +
                         ((maxVal - d.susutRataPct) / vRange) * (chartHeight - paddingTop - paddingBottom);
 
                       return (
                         <g key={d.label}>
-                          <line
-                            x1={x}
-                            y1={y}
-                            x2={x}
-                            y2={chartHeight - paddingBottom}
-                            stroke="#fde68a"
-                            strokeWidth="1"
-                            strokeDasharray="3 3"
-                          />
-                          <circle cx={x} cy={y} r="6" fill="#d97706" stroke="#ffffff" strokeWidth="2.5" />
-                          <text
-                            x={x}
-                            y={y - 10}
-                            textAnchor="middle"
-                            fontSize="12"
-                            fill="#92400e"
-                            fontWeight="900"
-                          >
-                            {fmtPct(d.susutRataPct)}%
-                          </text>
+                          {hasData ? (
+                            <>
+                              <line
+                                x1={x}
+                                y1={y}
+                                x2={x}
+                                y2={chartHeight - paddingBottom}
+                                stroke="#fde68a"
+                                strokeWidth="1"
+                                strokeDasharray="3 3"
+                              />
+                              <circle
+                                cx={x}
+                                cy={y}
+                                r="6"
+                                fill={d.isHistoricalRef ? '#94a3b8' : '#d97706'}
+                                stroke="#ffffff"
+                                strokeWidth="2.5"
+                              />
+                              <text
+                                x={x}
+                                y={y - 10}
+                                textAnchor="middle"
+                                fontSize="12"
+                                fill={d.isHistoricalRef ? '#64748b' : '#92400e'}
+                                fontWeight="900"
+                              >
+                                {fmtPct(d.susutRataPct)}%
+                              </text>
+                            </>
+                          ) : (
+                            <text
+                              x={x}
+                              y={chartHeight - paddingBottom - 10}
+                              textAnchor="middle"
+                              fontSize="12"
+                              fill="#cbd5e1"
+                              fontWeight="bold"
+                            >
+                              -
+                            </text>
+                          )}
                           <text
                             x={x}
                             y={chartHeight - 18}

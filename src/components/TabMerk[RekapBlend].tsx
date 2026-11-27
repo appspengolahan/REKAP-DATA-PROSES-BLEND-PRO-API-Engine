@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { RekapMerkItem, TrendMerkData, RawBlendRow } from '../types[RekapBlend]';
-import { fmtKg, fmtPct, fmtInt, getPctBadgeClass, MONTH_ORDER, computeTrendMerk, computeRekapMerkPeriode } from '../api[RekapBlend]';
+import { fmtKg, fmtPct, fmtInt, getPctBadgeClass, MONTH_ORDER, computeTrendMerk, computeRekapMerkPeriode, hasFullLiveJanOct2026 } from '../api[RekapBlend]';
 import { VERIFIED_KPI_BENCHMARK } from '../snapshotData[RekapBlend]';
 import {
   FileText,
@@ -135,29 +135,43 @@ export const TabMerkRekapBlend: React.FC<TabMerkProps> = ({
     m.label.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const chartHeight = 270;
+  const chartHeight = 276;
   const paddingLeft = 45;
   const paddingRight = 20;
   const paddingTop = 25;
-  const paddingBottom = 35;
+  const paddingBottom = 44;
 
   // Chart 1 Scaling: Susut per Merk
   const maxSusut = Math.max(...displayMerkList.map((m) => m.susutRataPct), 0.45);
   const minSusut = Math.min(...displayMerkList.map((m) => m.susutRataPct), -0.15);
   const susutRange = maxSusut - minSusut || 1;
 
-  // Chart 2 Scaling: Trend satu Merk
+  // Chart 2 Scaling: Trend satu Merk (hanya gunakan bulan yang benar-benar memiliki data agar skala akurat)
   const trendPoints = currentTrendData.data;
-  const maxTrendSusut = Math.max(...trendPoints.map((d) => d.susutRataPct), 0.4);
-  const minTrendSusut = Math.min(...trendPoints.map((d) => d.susutRataPct), -0.15);
+  const validTrendPoints = trendPoints.filter((d) => d.hasData !== false);
+  const maxTrendSusut = Math.max(
+    ...(validTrendPoints.length ? validTrendPoints.map((d) => d.susutRataPct) : [0.4]),
+    0.4
+  );
+  const minTrendSusut = Math.min(
+    ...(validTrendPoints.length ? validTrendPoints.map((d) => d.susutRataPct) : [-0.15]),
+    -0.15
+  );
   const trendRange = maxTrendSusut - minTrendSusut || 1;
+
+  // Deteksi apakah sheet DATAMASTER sedang terfilter di Google Sheets (baris Jan–Okt 2026 tersembunyi)
+  const isSheetFilteredJanOct = useMemo(() => !hasFullLiveJanOct2026(allRows || []), [allRows]);
 
   // 5. VARIANT / RESEP KEY INSIGHTS (SINKRON DENGAN PERIODE TERPILIH)
   const sortedByVol = [...displayMerkList].sort((a, b) => b.bahanDiproses - a.bahanDiproses);
   const topVolVariant = sortedByVol[0];
-  const sortedByEfficiency = [...displayMerkList].sort((a, b) => a.susutRataPct - b.susutRataPct);
-  const bestYieldVariant = sortedByEfficiency[0];
-  const worstYieldVariant = sortedByEfficiency[sortedByEfficiency.length - 1];
+  // Varian paling stabil/efisien: susut paling mendekati 0% (deviasi absolut terkecil), bukan minus ekstrem
+  const sortedByStability = [...displayMerkList].sort(
+    (a, b) => Math.abs(a.susutRataPct) - Math.abs(b.susutRataPct)
+  );
+  const bestYieldVariant = sortedByStability[0];
+  const sortedByHighestLoss = [...displayMerkList].sort((a, b) => b.susutRataPct - a.susutRataPct);
+  const worstYieldVariant = sortedByHighestLoss[0];
   const totalBahanMerk = displayMerkList.reduce((acc, m) => acc + m.bahanDiproses, 0);
 
   // Active hover items
@@ -275,6 +289,15 @@ export const TabMerkRekapBlend: React.FC<TabMerkProps> = ({
             Periode aktif: <strong className="text-slate-700">{headerPeriodeLabel}</strong>
           </div>
         </div>
+
+        {isSheetFilteredJanOct && (tahunFilter === '2026' || tahunFilter === 'Semua') && (
+          <div className="text-[11px] text-amber-800 bg-amber-50/80 border border-amber-200/80 rounded-xl px-3 py-1.5 flex items-center gap-2">
+            <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+            <span>
+              Filter aktif di Google Sheet <strong>DATAMASTER</strong> saat ini hanya menampilkan transaksi bulan berjalan. Untuk rentang <strong>Januari – Desember 2026</strong>, periode Jan–Okt otomatis digabungkan dengan rekap historis terverifikasi agar data tetap utuh.
+            </span>
+          </div>
+        )}
       </div>
 
       {/* 4 Variant Insight Cards (Tersinkronisasi Otomatis) */}
@@ -293,16 +316,18 @@ export const TabMerkRekapBlend: React.FC<TabMerkProps> = ({
             </div>
             <div className="text-[11px] text-blue-700 mt-1 flex items-baseline gap-1">
               <span className="font-extrabold">{topVolVariant ? fmtKg(topVolVariant.bahanDiproses) : '-'} Kg</span>
-              <span className="text-[10px] opacity-80">({topVolVariant ? topVolVariant.kapasitasPct : 0}% olah)</span>
+              <span className="text-[10px] opacity-80">
+                ({topVolVariant ? fmtPct(topVolVariant.kapasitasPct) : '0,00'}% olah)
+              </span>
             </div>
           </div>
         </div>
 
-        {/* Card 2: Varian Paling Hemat / Efisien */}
+        {/* Card 2: Varian Paling Stabil / Efisien */}
         <div className="bg-emerald-50/70 border border-emerald-200/80 rounded-2xl p-4 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <span className="text-[10px] uppercase font-bold text-emerald-800 tracking-wider">
-              VARIAN PALING EFISIEN
+              VARIAN PALING STABIL
             </span>
             <Sparkles className="w-4 h-4 text-emerald-600" />
           </div>
@@ -316,7 +341,7 @@ export const TabMerkRekapBlend: React.FC<TabMerkProps> = ({
                 {bestYieldVariant ? fmtPct(bestYieldVariant.susutRataPct) : '-'}%
               </span>
               <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1 rounded font-bold">
-                Yield Terbaik
+                {bestYieldVariant && bestYieldVariant.susutRataPct < 0 ? 'Yield Gain' : 'Paling Stabil'}
               </span>
             </div>
           </div>
@@ -326,7 +351,9 @@ export const TabMerkRekapBlend: React.FC<TabMerkProps> = ({
         <div className="bg-amber-50/70 border border-amber-200/80 rounded-2xl p-4 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <span className="text-[10px] uppercase font-bold text-amber-800 tracking-wider">
-              SUSUT TERTINGGI (WASPADA)
+              {worstYieldVariant && worstYieldVariant.susutRataPct > 0.5
+                ? 'SUSUT TERTINGGI (WASPADA)'
+                : 'SUSUT TERTINGGI (NORMAL)'}
             </span>
             <AlertTriangle className="w-4 h-4 text-amber-600" />
           </div>
@@ -492,17 +519,42 @@ export const TabMerkRekapBlend: React.FC<TabMerkProps> = ({
                         {fmtPct(m.susutRataPct)}%
                       </text>
 
-                      {/* Nama Merk */}
-                      <text
-                        x={x + barWidth / 2}
-                        y={chartHeight - 8}
-                        textAnchor="middle"
-                        fontSize="9"
-                        fill={isHovered ? '#1e293b' : '#64748b'}
-                        fontWeight={isHovered ? 'bold' : 'normal'}
-                      >
-                        {m.label.length > 9 ? `${m.label.substring(0, 8)}…` : m.label}
-                      </text>
+                      {/* Nama Merk (multi-baris otomatis agar tidak terpotong) */}
+                      {(() => {
+                        const parts = m.label.includes(' - ')
+                          ? m.label.split(' - ')
+                          : m.label.length > 10
+                          ? [m.label.slice(0, Math.ceil(m.label.length / 2)), m.label.slice(Math.ceil(m.label.length / 2))]
+                          : [m.label];
+                        const centerX = x + barWidth / 2;
+                        if (parts.length >= 2) {
+                          return (
+                            <text
+                              x={centerX}
+                              y={chartHeight - 18}
+                              textAnchor="middle"
+                              fontSize="8.5"
+                              fill={isHovered ? '#1e293b' : '#64748b'}
+                              fontWeight={isHovered ? 'bold' : '600'}
+                            >
+                              <tspan x={centerX} dy="0">{parts[0]}</tspan>
+                              <tspan x={centerX} dy="10">{parts.slice(1).join(' - ')}</tspan>
+                            </text>
+                          );
+                        }
+                        return (
+                          <text
+                            x={centerX}
+                            y={chartHeight - 10}
+                            textAnchor="middle"
+                            fontSize="8.8"
+                            fill={isHovered ? '#1e293b' : '#64748b'}
+                            fontWeight={isHovered ? 'bold' : '600'}
+                          >
+                            {m.label}
+                          </text>
+                        );
+                      })()}
                     </g>
                   );
                 });
@@ -661,32 +713,40 @@ export const TabMerkRekapBlend: React.FC<TabMerkProps> = ({
                 {(() => {
                   const usableWidth = 500 - paddingLeft - paddingRight;
                   const step = usableWidth / Math.max(trendPoints.length - 1, 1);
-                  const points = trendPoints
-                    .map((d, i) => {
-                      const x = paddingLeft + i * step;
-                      const y =
+
+                  // Bentuk segmen polyline hanya dari bulan-bulan yang memiliki data produksi
+                  const validCoords = trendPoints
+                    .map((d, i) => ({
+                      d,
+                      i,
+                      x: paddingLeft + i * step,
+                      y:
                         paddingTop +
                         ((maxTrendSusut - d.susutRataPct) / trendRange) *
-                          (chartHeight - paddingTop - paddingBottom);
-                      return `${x},${y}`;
-                    })
-                    .join(' ');
+                          (chartHeight - paddingTop - paddingBottom),
+                    }))
+                    .filter((pt) => pt.d.hasData !== false);
+
+                  const points = validCoords.map((pt) => `${pt.x},${pt.y}`).join(' ');
 
                   return (
                     <>
-                      {/* Polyline Curve */}
-                      <polyline
-                        fill="none"
-                        stroke="#f59e0b"
-                        strokeWidth="2.5"
-                        points={points}
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
+                      {/* Polyline Curve (hanya menghubungkan bulan dengan data produksi) */}
+                      {validCoords.length >= 2 && (
+                        <polyline
+                          fill="none"
+                          stroke="#f59e0b"
+                          strokeWidth="2.5"
+                          points={points}
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      )}
 
                       {/* Titik & Hit Area */}
                       {trendPoints.map((d, i) => {
                         const x = paddingLeft + i * step;
+                        const hasData = d.hasData !== false;
                         const y =
                           paddingTop +
                           ((maxTrendSusut - d.susutRataPct) / trendRange) *
@@ -720,38 +780,61 @@ export const TabMerkRekapBlend: React.FC<TabMerkProps> = ({
                                 y1={paddingTop}
                                 x2={x}
                                 y2={chartHeight - paddingBottom}
-                                stroke="#f59e0b"
+                                stroke={hasData ? '#f59e0b' : '#94a3b8'}
                                 strokeWidth="1"
                                 strokeDasharray="2 2"
                               />
                             )}
 
-                            {/* Circle Dot */}
-                            <circle
-                              cx={x}
-                              cy={y}
-                              r={isHovered ? 5.5 : 3.5}
-                              fill={isHovered ? '#b45309' : '#d97706'}
-                              stroke="#ffffff"
-                              strokeWidth={isHovered ? 2 : 1.5}
-                            />
+                            {hasData ? (
+                              <>
+                                {/* Circle Dot */}
+                                <circle
+                                  cx={x}
+                                  cy={y}
+                                  r={isHovered ? 5.5 : 3.5}
+                                  fill={
+                                    d.isHistoricalRef
+                                      ? isHovered
+                                        ? '#475569'
+                                        : '#94a3b8'
+                                      : isHovered
+                                      ? '#b45309'
+                                      : '#d97706'
+                                  }
+                                  stroke="#ffffff"
+                                  strokeWidth={isHovered ? 2 : 1.5}
+                                />
 
-                            {/* Nilai persentase */}
-                            <text
-                              x={x}
-                              y={y - 7}
-                              textAnchor="middle"
-                              fontSize="9"
-                              fill="#92400e"
-                              fontWeight="bold"
-                            >
-                              {fmtPct(d.susutRataPct)}%
-                            </text>
+                                {/* Nilai persentase */}
+                                <text
+                                  x={x}
+                                  y={y - 7}
+                                  textAnchor="middle"
+                                  fontSize="8.5"
+                                  fill={d.isHistoricalRef ? '#64748b' : '#92400e'}
+                                  fontWeight="bold"
+                                >
+                                  {fmtPct(d.susutRataPct)}%
+                                </text>
+                              </>
+                            ) : (
+                              <text
+                                x={x}
+                                y={chartHeight - paddingBottom - 6}
+                                textAnchor="middle"
+                                fontSize="9"
+                                fill="#cbd5e1"
+                                fontWeight="bold"
+                              >
+                                -
+                              </text>
+                            )}
 
                             {/* Label Bulan */}
                             <text
                               x={x}
-                              y={chartHeight - 12}
+                              y={chartHeight - 14}
                               textAnchor="middle"
                               fontSize="9"
                               fill={isHovered ? '#1e293b' : '#64748b'}
@@ -809,29 +892,43 @@ export const TabMerkRekapBlend: React.FC<TabMerkProps> = ({
                       </span>
                     </div>
 
-                    <div className="flex items-baseline justify-between mb-2 bg-slate-800/80 px-2.5 py-1.5 rounded-lg border border-slate-700">
-                      <span className="text-[11px] text-slate-300 font-medium">Susut Rata²:</span>
-                      <span className="text-amber-300 font-black text-sm">
-                        {fmtPct(activePoint.data.susutRataPct)}%
-                      </span>
-                    </div>
+                    {activePoint.data.hasData === false ? (
+                      <div className="bg-slate-800/80 px-2.5 py-2 rounded-lg border border-slate-700 text-[11px] text-slate-300 text-center">
+                        Tidak ada produksi formula ini pada bulan {activePoint.data.bulan}
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex items-baseline justify-between mb-2 bg-slate-800/80 px-2.5 py-1.5 rounded-lg border border-slate-700">
+                          <span className="text-[11px] text-slate-300 font-medium">Susut Rata²:</span>
+                          <span className="text-amber-300 font-black text-sm">
+                            {fmtPct(activePoint.data.susutRataPct)}%
+                          </span>
+                        </div>
 
-                    <div className="grid grid-cols-2 gap-1.5 text-[10.5px]">
-                      <div className="bg-slate-800/50 p-1.5 rounded border border-slate-800">
-                        <div className="text-slate-400 text-[9.5px]">Bahan Diproses</div>
-                        <div className="font-semibold text-cyan-300">{fmtKg(activePoint.data.bahanDiproses)} Kg</div>
-                      </div>
-                      <div className="bg-slate-800/50 p-1.5 rounded border border-slate-800">
-                        <div className="text-slate-400 text-[9.5px]">Hasil Jadi</div>
-                        <div className="font-semibold text-emerald-300">{fmtKg(activePoint.data.hasilProses)} Kg</div>
-                      </div>
-                      <div className="bg-slate-800/50 p-1.5 rounded border border-slate-800 col-span-2 flex items-center justify-between">
-                        <span className="text-slate-400 text-[9.5px]">Status Toleransi</span>
-                        <span className={`font-bold ${activePoint.data.susutRataPct <= 0.50 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                          {activePoint.data.susutRataPct <= 0.50 ? '✅ Normal (≤ 0.50%)' : '⚠️ Evaluasi'}
-                        </span>
-                      </div>
-                    </div>
+                        {activePoint.data.isHistoricalRef ? (
+                          <div className="bg-slate-800/60 p-2 rounded border border-slate-700 text-[10px] text-slate-300 leading-snug">
+                            Referensi tren historis bulanan (baris detail bulan ini sedang terfilter di Google Sheet DATAMASTER).
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-2 gap-1.5 text-[10.5px]">
+                            <div className="bg-slate-800/50 p-1.5 rounded border border-slate-800">
+                              <div className="text-slate-400 text-[9.5px]">Bahan Diproses</div>
+                              <div className="font-semibold text-cyan-300">{fmtKg(activePoint.data.bahanDiproses)} Kg</div>
+                            </div>
+                            <div className="bg-slate-800/50 p-1.5 rounded border border-slate-800">
+                              <div className="text-slate-400 text-[9.5px]">Hasil Jadi</div>
+                              <div className="font-semibold text-emerald-300">{fmtKg(activePoint.data.hasilProses)} Kg</div>
+                            </div>
+                            <div className="bg-slate-800/50 p-1.5 rounded border border-slate-800 col-span-2 flex items-center justify-between">
+                              <span className="text-slate-400 text-[9.5px]">Status Toleransi</span>
+                              <span className={`font-bold ${activePoint.data.susutRataPct <= 0.50 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                {activePoint.data.susutRataPct <= 0.50 ? '✅ Normal (≤ 0.50%)' : '⚠️ Evaluasi'}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
                   </div>
                 </div>
               );

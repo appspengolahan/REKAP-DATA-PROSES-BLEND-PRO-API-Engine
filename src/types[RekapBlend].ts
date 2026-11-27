@@ -84,6 +84,8 @@ export interface TrendMerkData {
     susutRataPct: number;
     bahanDiproses: number;
     hasilProses: number;
+    hasData?: boolean;
+    isHistoricalRef?: boolean;
   }[];
 }
 

@@ -27,6 +27,7 @@ interface SidebarProps {
   onRoleChange?: (role: UserRole) => void;
   cachedRowsCount: number;
   activeMonthsCount?: number;
+  activeMerksCount?: number;
   onOpenSwitchApp?: () => void;
   onOpenIntegrasiDhp?: () => void;
   onOpenJadwalAlokasi?: () => void;
@@ -43,6 +44,7 @@ export const SidebarRekapBlend: React.FC<SidebarProps> = ({
   onRoleChange,
   cachedRowsCount,
   activeMonthsCount,
+  activeMerksCount,
   onOpenSwitchApp,
   onOpenIntegrasiDhp,
   onOpenJadwalAlokasi,
@@ -69,7 +71,7 @@ export const SidebarRekapBlend: React.FC<SidebarProps> = ({
       label: 'Rekap per Jenis',
       sublabel: 'Katalog & Efisiensi Resep',
       icon: Layers,
-      badge: '6 Varian',
+      badge: `${activeMerksCount ?? 6} Varian`,
     },
     {
       id: 'molen' as ActiveTab,

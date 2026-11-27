@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { RekapMolenItem, RawBlendRow } from '../types[RekapBlend]';
-import { fmtKg, fmtPct, fmtSuhu, fmtInt, getPctBadgeClass, MONTH_ORDER, computeRekapMolen } from '../api[RekapBlend]';
+import { fmtKg, fmtPct, fmtSuhu, fmtInt, getPctBadgeClass, MONTH_ORDER, computeRekapMolen, hasFullLiveJanOct2026 } from '../api[RekapBlend]';
 import {
   FileText,
   Search,
@@ -113,11 +113,16 @@ export const TabMolenRekapBlend: React.FC<TabMolenProps> = ({
   const minBobot = 0;
   const bobotRange = maxBobot - minBobot || 1;
 
+  const isSheetFilteredJanOct = useMemo(() => !hasFullLiveJanOct2026(allRows || []), [allRows]);
+
   // 4. KEY INSIGHTS MOLEN (SINKRON DENGAN PERIODE TERPILIH — HANYA MOLEN YANG MEMILIKI DATA)
   const activeMolens = displayMolenList.filter((m) => m.jumlahData > 0);
-  const sortedByYield = [...activeMolens].sort((a, b) => a.susutRataPct - b.susutRataPct);
-  const bestMolen = sortedByYield[0];
-  const worstMolen = sortedByYield[sortedByYield.length - 1];
+  const sortedByStability = [...activeMolens].sort(
+    (a, b) => Math.abs(a.susutRataPct) - Math.abs(b.susutRataPct)
+  );
+  const bestMolen = sortedByStability[0];
+  const sortedByHighestLoss = [...activeMolens].sort((a, b) => b.susutRataPct - a.susutRataPct);
+  const worstMolen = sortedByHighestLoss[0];
 
   const sortedByVol = [...activeMolens].sort((a, b) => b.bahanDiproses - a.bahanDiproses);
   const topVolMolen = sortedByVol[0];
@@ -243,6 +248,15 @@ export const TabMolenRekapBlend: React.FC<TabMolenProps> = ({
             Periode aktif: <strong className="text-slate-700">{headerPeriodeLabel}</strong>
           </div>
         </div>
+
+        {isSheetFilteredJanOct && (tahunFilter === '2026' || tahunFilter === 'Semua') && (
+          <div className="text-[11px] text-purple-800 bg-purple-50/80 border border-purple-200/80 rounded-xl px-3 py-1.5 flex items-center gap-2">
+            <AlertTriangle className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+            <span>
+              Filter aktif di Google Sheet <strong>DATAMASTER</strong> saat ini hanya menampilkan transaksi bulan berjalan. Untuk rentang <strong>Januari – Desember 2026</strong>, periode Jan–Okt otomatis digabungkan dengan rekap historis terverifikasi agar data tetap utuh.
+            </span>
+          </div>
+        )}
       </div>
 
       {/* 4 Molen Insight Cards (Tersinkronisasi Otomatis) */}
@@ -285,7 +299,9 @@ export const TabMolenRekapBlend: React.FC<TabMolenProps> = ({
             </div>
             <div className="text-[11px] text-blue-700 mt-1 flex items-baseline gap-1">
               <span className="font-extrabold">{topVolMolen ? fmtKg(topVolMolen.bahanDiproses) : '-'} Kg</span>
-              <span className="text-[10px] opacity-80">({topVolMolen ? topVolMolen.kapasitasPct : 0}% beban)</span>
+              <span className="text-[10px] opacity-80">
+                ({topVolMolen ? fmtPct(topVolMolen.kapasitasPct) : '0,00'}% beban)
+              </span>
             </div>
           </div>
         </div>
@@ -294,7 +310,9 @@ export const TabMolenRekapBlend: React.FC<TabMolenProps> = ({
         <div className="bg-amber-50/70 border border-amber-200/80 rounded-2xl p-4 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <span className="text-[10px] uppercase font-bold text-amber-800 tracking-wider">
-              SUSUT TERTINGGI (PERHATIAN)
+              {worstMolen && worstMolen.susutRataPct > 0.5
+                ? 'SUSUT TERTINGGI (PERHATIAN)'
+                : 'SUSUT TERTINGGI (NORMAL)'}
             </span>
             <AlertTriangle className="w-4 h-4 text-amber-600" />
           </div>

@@ -109,7 +109,9 @@ export const TabDashboardRekapBlend: React.FC<TabDashboardProps> = ({
               <Layers className="w-4 h-4 text-amber-400" />
               <div>
                 <div className="font-bold text-white group-hover:text-amber-300">Katalog Jenis & Resep</div>
-                <div className="text-[10px] text-slate-400">6 Varian Formula Blend</div>
+                <div className="text-[10px] text-slate-400">
+                  {dataset.rekapMerkPeriode.list.length || dataset.filterOptions.merk.length} Varian Formula Blend
+                </div>
               </div>
             </div>
             <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:translate-x-1 group-hover:text-amber-300 transition" />

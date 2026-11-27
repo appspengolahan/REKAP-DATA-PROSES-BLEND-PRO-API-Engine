@@ -424,6 +424,7 @@ export default function App() {
           onRoleChange={handleRoleChange}
           cachedRowsCount={dataset.allRows.length}
           activeMonthsCount={dataset.rekapBulan.filter((m) => m.tahun === '2026').length}
+          activeMerksCount={dataset.rekapMerkPeriode.list.length || dataset.filterOptions.merk.length}
           onOpenSwitchApp={() => setIsSwitchAppOpen(true)}
           onOpenIntegrasiDhp={() => setIsIntegrasiDhpOpen(true)}
           onOpenJadwalAlokasi={() => setIsJadwalAlokasiOpen(true)}
