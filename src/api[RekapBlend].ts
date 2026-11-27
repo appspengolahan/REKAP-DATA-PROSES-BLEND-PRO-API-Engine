@@ -381,6 +381,18 @@ function filterByPeriode(
   tahunAkhir: string,
   bulanAkhir: string
 ): RawBlendRow[] {
+  if (tahunMulai === 'Semua' || tahunAkhir === 'Semua') {
+    const idx1 = MONTH_ORDER.indexOf(normalizeBulanName(bulanMulai));
+    const idx2 = MONTH_ORDER.indexOf(normalizeBulanName(bulanAkhir));
+    const minIdx = Math.min(idx1 !== -1 ? idx1 : 0, idx2 !== -1 ? idx2 : MONTH_ORDER.length - 1);
+    const maxIdx = Math.max(idx1 !== -1 ? idx1 : 0, idx2 !== -1 ? idx2 : MONTH_ORDER.length - 1);
+    return rows.filter((r) => {
+      const rowBulan = normalizeBulanName(r.bulan, r.tanggal);
+      const bIdx = MONTH_ORDER.indexOf(rowBulan);
+      return bIdx !== -1 && bIdx >= minIdx && bIdx <= maxIdx;
+    });
+  }
+
   let startKey = monthKey(tahunMulai, bulanMulai);
   let endKey = monthKey(tahunAkhir, bulanAkhir);
   if (endKey < startKey) {
@@ -402,6 +414,11 @@ function periodeLabel(
   bulanAkhir: string,
   tahunAkhir: string
 ): string {
+  if (tahunMulai === 'Semua' || tahunAkhir === 'Semua') {
+    return bulanMulai === bulanAkhir
+      ? `${bulanMulai} (Semua Tahun)`
+      : `${bulanMulai} — ${bulanAkhir} (Semua Tahun)`;
+  }
   const labelMulai = `${bulanMulai} ${tahunMulai}`;
   const labelAkhir = `${bulanAkhir} ${tahunAkhir}`;
   return labelMulai === labelAkhir ? labelMulai : `${labelMulai} — ${labelAkhir}`;
@@ -882,6 +899,7 @@ export function computeTrendMerk(
   const maxIdx = Math.max(idxAwal, idxAkhir);
   const filterMonths = MONTH_ORDER.filter((_, idx) => idx >= minIdx && idx <= maxIdx);
   const targetYear = tahun === 'Semua' ? '2026' : tahun;
+  const displayYear = tahun === 'Semua' ? 'Semua Tahun' : tahun;
 
   const cleanTarget = targetMerk ? targetMerk.trim().toUpperCase() : '';
 
@@ -892,6 +910,8 @@ export function computeTrendMerk(
         (tahun === 'Semua' || normalizeTahunValue(r.tahun, r.tanggal) === targetYear) &&
         r.merk.trim().toUpperCase() === cleanTarget
     );
+
+    const monthLabel = tahun === 'Semua' ? m.substring(0, 3) : `${m.substring(0, 3)} ${targetYear}`;
 
     if (brandRows.length > 0) {
       let bKg = 0;
@@ -904,9 +924,9 @@ export function computeTrendMerk(
       });
       const sPct = bKg ? round2((sKg / bKg) * 100) : 0;
       return {
-        label: `${m.substring(0, 3)} ${targetYear}`,
+        label: monthLabel,
         bulan: m,
-        tahun: targetYear,
+        tahun: displayYear,
         susutRataPct: sPct,
         bahanDiproses: round2(bKg),
         hasilProses: round2(hKg),
@@ -914,9 +934,9 @@ export function computeTrendMerk(
     }
 
     return {
-      label: `${m.substring(0, 3)} ${targetYear}`,
+      label: monthLabel,
       bulan: m,
-      tahun: targetYear,
+      tahun: displayYear,
       susutRataPct: 0,
       bahanDiproses: 0,
       hasilProses: 0,
@@ -1010,7 +1030,7 @@ export function computeRekapMolen(
         susutRataPct: b ? round2((g.susut / b) * 100) : 0,
         susutMinPct: g.min !== Infinity ? round2(g.min) : 0,
         susutMaxPct: g.max !== -Infinity ? round2(g.max) : 0,
-        suhuRata: g.suhuCount ? round2(g.suhuSum / g.suhuCount) : 29.7,
+        suhuRata: g.suhuCount ? round2(g.suhuSum / g.suhuCount) : null,
         kapasitasPct: totalBobot ? round2((b / totalBobot) * 100) : 0,
       };
     });
@@ -1027,7 +1047,7 @@ export function computeRekapMolen(
     susutRataPct: 0,
     susutMinPct: 0,
     susutMaxPct: 0,
-    suhuRata: 29.7,
+    suhuRata: null,
     kapasitasPct: 0,
   }));
 }

@@ -559,14 +559,20 @@ export default function App() {
               />
             )}
 
-            {activeTab === 'deviasi' && (
-              <TabDeviasiRekapBlend
-                allRows={dataset.allRows}
-                currentRole={currentRole}
-                currentYear={tahunGlobal !== 'Semua' ? tahunGlobal : '2026'}
-                currentMonth={bulanRingkasan !== 'Semua' ? bulanRingkasan : 'Oktober'}
-              />
-            )}
+            {activeTab === 'deviasi' && (() => {
+              const targetYearDev = tahunGlobal !== 'Semua' ? tahunGlobal : '2026';
+              const latestMonthInYear = dataset.rekapBulan
+                .filter((m) => m.tahun === targetYearDev)
+                .slice(-1)[0]?.bulan || 'November';
+              return (
+                <TabDeviasiRekapBlend
+                  allRows={dataset.allRows}
+                  currentRole={currentRole}
+                  currentYear={targetYearDev}
+                  currentMonth={bulanRingkasan !== 'Semua' ? bulanRingkasan : latestMonthInYear}
+                />
+              );
+            })()}
 
             {activeTab === 'explorer' && (
               <DataExplorerRekapBlend

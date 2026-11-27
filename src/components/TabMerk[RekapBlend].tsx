@@ -59,11 +59,11 @@ export const TabMerkRekapBlend: React.FC<TabMerkProps> = ({
 
   // 2. State Filter Periode:
   // - Bulan Awal: Januari s/d Desember (posisi default: Januari)
-  // - Bulan Akhir: Januari s/d Desember (posisi default: Oktober)
+  // - Bulan Akhir: Januari s/d Desember (posisi default: Desember agar mencakup seluruh bulan berjalan)
   // - Tahun: Pilihan tahun berjalan (2026 sebagai default), 2025, dan opsi Semua
   const [tahunFilter, setTahunFilter] = useState<string>('2026');
   const [bulanAwal, setBulanAwal] = useState<string>('Januari');
-  const [bulanAkhir, setBulanAkhir] = useState<string>('Oktober');
+  const [bulanAkhir, setBulanAkhir] = useState<string>('Desember');
 
   // Table search
   const [searchTerm, setSearchTerm] = useState('');
@@ -87,11 +87,11 @@ export const TabMerkRekapBlend: React.FC<TabMerkProps> = ({
     return `${bulanAwal} – ${bulanAkhir} ${thText}`;
   }, [bulanAwal, bulanAkhir, tahunFilter]);
 
-  // Tombol Reset Default (2026): Mengembalikan ke Januari – Oktober 2026
+  // Tombol Reset Default (2026): Mengembalikan ke Januari – Desember 2026
   const handleResetFilter = () => {
     setTahunFilter('2026');
     setBulanAwal('Januari');
-    setBulanAkhir('Oktober');
+    setBulanAkhir('Desember');
   };
 
   // 3. SINKRONISASI OTOMATIS DATA PER MERK BERDASARKAN FILTER PERIODE
@@ -105,23 +105,30 @@ export const TabMerkRekapBlend: React.FC<TabMerkProps> = ({
     ).list;
   }, [allRows, tahunFilter, bulanAwal, bulanAkhir]);
 
-  // 4. SINKRONISASI DATA TREND SATU MERK (CHART 2)
-  const currentTrendData = useMemo(() => {
-    return computeTrendMerk(
-      allRows || [],
-      tahunFilter,
-      selectedTrendMerk,
-      bulanAwal,
-      bulanAkhir
-    );
-  }, [allRows, tahunFilter, selectedTrendMerk, bulanAwal, bulanAkhir]);
-
   // Daftar merk yang aktif di periode ini (atau fallback availableMerks)
   const activeAvailableMerks = useMemo(() => {
     const listFromDisplay = displayMerkList.map((m) => m.label);
     if (listFromDisplay.length > 0) return listFromDisplay;
     return availableMerks;
   }, [displayMerkList, availableMerks]);
+
+  // Pastikan merk yang ditampilkan pada grafik tren selalu valid di periode aktif
+  const effectiveTrendMerk = useMemo(() => {
+    if (activeAvailableMerks.length === 0) return selectedTrendMerk;
+    if (activeAvailableMerks.includes(selectedTrendMerk)) return selectedTrendMerk;
+    return activeAvailableMerks[0];
+  }, [activeAvailableMerks, selectedTrendMerk]);
+
+  // 4. SINKRONISASI DATA TREND SATU MERK (CHART 2)
+  const currentTrendData = useMemo(() => {
+    return computeTrendMerk(
+      allRows || [],
+      tahunFilter,
+      effectiveTrendMerk,
+      bulanAwal,
+      bulanAkhir
+    );
+  }, [allRows, tahunFilter, effectiveTrendMerk, bulanAwal, bulanAkhir]);
 
   // Filter tabel berdasarkan search term
   const filtered = displayMerkList.filter((m) =>
@@ -254,11 +261,11 @@ export const TabMerkRekapBlend: React.FC<TabMerkProps> = ({
           <button
             onClick={handleResetFilter}
             className={`min-h-[44px] sm:min-h-[36px] flex items-center gap-1 text-[11px] font-semibold px-3 py-1 rounded-lg border transition cursor-pointer ${
-              tahunFilter === '2026' && bulanAwal === 'Januari' && bulanAkhir === 'Oktober'
+              tahunFilter === '2026' && bulanAwal === 'Januari' && bulanAkhir === 'Desember'
                 ? 'text-slate-500 bg-slate-100 border-slate-200 hover:text-slate-700'
                 : 'text-amber-800 bg-amber-50 border-amber-300 hover:bg-amber-100 font-bold shadow-xs'
             }`}
-            title="Kembalikan ke periode default tahun berjalan (Januari – Oktober 2026)"
+            title="Kembalikan ke periode default tahun berjalan (Januari – Desember 2026)"
           >
             <RotateCcw className="w-3 h-3 text-amber-600" />
             <span>Reset Default (2026)</span>
@@ -597,7 +604,7 @@ export const TabMerkRekapBlend: React.FC<TabMerkProps> = ({
           }}
           onClick={() =>
             onZoomChart(
-              `Trend Susut per Bulan — ${selectedTrendMerk} (${headerPeriodeLabel})`,
+              `Trend Susut per Bulan — ${effectiveTrendMerk} (${headerPeriodeLabel})`,
               'line_trend_merk',
               currentTrendData
             )
@@ -609,7 +616,7 @@ export const TabMerkRekapBlend: React.FC<TabMerkProps> = ({
             <div>
               <h4 className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-1.5 group-hover:text-amber-700 transition">
                 <TrendingDown className="w-4 h-4 text-blue-600" />
-                Trend Susut per Bulan — {selectedTrendMerk}
+                Trend Susut per Bulan — {effectiveTrendMerk}
               </h4>
               <p className="text-[11px] text-slate-400 mt-0.5">
                 Deret waktu {headerPeriodeLabel} · Pilih formula di dropdown
@@ -618,7 +625,7 @@ export const TabMerkRekapBlend: React.FC<TabMerkProps> = ({
 
             <div className="flex items-center gap-1.5 no-print" onClick={(e) => e.stopPropagation()}>
               <select
-                value={selectedTrendMerk}
+                value={effectiveTrendMerk}
                 onChange={(e) => onSelectTrendMerk(e.target.value)}
                 className="min-h-[44px] sm:min-h-[36px] max-w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer"
               >
@@ -798,7 +805,7 @@ export const TabMerkRekapBlend: React.FC<TabMerkProps> = ({
                         📅 {activePoint.data.bulan} {activePoint.data.tahun || tahunFilter}
                       </span>
                       <span className="text-[10px] text-amber-300 font-semibold truncate max-w-[100px]">
-                        {selectedTrendMerk}
+                        {effectiveTrendMerk}
                       </span>
                     </div>
 
@@ -875,7 +882,7 @@ export const TabMerkRekapBlend: React.FC<TabMerkProps> = ({
             <tbody className="divide-y divide-slate-100">
               {filtered.map((item) => {
                 const badge = getPctBadgeClass(item.susutRataPct);
-                const isSelected = item.label === selectedTrendMerk;
+                const isSelected = item.label === effectiveTrendMerk;
 
                 return (
                   <tr

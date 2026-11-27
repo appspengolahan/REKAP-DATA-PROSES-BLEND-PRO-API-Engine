@@ -48,11 +48,11 @@ export const TabMolenRekapBlend: React.FC<TabMolenProps> = ({
 
   // 2. State Filter Periode:
   // - Bulan Awal: Januari s/d Desember (posisi default: Januari)
-  // - Bulan Akhir: Januari s/d Desember (posisi default: Oktober)
+  // - Bulan Akhir: Januari s/d Desember (posisi default: Desember agar mencakup seluruh bulan berjalan)
   // - Tahun: Pilihan tahun berjalan (2026 sebagai default), 2025, dan opsi Semua
   const [tahunFilter, setTahunFilter] = useState<string>('2026');
   const [bulanAwal, setBulanAwal] = useState<string>('Januari');
-  const [bulanAkhir, setBulanAkhir] = useState<string>('Oktober');
+  const [bulanAkhir, setBulanAkhir] = useState<string>('Desember');
 
   // Search filter tabel
   const [searchTerm, setSearchTerm] = useState('');
@@ -75,11 +75,11 @@ export const TabMolenRekapBlend: React.FC<TabMolenProps> = ({
     return `${bulanAwal} – ${bulanAkhir} ${thText}`;
   }, [bulanAwal, bulanAkhir, tahunFilter]);
 
-  // Tombol Reset Default (2026): Mengembalikan filter ke Januari – Oktober 2026
+  // Tombol Reset Default (2026): Mengembalikan filter ke Januari – Desember 2026
   const handleResetFilter = () => {
     setTahunFilter('2026');
     setBulanAwal('Januari');
-    setBulanAkhir('Oktober');
+    setBulanAkhir('Desember');
   };
 
   // 3. SINKRONISASI OTOMATIS DATA PER MOLEN BERDASARKAN FILTER PERIODE
@@ -113,19 +113,20 @@ export const TabMolenRekapBlend: React.FC<TabMolenProps> = ({
   const minBobot = 0;
   const bobotRange = maxBobot - minBobot || 1;
 
-  // 4. KEY INSIGHTS MOLEN (SINKRON DENGAN PERIODE TERPILIH)
-  const sortedByYield = [...displayMolenList].sort((a, b) => a.susutRataPct - b.susutRataPct);
+  // 4. KEY INSIGHTS MOLEN (SINKRON DENGAN PERIODE TERPILIH — HANYA MOLEN YANG MEMILIKI DATA)
+  const activeMolens = displayMolenList.filter((m) => m.jumlahData > 0);
+  const sortedByYield = [...activeMolens].sort((a, b) => a.susutRataPct - b.susutRataPct);
   const bestMolen = sortedByYield[0];
   const worstMolen = sortedByYield[sortedByYield.length - 1];
 
-  const sortedByVol = [...displayMolenList].sort((a, b) => b.bahanDiproses - a.bahanDiproses);
+  const sortedByVol = [...activeMolens].sort((a, b) => b.bahanDiproses - a.bahanDiproses);
   const topVolMolen = sortedByVol[0];
 
   const totalBahanMolen = displayMolenList.reduce((acc, m) => acc + m.bahanDiproses, 0);
   const totalCampMolen = displayMolenList.reduce((acc, m) => acc + m.jumlahData, 0);
 
-  const validSuhu = displayMolenList.filter((m) => m.suhuRata !== null).map((m) => m.suhuRata as number);
-  const avgSuhuMolen = validSuhu.length ? validSuhu.reduce((a, b) => a + b, 0) / validSuhu.length : 29.6;
+  const validSuhu = activeMolens.filter((m) => m.suhuRata !== null).map((m) => m.suhuRata as number);
+  const avgSuhuMolen = validSuhu.length ? validSuhu.reduce((a, b) => a + b, 0) / validSuhu.length : null;
 
   // Active hover items
   const activeMolen = hoveredMolenIdx !== null && displayMolenList[hoveredMolenIdx] ? { item: displayMolenList[hoveredMolenIdx], index: hoveredMolenIdx } : null;
@@ -228,11 +229,11 @@ export const TabMolenRekapBlend: React.FC<TabMolenProps> = ({
           <button
             onClick={handleResetFilter}
             className={`min-h-[44px] sm:min-h-[36px] flex items-center gap-1 text-[11px] font-semibold px-3 py-1 rounded-lg border transition cursor-pointer ${
-              tahunFilter === '2026' && bulanAwal === 'Januari' && bulanAkhir === 'Oktober'
+              tahunFilter === '2026' && bulanAwal === 'Januari' && bulanAkhir === 'Desember'
                 ? 'text-slate-500 bg-slate-100 border-slate-200 hover:text-slate-700'
                 : 'text-purple-800 bg-purple-50 border-purple-300 hover:bg-purple-100 font-bold shadow-xs'
             }`}
-            title="Kembalikan ke periode default tahun berjalan (Januari – Oktober 2026)"
+            title="Kembalikan ke periode default tahun berjalan (Januari – Desember 2026)"
           >
             <RotateCcw className="w-3 h-3 text-purple-600" />
             <span>Reset Default (2026)</span>
@@ -321,7 +322,7 @@ export const TabMolenRekapBlend: React.FC<TabMolenProps> = ({
           </div>
           <div className="mt-2">
             <div className="text-xl sm:text-2xl font-black text-slate-900 flex items-baseline gap-1">
-              <span>{fmtSuhu(avgSuhuMolen)}</span>
+              <span>{avgSuhuMolen !== null ? fmtSuhu(avgSuhuMolen) : '-'}</span>
               <span className="text-xs font-semibold text-slate-500">°C rata-rata</span>
             </div>
             <div className="text-[11px] text-slate-500 mt-1">
